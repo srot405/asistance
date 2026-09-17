@@ -87,15 +87,57 @@ try {
     .evaluate((element) => {
       element.scrollTop = 400 * 42;
     });
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(500);
   const scrolledText = await page.locator(".grid-wrap").first().innerText();
   if (!scrolledText.includes("Estudiante 400"))
     throw new Error("la fila aproximada 400 no quedó visible");
+  const dayHeader = await page.locator(".grid-wrap").first().evaluate((element) => {
+    const header = element.querySelector(".grid-row.header");
+    const wrap = element.getBoundingClientRect();
+    const style = header && getComputedStyle(header);
+    const hit = document.elementFromPoint(wrap.left + 10, wrap.top + 10);
+    return {
+      visible: Boolean(header && header.getBoundingClientRect().top <= wrap.top + 2),
+      zIndex: style?.zIndex,
+      background: style?.backgroundColor,
+      hitHeader: Boolean(hit?.closest(".grid-row.header")),
+    };
+  });
+  if (!dayHeader.visible || !dayHeader.hitHeader)
+    throw new Error(`encabezado Día a día no visible: ${JSON.stringify(dayHeader)}`);
   await page.screenshot({ path: resolve(root, "capturas/dia-scrolleado.png") });
-  for (const [label, file] of [
-    ["Semana a semana", "semana-claro.png"],
-    ["ZOOM-LIMIT (0)", "zoom-claro.png"],
-  ]) {
+  await page.getByRole("tab", { name: "Semana a semana" }).click();
+  const weeklyGrid = page.locator(".grid-wrap").first();
+  await weeklyGrid.waitFor({ state: "visible" });
+  await page.screenshot({
+    path: resolve(root, "capturas/semana-claro.png"),
+    fullPage: true,
+  });
+  await weeklyGrid.evaluate((element) => {
+    element.scrollTop = 400 * 42;
+  });
+  await page.waitForTimeout(500);
+  const weeklyScrolledText = await weeklyGrid.innerText();
+  if (!weeklyScrolledText.includes("Estudiante 400"))
+    throw new Error("la fila aproximada 400 no quedó visible en Semana a semana");
+  const weekHeader = await weeklyGrid.evaluate((element) => {
+    const header = element.querySelector(".grid-row.header");
+    const wrap = element.getBoundingClientRect();
+    const style = header && getComputedStyle(header);
+    const hit = document.elementFromPoint(wrap.left + 10, wrap.top + 10);
+    return {
+      visible: Boolean(header && header.getBoundingClientRect().top <= wrap.top + 2),
+      zIndex: style?.zIndex,
+      background: style?.backgroundColor,
+      hitHeader: Boolean(hit?.closest(".grid-row.header")),
+    };
+  });
+  if (!weekHeader.visible || !weekHeader.hitHeader)
+    throw new Error(`encabezado Semana a semana no visible: ${JSON.stringify(weekHeader)}`);
+  await page.screenshot({
+    path: resolve(root, "capturas/semana-scrolleado.png"),
+  });
+  for (const [label, file] of [["ZOOM-LIMIT (0)", "zoom-claro.png"]]) {
     await page.getByRole("tab", { name: label }).click();
     await page.screenshot({
       path: resolve(root, `capturas/${file}`),
@@ -122,13 +164,16 @@ try {
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.locator("button.cell").first().click();
+  await page.locator(".grid-wrap").first().evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.locator("button.cell").first().click({ force: true });
   await page.screenshot({
     path: resolve(root, "capturas/detalle-abierto.png"),
     fullPage: true,
   });
   console.log(
-    `RESUMEN: capturas=8 csp_errores=${errors.length} api_datos=${datos} primera_carga_ms=${loadMs} filas_dom=${rowsMounted} mobile_horizontal=${mobileMetrics.body > mobileMetrics.viewport}`,
+    `RESUMEN: capturas=9 csp_errores=${errors.length} api_datos=${datos} primera_carga_ms=${loadMs} filas_dom=${rowsMounted} mobile_horizontal=${mobileMetrics.body > mobileMetrics.viewport}`,
   );
 } finally {
   await browser?.close();

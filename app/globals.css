@@ -198,6 +198,9 @@ select {
   font-weight: 600;
   position: sticky;
   top: 0;
+  z-index: 2;
+  isolation: isolate;
+  height: 42px;
 }
 .grid-row > div {
   padding: 8px 10px;
