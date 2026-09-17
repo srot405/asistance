@@ -1,0 +1,9 @@
+.env*
+!.env.example
+.env.example
+node_modules/
+.next/
+.vercel/
+*.csv
+data/demo/*.json
+capturas/
