@@ -24,11 +24,32 @@ export type FranjaResumen = {
   aOtra: number;
   colados: number;
   falto: number;
+  medible: number;
+  fueraDato: number;
 };
 export type DiaResumen = {
   fecha: string;
   counts: Record<string, number>;
   total: number;
+  roster: number;
+  medible: number;
+  entro: number;
+  aOtra: number;
+  colados: number;
+  falto: number;
+  fueraDato: number;
+};
+export type CorteResumen = {
+  etiqueta: string;
+  roster: number;
+  medible: number;
+  fueraDato: number;
+  entro: number;
+  aOtra: number;
+  colados: number;
+  falto: number;
+  si: number;
+  asistenciaPct: number;
 };
 export type DemoData = {
   semana: string;
@@ -38,6 +59,9 @@ export type DemoData = {
   franjas: Slot[];
   por_franja: FranjaResumen[];
   por_dia: DiaResumen[];
+  resumen: CorteResumen;
+  por_ciudad: CorteResumen[];
+  por_cuenta: CorteResumen[];
   no_identificados: Array<{ motivo: string; cantidad: number }>;
   counts: Record<string, number>;
 };

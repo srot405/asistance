@@ -37,15 +37,16 @@ export async function GET(request: Request) {
     }
   }
   try {
-    const [semanas, franjasBase, roster, celdas_dia, celdas_semana, no_identificados, sesiones] = await Promise.all([
+    const [semanas, franjasBase, roster, entradas, celdas_dia, celdas_semana, no_identificados, sesiones] = await Promise.all([
       traerTodo("asist_semanas", "semana"), traerTodo("asist_franjas", "fecha", "slot_id"),
-      traerTodo("asist_roster", "persona_id"), traerTodo("asist_celda_dia", "fecha", "persona_id"),
+      traerTodo("asist_roster", "persona_id"), traerTodo("asist_entradas", "persona_id", "sesion_id"),
+      traerTodo("asist_celda_dia", "fecha", "persona_id"),
       traerTodo("asist_celda_semana", "persona_id"), traerTodo("asist_no_identificados", "sesion_id"),
       traerTodo("asist_sesiones", "slot_id"),
     ]);
     const porSlot = new Map(sesiones.map((s) => [s.slot_id, s]));
     const franjas = franjasBase.map((f) => ({ ...f, ...(porSlot.get(f.slot_id) ?? {}) }));
-    const body = JSON.stringify(agregarDatos({ semana, materia: (semanas[0] as any)?.materia, estado_semana: (semanas[0] as any)?.estado, roster, franjas, celdas_dia, celdas_semana, no_identificados }));
+    const body = JSON.stringify(agregarDatos({ semana, materia: (semanas[0] as any)?.materia, estado_semana: (semanas[0] as any)?.estado, roster, franjas, entradas, celdas_dia, celdas_semana, no_identificados }));
     cache.set(semana, { at: Date.now(), body });
     return new NextResponse(body, { headers: { ...headers, "Content-Type": "application/json" } });
   } catch {

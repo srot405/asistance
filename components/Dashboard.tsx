@@ -225,7 +225,9 @@ export default function Dashboard() {
         {tab === "Resumen" && (
           <Resumen data={current} weeks={weeks} filters={filters} />
         )}
-        {tab === "Asistencia por horario" && <ResumenPorFranja data={current} />}
+        {tab === "Asistencia por horario" && (
+          <ResumenPorFranja data={current} weeks={weeks} />
+        )}
         {tab.startsWith("ZOOM") && <ZoomLimit data={current} weeks={weeks} />}
       </main>
     </div>
