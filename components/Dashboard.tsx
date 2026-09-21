@@ -8,6 +8,7 @@ import Filtros, { type Filters } from "./Filtros";
 import Resumen from "./Resumen";
 import DiaADia from "./DiaADia";
 import SemanaASemana from "./SemanaASemana";
+import ResumenPorFranja from "./ResumenPorFranja";
 import ZoomLimit from "./ZoomLimit";
 import {
   authConfigurada,
@@ -230,10 +231,13 @@ export default function Dashboard() {
           </section>
         )}
         {tab === "Semana a semana" && (
-          <section className="panel">
-            <h2>Semana a semana</h2>
-            <SemanaASemana data={current} weeks={weeks} filters={filters} />
-          </section>
+          <>
+            <ResumenPorFranja data={current} />
+            <section className="panel">
+              <h2>Semana a semana · por persona</h2>
+              <SemanaASemana data={current} weeks={weeks} filters={filters} />
+            </section>
+          </>
         )}
         {tab.startsWith("ZOOM") && <ZoomLimit data={current} weeks={weeks} />}
       </main>

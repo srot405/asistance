@@ -16,6 +16,11 @@ export type Slot = {
   hora_fin?: number;
   tipo?: string;
   sala?: string;
+  // Vienen de `asist_sesiones`, unidas por slot_id en /api/datos: describen lo
+  // que ocurrió en la franja, no cómo está programada.
+  personas_roster?: number;
+  personas_visita?: number;
+  entradas_totales?: number;
 };
 export type CellDay = {
   persona_id: string;

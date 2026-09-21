@@ -25,8 +25,15 @@ export default function Filtros({
 }: Props) {
   const set = (key: keyof Filters, value: string) =>
     setFilters({ ...filters, [key]: value });
-  const cities = [...new Set(data.roster.map((p) => p.ciudad))].sort();
-  const slots = [...new Set(data.roster.map((p) => p.franja))].sort();
+  // Con datos reales hay personas sin ciudad o sin franja asignada (p. ej. las 46
+  // del martes 18:00 en las semanas reconstruidas). Sin este filtro se genera una
+  // <option> con key vacía, que React trata como key ausente y avisa por consola.
+  const cities = [...new Set(data.roster.map((p) => p.ciudad))]
+    .filter((x): x is string => Boolean(x))
+    .sort();
+  const slots = [...new Set(data.roster.map((p) => p.franja))]
+    .filter((x): x is string => Boolean(x))
+    .sort();
   return (
     <div className="toolbar filters">
       <label>

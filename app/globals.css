@@ -440,3 +440,83 @@ select {
   background: #5b2020;
   color: #ffd0d0;
 }
+
+/* ── Asistencia por horario (vista semanal, 2026-09-21) ───────────────────── */
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.cards .card {
+  flex: 1 1 180px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cards .card b {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.cards .card small {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.dia-bloque {
+  margin-bottom: 18px;
+}
+.dia-bloque h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+.dia-bloque h3 small {
+  font-weight: 400;
+  opacity: 0.6;
+  text-transform: none;
+}
+.tabla-franjas {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.tabla-franjas th,
+.tabla-franjas td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.tabla-franjas th:first-child,
+.tabla-franjas td:first-child {
+  text-align: left;
+  width: 40%;
+}
+.tabla-franjas td.cell {
+  text-align: center;
+  border-radius: 0;
+}
+.barra {
+  display: inline-block;
+  width: 70px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--line);
+  margin-right: 8px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+.barra i {
+  display: block;
+  height: 100%;
+  background: #2e9e5b;
+}
+.nota {
+  font-size: 13px;
+  opacity: 0.75;
+  line-height: 1.5;
+}
