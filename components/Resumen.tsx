@@ -8,7 +8,7 @@ export default function Resumen({ data, weeks, filters }: { data: DemoData; week
   const roster = data.counts.roster ?? 0;
   return <>
     <section className="summary-grid">
-      {[["Roster", roster], ["Entraron", data.counts.SI ?? 0], ["No entraron", data.counts.NO ?? data.counts["NO?"] ?? 0], ["Sin dato", data.counts.ZL ?? 0], ["Faltó a la suya, fue a otra", data.counts.A ?? 0], ["Apareció en un día que no era el suyo", data.counts.N ?? 0]].map(([label, value]) => <div className="stat" key={String(label)}><div className="stat-label">{label}</div><div className="stat-value">{value}</div></div>)}
+      {[["Roster", roster], ["Entraron", data.counts.SI ?? 0], ["No entraron", data.counts.NO ?? data.counts["NO?"] ?? 0], ["Sin dato (ZL)", data.counts.ZL ?? 0], ["Aún no ocurre", data.counts.P ?? 0], ["Faltó a la suya, fue a otra", data.counts.A ?? 0], ["Apareció en un día que no era el suyo", data.counts.N ?? 0]].map(([label, value]) => <div className="stat" key={String(label)}><div className="stat-label">{label}</div><div className="stat-value">{value}</div></div>)}
     </section>
     <div className="status"><strong>Semana {data.estado_semana}</strong> · {noData.length} sesiones sin dato confiable · {affected} personas afectadas{data.sinHorario > 0 && ` · ${data.sinHorario} personas del canon sin horario asignado esta semana, fuera del roster`}</div>
     <section className="panel">

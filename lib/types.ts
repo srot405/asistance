@@ -26,6 +26,7 @@ export type FranjaResumen = {
   falto: number;
   medible: number;
   fueraDato: number;
+  pendiente: number;
 };
 export type DiaResumen = {
   fecha: string;
@@ -44,6 +45,8 @@ export type CorteResumen = {
   roster: number;
   medible: number;
   fueraDato: number;
+  // Personas cuya clase todavía no ocurre: fuera de lo medible, nunca ausentes.
+  pendiente: number;
   entro: number;
   aOtra: number;
   colados: number;

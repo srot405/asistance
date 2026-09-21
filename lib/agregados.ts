@@ -4,9 +4,13 @@ type Fila = Record<string, any>;
 const SIN_DATO = new Set(["zoom_limit_pendiente", "sin_captura", "dudosa"]);
 const pct = (n: number, de: number) => (de ? Math.round((n / de) * 100) : 0);
 
-function crearCorte(etiqueta: string, roster: number, fueraDato: number, entro: number, aOtra: number, colados: number, si: number): CorteResumen {
-  const medible = Math.max(roster - fueraDato, 0);
-  return { etiqueta, roster, medible, fueraDato, entro, aOtra, colados, si, falto: Math.max(medible - si, 0), asistenciaPct: pct(si, medible) };
+// `fueraDato` (ZL: no pudimos medir) y `pendiente` (P: la clase no ha ocurrido)
+// son dos razones distintas para no ser medible, y ninguna es una ausencia.
+// Sin restar `pendiente`, la semana en curso daba medible=726 y falto=726: el
+// panel afirmaba que 726 personas faltaron a clases que no han pasado.
+function crearCorte(etiqueta: string, roster: number, fueraDato: number, pendiente: number, entro: number, aOtra: number, colados: number, si: number): CorteResumen {
+  const medible = Math.max(roster - fueraDato - pendiente, 0);
+  return { etiqueta, roster, medible, fueraDato, pendiente, entro, aOtra, colados, si, falto: Math.max(medible - si, 0), asistenciaPct: pct(si, medible) };
 }
 
 export function agregarDatos(raw: {
@@ -95,6 +99,7 @@ export function agregarDatos(raw: {
   }
   const otherOnly = new Set([...other].filter((id) => !own.has(id)));
   const zLPeople = new Set([...semanal].filter(([id, state]) => state === "ZL" && conHorarioIds.has(id)).map(([id]) => id));
+  const pPeople = new Set([...semanal].filter(([id, state]) => state === "P" && conHorarioIds.has(id)).map(([id]) => id));
   const siPeople = new Set([...semanal].filter(([id, state]) => state === "SI" && conHorarioIds.has(id)).map(([id]) => id));
   const noDataRoster = zLPeople.size;
   const fallbackNoData = slots.filter((s) => SIN_DATO.has(s.estado_captura)).reduce((n, s) => n + (s.roster_n ?? 0), 0);
@@ -103,16 +108,17 @@ export function agregarDatos(raw: {
   const por_franja = slots.map((slot) => {
     const assigned = raw.roster.filter((p) => franjaDe.get(p.persona_id) === slot.slot_id);
     const fuera = assigned.filter((p) => zLPeople.has(p.persona_id)).length;
+    const pend = assigned.filter((p) => pPeople.has(p.persona_id)).length;
     const rosterCount = (assigned.length || slot.roster_n) ?? 0;
-    const medible = Math.max(rosterCount - fuera, 0);
+    const medible = Math.max(rosterCount - fuera - pend, 0);
     const ownCount = ownBySlot.get(slot.slot_id)?.size ?? 0;
     const otherCount = [...(otherBySlot.get(slot.slot_id) ?? [])].filter((id) => !own.has(id)).length;
     const si = assigned.filter((p) => siPeople.has(p.persona_id)).length;
     return { slot_id: slot.slot_id, fecha: slot.fecha, roster: rosterCount,
       entro: ownCount, aOtra: otherCount, colados: visitsBySlot.get(slot.slot_id) ?? slot.personas_visita ?? 0,
-      falto: Math.max(medible - si, 0), medible, fueraDato: fuera };
+      falto: Math.max(medible - si, 0), medible, fueraDato: fuera, pendiente: pend };
   });
-  const weekly = crearCorte("Total", conHorario.length, fueraDato, own.size, otherOnly.size, [...visitsBySlot.values()].reduce((a, n) => a + n, 0) || slots.reduce((a, s) => a + (s.personas_visita ?? 0), 0), siPeople.size);
+  const weekly = crearCorte("Total", conHorario.length, fueraDato, pPeople.size, own.size, otherOnly.size, [...visitsBySlot.values()].reduce((a, n) => a + n, 0) || slots.reduce((a, s) => a + (s.personas_visita ?? 0), 0), siPeople.size);
 
   const por_dia = [...new Set(slots.map((s) => s.fecha))].sort().map((fecha) => {
     const rows = por_franja.filter((f) => f.fecha === fecha);
@@ -128,7 +134,8 @@ export function agregarDatos(raw: {
     const otherN = [...otherOnly].filter((id) => ids.has(id)).length;
     const siN = [...siPeople].filter((id) => ids.has(id)).length;
     const zN = [...zLPeople].filter((id) => ids.has(id)).length;
-    return crearCorte(label, people.length, zN, ownN, otherN, visitorMap.get(label) ?? 0, siN);
+    const pN = [...pPeople].filter((id) => ids.has(id)).length;
+    return crearCorte(label, people.length, zN, pN, ownN, otherN, visitorMap.get(label) ?? 0, siN);
   });
   const accountOf = (p: Fila) => slotDe.get(franjaDe.get(p.persona_id) ?? "")?.cuenta_zoom ?? "Sin cuenta";
   const por_ciudad = makeCut((p) => p.ciudad ?? "Sin ciudad", cityVisitors);
@@ -143,6 +150,7 @@ export function agregarDatos(raw: {
   counts.ZL = zLPeople.size;
   counts.NO = weekly.falto;
   counts.medible = weekly.medible;
+  counts.P = pPeople.size;
   counts.sinHorario = sinHorario;
   return { semana: raw.semana, materia: raw.materia ?? "", estado_semana: raw.estado_semana ?? "", ciudades: [...new Set(conHorario.map((p) => p.ciudad).filter(Boolean))].sort(), franjas: slots, por_franja, por_dia, resumen: weekly, por_ciudad, por_cuenta, sinHorario, no_identificados: raw.no_identificados.map((r) => ({ motivo: r.motivo, cantidad: r.cantidad })), counts };
 }

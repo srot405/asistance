@@ -9,14 +9,17 @@ function nombreDia(fecha: string) {
   return `${DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]} ${d}`;
 }
 function porcentaje(n: number, de: number) { return de ? Math.round((n / de) * 100) : 0; }
+// Con 0 medibles no hay 0% de asistencia: no hay porcentaje. Mostrar "0%" invita
+// a leer un dato donde no lo hay.
+function pctTexto(n: number, de: number) { return de ? `${Math.round((n / de) * 100)}%` : "—"; }
 
 
 function TablaCorte({ filas, titulo, nota }: { filas: CorteResumen[]; titulo: string; nota?: string }) {
   return <section className="panel">
     <h3>{titulo}</h3>
     {nota && <p className="nota">{nota}</p>}
-    <div className="table-scroll"><table><thead><tr><th>Corte</th><th>Roster</th><th>Medible</th><th>Fuera de dato (ZL)</th><th>Propia</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>Asistencia</th></tr></thead>
-      <tbody>{filas.map((f) => <tr key={f.etiqueta}><td>{f.etiqueta}</td><td>{f.roster}</td><td>{f.medible}</td><td>{f.fueraDato}</td><td>{f.entro} ({porcentaje(f.entro, f.medible)}%)</td><td>{f.aOtra} ({porcentaje(f.aOtra, f.medible)}%)</td><td>{f.colados} ({porcentaje(f.colados, f.medible)}%)</td><td>{f.falto} ({porcentaje(f.falto, f.medible)}%)</td><td><b>{f.si}/{f.medible} ({f.asistenciaPct}%)</b></td></tr>)}</tbody>
+    <div className="table-scroll"><table><thead><tr><th>Corte</th><th>Roster</th><th>Medible</th><th>Fuera de dato (ZL)</th><th>Aún no ocurre</th><th>Propia</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>Asistencia</th></tr></thead>
+      <tbody>{filas.map((f) => <tr key={f.etiqueta}><td>{f.etiqueta}</td><td>{f.roster}</td><td>{f.medible}</td><td>{f.fueraDato}</td><td>{f.pendiente}</td><td>{f.entro} ({pctTexto(f.entro, f.medible)})</td><td>{f.aOtra} ({pctTexto(f.aOtra, f.medible)})</td><td>{f.colados} ({pctTexto(f.colados, f.medible)})</td><td>{f.falto} ({pctTexto(f.falto, f.medible)})</td><td><b>{f.si}/{f.medible} ({pctTexto(f.si, f.medible)})</b></td></tr>)}</tbody>
     </table></div>
   </section>;
 }
@@ -27,8 +30,9 @@ function sumar(filas: FranjaResumen[], etiqueta: string): CorteResumen {
   const t = (k: keyof FranjaResumen) => filas.reduce((a, f) => a + (f[k] as number), 0);
   const si = t("entro") + t("aOtra");
   const medible = t("medible");
-  return { etiqueta, roster: t("roster"), medible, fueraDato: t("fueraDato"), entro: t("entro"),
-           aOtra: t("aOtra"), colados: t("colados"), falto: t("falto"), si, asistenciaPct: porcentaje(si, medible) };
+  return { etiqueta, roster: t("roster"), medible, fueraDato: t("fueraDato"), pendiente: t("pendiente"),
+           entro: t("entro"), aOtra: t("aOtra"), colados: t("colados"), falto: t("falto"), si,
+           asistenciaPct: porcentaje(si, medible) };
 }
 
 export default function ResumenPorFranja({ data, weeks = [], filters }: { data: DemoData; weeks?: DemoData[]; filters?: Filters }) {
@@ -91,7 +95,7 @@ export default function ResumenPorFranja({ data, weeks = [], filters }: { data: 
       {[...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([fecha, clases]) => <div key={fecha} className="dia-bloque">
         <h3>{nombreDia(fecha)} <small>{fecha}</small></h3>
         <table className="tabla-franjas"><thead><tr><th>Clase</th><th>Roster</th><th>Medible</th><th>Entró</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>% SI</th></tr></thead>
-          <tbody>{clases.map((c) => <tr key={c.slot}><td>{c.etiqueta}</td><td>{c.roster}</td><td>{c.medible}</td><td className="cell V">{c.entro}</td><td className="cell A">{c.aOtra}</td><td className="cell N">{c.colados}</td><td className="cell NO">{c.falto}</td><td>{porcentaje(c.entro + c.aOtra, c.medible)}%</td></tr>)}</tbody>
+          <tbody>{clases.map((c) => <tr key={c.slot}><td>{c.etiqueta}</td><td>{c.roster}</td><td>{c.medible}</td><td className="cell V">{c.entro}</td><td className="cell A">{c.aOtra}</td><td className="cell N">{c.colados}</td><td className="cell NO">{c.falto}</td><td>{pctTexto(c.entro + c.aOtra, c.medible)}</td></tr>)}</tbody>
         </table>
       </div>)}
     </section>
