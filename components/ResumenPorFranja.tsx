@@ -24,19 +24,18 @@ export default function ResumenPorFranja({ data, weeks = [] }: { data: DemoData;
   for (const fila of filas) porDia.set(fila.fecha, [...(porDia.get(fila.fecha) ?? []), fila]);
   const total = data.resumen;
   const diarios: CorteResumen[] = data.por_dia.map((d) => ({ etiqueta: nombreDia(d.fecha), roster: d.roster, medible: d.medible, fueraDato: d.fueraDato, entro: d.entro, aOtra: d.aOtra, colados: d.colados, falto: d.falto, si: d.entro + d.aOtra, asistenciaPct: porcentaje(d.entro + d.aOtra, d.medible) }));
-  // Las personas sin `slot_id` en `asist_roster` no pertenecen a ninguna franja:
-  // cuentan en el total semanal pero desaparecen del desglose por dia y por
-  // clase. En las 4 semanas historicas son 46 de 726 (en 2026-09-14, ninguna).
-  // Sin este aviso la tabla diaria suma 680 y la semanal 726, sin explicacion.
-  const sinHorario = total.roster - filas.reduce((a, f) => a + f.roster, 0);
-  const avisoSinHorario = sinHorario > 0
-    ? `${sinHorario} de ${total.roster} personas no tienen horario asignado esta semana: cuentan en el total semanal pero no aparecen aqui.`
+  // En los modulos JS la Programacion cubria 680 de las 726 personas del canon.
+  // Las otras 46 no tenian clase asignada, asi que no entran en el roster ni en
+  // la ausencia; se nombran para que nadie las busque en las tablas.
+  const avisoSinHorario = data.sinHorario > 0
+    ? `${data.sinHorario} personas del canon no tienen horario asignado esta semana: quedan fuera del roster y no cuentan como ausencia.`
     : undefined;
   const evolucion = weeks.map((w) => w.resumen);
   const semanales = evolucion.length ? evolucion : [total];
   return <>
     <section className="panel">
       <h2>Asistencia por horario · semana {data.semana}</h2>
+      {avisoSinHorario && <p className="nota">{avisoSinHorario}</p>}
       <p className="nota">Los porcentajes usan como denominador la población medible. Las personas fuera de dato por ZL nunca cuentan como ausencia.</p>
       <div className="cards">
         <div className="card"><span>Entraron a su clase</span><b>{total.entro}</b><span>{porcentaje(total.entro, total.medible)}% de {total.medible} medibles</span></div>

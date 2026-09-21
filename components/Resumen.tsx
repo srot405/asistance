@@ -10,7 +10,7 @@ export default function Resumen({ data, weeks, filters }: { data: DemoData; week
     <section className="summary-grid">
       {[["Roster", roster], ["Entraron", data.counts.SI ?? 0], ["No entraron", data.counts.NO ?? data.counts["NO?"] ?? 0], ["Sin dato", data.counts.ZL ?? 0], ["Otra clase", data.counts.A ?? 0], ["Otra sala", data.counts.N ?? 0]].map(([label, value]) => <div className="stat" key={String(label)}><div className="stat-label">{label}</div><div className="stat-value">{value}</div></div>)}
     </section>
-    <div className="status"><strong>Semana {data.estado_semana}</strong> · {noData.length} sesiones sin dato confiable · {affected} personas afectadas</div>
+    <div className="status"><strong>Semana {data.estado_semana}</strong> · {noData.length} sesiones sin dato confiable · {affected} personas afectadas{data.sinHorario > 0 && ` · ${data.sinHorario} personas del canon sin horario asignado esta semana, fuera del roster`}</div>
     <section className="panel">
       <h2>Estado diario</h2>
       <div className="daily-bars">
@@ -22,8 +22,9 @@ export default function Resumen({ data, weeks, filters }: { data: DemoData; week
       <div className="legend" aria-label="Leyenda de estados"><span><i className="cell V" /> V: propia</span><span><i className="cell A" /> A: otra clase</span><span><i className="cell N" /> N: otra sala</span><span><i className="cell R" /> R: dudosa</span><span><i className="cell P" /> P: por ocurrir</span></div>
     </section>
     <section className="panel">
-      <h2>Semana a semana · entraron / roster</h2>
-      {weeks.map((week) => { const value = week.counts.SI ?? 0; return <div className="series-row" key={week.semana}><span>{week.semana}</span><div className="series-track"><i style={{ width: `${(value / Math.max(roster, 1)) * 100}%` }} /></div><b>{value} / {roster}</b></div>; })}
+      <h2>Semana a semana · entraron / poblacion medible</h2>
+      <p className="nota">Cada semana se divide entre SU propia poblacion medible. Dividir entre el roster de la semana abierta pintaba 18% en agosto y 74% en septiembre: parecia una mejora enorme y solo cambiaba cuanto alcanzabamos a capturar.</p>
+      {weeks.map((week) => { const r = week.resumen; return <div className="series-row" key={week.semana}><span>{week.semana}</span><div className="series-track"><i style={{ width: `${r.asistenciaPct}%` }} /></div><b>{r.si} / {r.medible} ({r.asistenciaPct}%)</b></div>; })}
     </section>
   </>;
 }

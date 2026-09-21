@@ -62,6 +62,9 @@ export type DemoData = {
   resumen: CorteResumen;
   por_ciudad: CorteResumen[];
   por_cuenta: CorteResumen[];
+  // Personas del canon sin franja asignada esa semana: fuera del roster
+  // medible, nunca ausentes. Ver el comentario en lib/agregados.ts.
+  sinHorario: number;
   no_identificados: Array<{ motivo: string; cantidad: number }>;
   counts: Record<string, number>;
 };
