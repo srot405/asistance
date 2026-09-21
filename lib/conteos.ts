@@ -17,3 +17,11 @@ export function isWeekOverdue(
   deadline.setHours(23, 59, 59, 999);
   return now > deadline;
 }
+
+// Una semana cuyas clases no han pasado todavía no tiene 0% de asistencia: no
+// tiene asistencia aún. Pintarla como 0% junto a semanas reales parece un
+// desplome, y es lo primero que alguien malinterpreta en una reunión.
+const PENDIENTE = ["por_ocurrir", "en_curso"];
+export function yaOcurrio(semana: { franjas: { estado_captura: string }[] }) {
+  return semana.franjas.some((f) => !PENDIENTE.includes(f.estado_captura));
+}

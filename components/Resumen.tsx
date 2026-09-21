@@ -1,4 +1,4 @@
-import { sessionsWithoutData } from "../lib/conteos";
+import { sessionsWithoutData, yaOcurrio } from "../lib/conteos";
 import type { DemoData } from "../lib/types";
 import type { Filters } from "./Filtros";
 
@@ -25,7 +25,7 @@ export default function Resumen({ data, weeks, filters }: { data: DemoData; week
     <section className="panel">
       <h2>Semana a semana · entraron / poblacion medible</h2>
       <p className="nota">Cada semana se divide entre SU propia poblacion medible. Dividir entre el roster de la semana abierta pintaba 18% en agosto y 74% en septiembre: parecia una mejora enorme y solo cambiaba cuanto alcanzabamos a capturar.</p>
-      {weeks.map((week) => { const r = week.resumen; return <div className="series-row" key={week.semana}><span>{week.semana}</span><div className="series-track"><i style={{ width: `${r.asistenciaPct}%` }} /></div><b>{r.si} / {r.medible} ({r.asistenciaPct}%)</b></div>; })}
+      {weeks.filter(yaOcurrio).map((week) => { const r = week.resumen; return <div className="series-row" key={week.semana}><span>{week.semana}</span><div className="series-track"><i style={{ width: `${r.asistenciaPct}%` }} /></div><b>{r.si} / {r.medible} ({r.asistenciaPct}%)</b></div>; })}
     </section>
   </>;
 }

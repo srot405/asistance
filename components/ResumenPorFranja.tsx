@@ -1,5 +1,6 @@
 import type { CorteResumen, DemoData, FranjaResumen } from "../lib/types";
 import type { Filters } from "./Filtros";
+import { yaOcurrio } from "../lib/conteos";
 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const SIN_DATO = new Set(["zoom_limit_pendiente", "sin_captura", "dudosa"]);
@@ -8,6 +9,7 @@ function nombreDia(fecha: string) {
   return `${DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]} ${d}`;
 }
 function porcentaje(n: number, de: number) { return de ? Math.round((n / de) * 100) : 0; }
+
 
 function TablaCorte({ filas, titulo, nota }: { filas: CorteResumen[]; titulo: string; nota?: string }) {
   return <section className="panel">
@@ -62,22 +64,24 @@ export default function ResumenPorFranja({ data, weeks = [], filters }: { data: 
       {activos.length > 0 && <p className="nota"><b>Filtrado por {activos.join(" y ")}.</b> Las cifras de abajo son solo de lo filtrado, no de la semana completa.</p>}
       {avisoSinHorario && <p className="nota">{avisoSinHorario}</p>}
       <p className="nota">Los porcentajes usan como denominador la población medible. Las personas fuera de dato por ZL nunca cuentan como ausencia.</p>
-      <div className="cards">
+      {!yaOcurrio(data) && <div className="status"><b>Esta semana todavía no ha empezado.</b> Las {data.franjas.length} clases están programadas y el roster ({total.roster} personas) ya está congelado; las cifras se llenan a medida que ocurren.</div>}
+      {yaOcurrio(data) && <div className="cards">
         <div className="card"><span>Entraron a su clase</span><b>{total.entro}</b><span>{porcentaje(total.entro, total.medible)}% de {total.medible} medibles</span></div>
         <div className="card"><span>Se recuperaron en otro horario</span><b>{total.aOtra}</b><span>{porcentaje(total.aOtra, total.medible)}%</span></div>
         <div className="card"><span>Entraron sin ser de esa clase</span><b>{total.colados}</b><span>{porcentaje(total.colados, total.medible)}%</span></div>
         <div className="card"><span>No aparecieron</span><b>{total.falto}</b><span>{porcentaje(total.falto, total.medible)}%</span></div>
-      </div>
-      <div className="status"><b>Asistencia total: {total.si}/{total.medible} ({total.asistenciaPct}%)</b> · fuera de dato por ZL: {total.fueraDato} de {total.roster} · sesiones sin dato: {data.franjas.filter((s) => SIN_DATO.has(s.estado_captura)).length}</div>
+      </div>}
+      {yaOcurrio(data) && <div className="status"><b>Asistencia total: {total.si}/{total.medible} ({total.asistenciaPct}%)</b> · fuera de dato por ZL: {total.fueraDato} de {total.roster} · sesiones sin dato: {data.franjas.filter((s) => SIN_DATO.has(s.estado_captura)).length}</div>}
     </section>
     <TablaCorte titulo="Roster semanal" filas={semanales} nota="Propia + a otra = SI. Colados son visitas ajenas y no se suman al roster ni a la asistencia." />
     <TablaCorte titulo="Roster diario" filas={diarios} nota={avisoSinHorario} />
     <section className="panel">
       <h3>Evolución entre semanas</h3>
       <p className="nota">Asistencia = SI / población medible. El denominador visible evita confundir cobertura de captura con mejora real.</p>
-      {weeks.map((w) => <div className="series-row" key={w.semana}>
+      {weeks.filter(yaOcurrio).map((w) => <div className="series-row" key={w.semana}>
         <span>{w.semana}<small> · {w.materia || "?"}</small></span><div className="series-track"><i style={{ width: `${w.resumen.asistenciaPct}%` }} /></div><b>{w.resumen.asistenciaPct}% · {w.resumen.si}/{w.resumen.medible} · ZL {w.resumen.fueraDato}</b>
       </div>)}
+      {weeks.some((w) => !yaOcurrio(w)) && <p className="nota">Fuera del gráfico: {weeks.filter((w) => !yaOcurrio(w)).map((w) => w.semana).join(", ")} — sus clases todavía no han ocurrido.</p>}
     </section>
     <TablaCorte titulo="Corte por ciudad" filas={data.por_ciudad.filter((c) => !filters?.ciudad || c.etiqueta === filters.ciudad)} nota="Colados se atribuyen a la ciudad de origen de la persona visitante; no son roster adicional de la ciudad." />
     <TablaCorte titulo="Corte por cuenta Zoom" filas={data.por_cuenta.filter((c) => !filters?.cuenta || c.etiqueta === filters.cuenta)} />
