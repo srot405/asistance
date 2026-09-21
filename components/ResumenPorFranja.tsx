@@ -24,6 +24,14 @@ export default function ResumenPorFranja({ data, weeks = [] }: { data: DemoData;
   for (const fila of filas) porDia.set(fila.fecha, [...(porDia.get(fila.fecha) ?? []), fila]);
   const total = data.resumen;
   const diarios: CorteResumen[] = data.por_dia.map((d) => ({ etiqueta: nombreDia(d.fecha), roster: d.roster, medible: d.medible, fueraDato: d.fueraDato, entro: d.entro, aOtra: d.aOtra, colados: d.colados, falto: d.falto, si: d.entro + d.aOtra, asistenciaPct: porcentaje(d.entro + d.aOtra, d.medible) }));
+  // Las personas sin `slot_id` en `asist_roster` no pertenecen a ninguna franja:
+  // cuentan en el total semanal pero desaparecen del desglose por dia y por
+  // clase. En las 4 semanas historicas son 46 de 726 (en 2026-09-14, ninguna).
+  // Sin este aviso la tabla diaria suma 680 y la semanal 726, sin explicacion.
+  const sinHorario = total.roster - filas.reduce((a, f) => a + f.roster, 0);
+  const avisoSinHorario = sinHorario > 0
+    ? `${sinHorario} de ${total.roster} personas no tienen horario asignado esta semana: cuentan en el total semanal pero no aparecen aqui.`
+    : undefined;
   const evolucion = weeks.map((w) => w.resumen);
   const semanales = evolucion.length ? evolucion : [total];
   return <>
@@ -39,7 +47,7 @@ export default function ResumenPorFranja({ data, weeks = [] }: { data: DemoData;
       <div className="status"><b>Asistencia total: {total.si}/{total.medible} ({total.asistenciaPct}%)</b> · fuera de dato por ZL: {total.fueraDato} de {total.roster} · sesiones sin dato: {data.franjas.filter((s) => SIN_DATO.has(s.estado_captura)).length}</div>
     </section>
     <TablaCorte titulo="Roster semanal" filas={semanales} nota="Propia + a otra = SI. Colados son visitas ajenas y no se suman al roster ni a la asistencia." />
-    <TablaCorte titulo="Roster diario" filas={diarios} />
+    <TablaCorte titulo="Roster diario" filas={diarios} nota={avisoSinHorario} />
     <section className="panel">
       <h3>Evolución entre semanas</h3>
       <p className="nota">Asistencia = SI / población medible. El denominador visible evita confundir cobertura de captura con mejora real.</p>
@@ -51,6 +59,7 @@ export default function ResumenPorFranja({ data, weeks = [] }: { data: DemoData;
     <TablaCorte titulo="Corte por cuenta Zoom" filas={data.por_cuenta} />
     <section className="panel">
       <h3>Detalle agregado por horario</h3>
+      {avisoSinHorario && <p className="nota">{avisoSinHorario}</p>}
       {[...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([fecha, clases]) => <div key={fecha} className="dia-bloque">
         <h3>{nombreDia(fecha)} <small>{fecha}</small></h3>
         <table className="tabla-franjas"><thead><tr><th>Clase</th><th>Roster</th><th>Medible</th><th>Entró</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>% SI</th></tr></thead>
