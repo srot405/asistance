@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DemoData } from "../lib/types";
-import { isWeekOverdue } from "../lib/conteos";
+import { isWeekOverdue, yaOcurrio } from "../lib/conteos";
 import Encabezado from "./Encabezado";
 import Filtros, { type Filters } from "./Filtros";
 import Resumen from "./Resumen";
@@ -88,12 +88,16 @@ export default function Dashboard() {
       return datos as DemoData[];
     }
 
-    // La semana de la URL manda si existe; si no, se abre en la más reciente.
+    // La semana de la URL manda si existe. Si no, se abre en la más reciente que
+    // YA TENGA clases ocurridas: abrir en la semana en curso dejaba el panel en
+    // blanco todos los lunes, porque sus clases aún no han pasado. La semana
+    // nueva sigue en el selector para verificar que el roster quedó congelado.
     function elegirSemana(datos: DemoData[]) {
+      const conDatos = datos.find(yaOcurrio) ?? datos[0];
       setFiltersState((previos) =>
         datos.some((d) => d.semana === previos.semana)
           ? previos
-          : { ...previos, semana: datos[0]?.semana ?? "" },
+          : { ...previos, semana: conDatos?.semana ?? "" },
       );
     }
 
