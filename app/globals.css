@@ -402,3 +402,41 @@ select {
 .weekly-row {
   grid-template-columns: 240px repeat(auto-fit, minmax(130px, 1fr));
 }
+
+/* ── Estados de la vista semanal (§4.6 del plan) ──────────────────────────────
+   Hasta 2026-09-21 la semana se pintaba en texto plano, así que un `ZL` ("sin
+   dato confiable") se leía exactamente igual que un `NO` ("no entró"). Eso es
+   acusar de ausente a alguien que nunca medimos: en las 4 semanas históricas
+   hay sesiones enteras sin captura. `ZL` reutiliza el azul del día a día, que
+   ya significa "sin dato", y nunca el rojo.                                    */
+.cell.SI {
+  background: #d9f2e1;
+  color: #176333;
+}
+.cell.NO {
+  background: #ffd6d6;
+  color: #8f1f1f;
+}
+.cell.NO\? {
+  background: #ffe0e0;
+  color: #a02727;
+}
+/* Faltaba el rojo definitivo del día a día: cuando la semana cierra, los `R?`
+   pasan a `R` y hasta hoy quedaban SIN color (la semana del 14-sep tiene 233). */
+.cell.R {
+  background: #ffd6d6;
+  color: #8f1f1f;
+}
+.dark .cell.SI {
+  background: #194c2d;
+  color: #b4f1c8;
+}
+.dark .cell.NO,
+.dark .cell.R {
+  background: #6b1f1f;
+  color: #ffd0d0;
+}
+.dark .cell.NO\? {
+  background: #5b2020;
+  color: #ffd0d0;
+}

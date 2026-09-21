@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { DemoData } from "../lib/types";
 import { filterRoster, indexBy } from "../lib/conteos";
+import { ESTADOS_SEMANA, estadoSemana } from "../lib/estados-semana";
 import type { Filters } from "./Filtros";
 export default function SemanaASemana({
   data,
@@ -27,6 +28,7 @@ export default function SemanaASemana({
     overscan: 10,
   });
   return (
+    <>
     <div className="grid-wrap" ref={parent}>
       <div
         className="weekly-grid"
@@ -52,15 +54,38 @@ export default function SemanaASemana({
               }}
             >
               <div>{person.nombre}</div>
-              {byWeek.map(({ week, cells }) => (
-                <div className="cell" key={week.semana}>
-                  {cells.get(person.persona_id)?.estado ?? "-"}
-                </div>
-              ))}
+              {byWeek.map(({ week, cells }) => {
+                const codigo = cells.get(person.persona_id)?.estado ?? "-";
+                const { icono, texto } = estadoSemana(codigo);
+                return (
+                  <div
+                    className={`cell ${codigo}`}
+                    key={week.semana}
+                    title={texto}
+                  >
+                    {icono} {codigo}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
       </div>
     </div>
+    <div className="legend" aria-label="Leyenda de estados semanales">
+      {(Object.keys(ESTADOS_SEMANA) as Array<keyof typeof ESTADOS_SEMANA>).map(
+        (codigo) => (
+          <span className="legend-item" key={codigo}>
+            <i
+              className="dot"
+              style={{ background: ESTADOS_SEMANA[codigo].color }}
+            />
+            {ESTADOS_SEMANA[codigo].icono} <b>{codigo}</b>{" "}
+            {ESTADOS_SEMANA[codigo].texto}
+          </span>
+        ),
+      )}
+    </div>
+    </>
   );
 }
