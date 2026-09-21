@@ -16,11 +16,13 @@ import {
 } from "../lib/auth";
 
 const defaultFilters: Filters = {
-  semana: "2026-09-14",
+  // Se reemplaza por la semana más reciente al cargar: dejarla fija hacía que el
+  // panel abriera en una semana vieja, o se quedara en "Cargando…" para siempre
+  // si esa semana dejaba de existir.
+  semana: "",
   ciudad: "",
   franja: "",
   cuenta: "",
-  codigo: "",
 };
 
 export default function Dashboard() {
@@ -86,6 +88,15 @@ export default function Dashboard() {
       return datos as DemoData[];
     }
 
+    // La semana de la URL manda si existe; si no, se abre en la más reciente.
+    function elegirSemana(datos: DemoData[]) {
+      setFiltersState((previos) =>
+        datos.some((d) => d.semana === previos.semana)
+          ? previos
+          : { ...previos, semana: datos[0]?.semana ?? "" },
+      );
+    }
+
     async function cargar() {
       try {
         // 1) ¿el servidor corre en modo demo? Solo entonces sirve sin sesión.
@@ -94,6 +105,7 @@ export default function Dashboard() {
           const datos = await traerSemanas("?demo=1", {});
           if (!cancelado) {
             setWeeks(datos);
+            elegirSemana(datos);
             setModo("demo");
           }
           return;
@@ -109,6 +121,7 @@ export default function Dashboard() {
         });
         if (!cancelado) {
           setWeeks(datos);
+          elegirSemana(datos);
           setModo("real");
         }
       } catch (e) {
@@ -226,7 +239,7 @@ export default function Dashboard() {
           <Resumen data={current} weeks={weeks} filters={filters} />
         )}
         {tab === "Asistencia por horario" && (
-          <ResumenPorFranja data={current} weeks={weeks} />
+          <ResumenPorFranja data={current} weeks={weeks} filters={filters} />
         )}
         {tab.startsWith("ZOOM") && <ZoomLimit data={current} weeks={weeks} />}
       </main>
