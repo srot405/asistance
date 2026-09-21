@@ -5,7 +5,6 @@ export type Filters = {
   franja: string;
   cuenta: string;
   codigo: string;
-  buscar: string;
 };
 type Props = {
   data: DemoData;
@@ -28,12 +27,8 @@ export default function Filtros({
   // Con datos reales hay personas sin ciudad o sin franja asignada (p. ej. las 46
   // del martes 18:00 en las semanas reconstruidas). Sin este filtro se genera una
   // <option> con key vacía, que React trata como key ausente y avisa por consola.
-  const cities = [...new Set(data.roster.map((p) => p.ciudad))]
-    .filter((x): x is string => Boolean(x))
-    .sort();
-  const slots = [...new Set(data.roster.map((p) => p.franja))]
-    .filter((x): x is string => Boolean(x))
-    .sort();
+  const cities = data.ciudades;
+  const slots = data.franjas.map((slot) => slot.slot_id).sort();
   return (
     <div className="toolbar filters">
       <label>
@@ -90,12 +85,6 @@ export default function Filtros({
           <option key={x}>{x}</option>
         ))}
       </select>
-      <input
-        className="control"
-        placeholder="Buscar estudiante"
-        value={filters.buscar}
-        onChange={(e) => set("buscar", e.target.value)}
-      />
       <button className="control" onClick={onExport}>
         Exportar CSV · {tab}
       </button>
