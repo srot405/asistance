@@ -12,7 +12,13 @@ export function agregarDatos(raw: {
   celdas_semana: Fila[];
   no_identificados: Fila[];
 }): DemoData {
-  const franjaDe = new Map(raw.roster.map((p) => [p.persona_id, p.franja]));
+  // El demo guarda la franja en `franja`; `asist_roster` la llama `slot_id`.
+  // Sin este `??` la agregación funciona en demo y devuelve CEROS con datos
+  // reales: `franjaDe` queda vacío y entro/aOtra/falto salen 0 en todas las
+  // clases. Detectado al revisar la E1 (2026-09-21).
+  const franjaDe = new Map(
+    raw.roster.map((p) => [p.persona_id, p.franja ?? p.slot_id]),
+  );
   const fechaDe = new Map(raw.franjas.map((f) => [f.slot_id, f.fecha]));
   const porFranja = new Map<string, { entro: number; aOtra: number }>();
   const porDia = new Map<string, Record<string, number>>();
