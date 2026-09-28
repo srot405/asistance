@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
 import { supabaseServidor } from "../../../lib/servidor/supabase";
+import { semanaActualCOT } from "../../../lib/conteos";
 export async function GET(request: Request) {
   const headers = { "Cache-Control": "private, no-store" };
   const demoAllowed =
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     if (access instanceof NextResponse) return access;
   }
   if (MODO_DEMO) {
-    const out = [];
+    const semanas = [];
     for (const week of ["2026-09-14", "2026-09-07"]) {
       const d = JSON.parse(
         await readFile(
@@ -21,9 +22,11 @@ export async function GET(request: Request) {
           "utf8",
         ),
       );
-      out.push({ semana: week, estado: d.estado_semana, materia: d.materia });
+      semanas.push({ semana: week, estado: d.estado_semana, materia: d.materia });
     }
-    return NextResponse.json(out, { headers });
+    const semanaActual = semanaActualCOT();
+    return NextResponse.json({ semanas, semanaActual,
+      semanaActualRegistrada: semanas.some((w) => w.semana === semanaActual) }, { headers });
   }
   const { data, error } = await supabaseServidor()
     .from("asist_semanas")
@@ -34,5 +37,7 @@ export async function GET(request: Request) {
       { error: "No disponible" },
       { status: 500, headers },
     );
-  return NextResponse.json(data, { headers });
+  const semanaActual = semanaActualCOT();
+  return NextResponse.json({ semanas: data ?? [], semanaActual,
+    semanaActualRegistrada: (data ?? []).some((w) => w.semana === semanaActual) }, { headers });
 }

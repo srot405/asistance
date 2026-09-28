@@ -8,6 +8,7 @@ export type Filters = {
 type Props = {
   data: DemoData;
   weeks: DemoData[];
+  semanaActual: string;
   filters: Filters;
   setFilters: (next: Filters) => void;
   tab: string;
@@ -16,6 +17,7 @@ type Props = {
 export default function Filtros({
   data,
   weeks,
+  semanaActual,
   filters,
   setFilters,
   tab,
@@ -26,7 +28,7 @@ export default function Filtros({
   // `ciudades` ya viene sin vacíos desde el servidor: una <option> con key vacía
   // React la trata como key ausente y avisa por consola.
   const cities = data.ciudades;
-  const slots = data.franjas.map((slot) => slot.slot_id).sort();
+  const slots = data.franjas_con_clase.map((slot) => slot.slot_id).sort();
   return (
     <div className="toolbar filters">
       <label>
@@ -38,7 +40,7 @@ export default function Filtros({
         >
           {weeks.map((week) => (
             <option value={week.semana} key={week.semana}>
-              {week.semana} · {week.materia || "sin materia"} · {week.estado_semana}
+            {week.semana} · {week.materia || "sin materia"} · {week.estado_semana || "En curso"}{week.semana === semanaActual ? " · actual" : ""}
             </option>
           ))}
         </select>
@@ -73,9 +75,9 @@ export default function Filtros({
           <option key={x}>{x}</option>
         ))}
       </select>
-      <button className="control" onClick={onExport}>
+      {tab !== "ZOOM-LIMIT" && !tab.startsWith("ZOOM") && <button className="control" onClick={onExport}>
         Exportar CSV · {tab}
-      </button>
+      </button>}
     </div>
   );
 }

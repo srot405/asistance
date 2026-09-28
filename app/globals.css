@@ -1,19 +1,32 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Paleta y tipografía: Manual de Identidad Corporativa ROFÉ 2025 (DE-004-M v03) +
+   extensión digital BRAND-DIGITAL.md (panel-datos-rofe). Tema Jóvenes creaTIvos =
+   azul de marca. --verde/--amarillo/--naranja/--rojo/--azul de abajo son la leyenda
+   semántica de la grilla (V/A/N/R/ZL) y NO se tocan: cambiar esos colores rompe un
+   sistema ya validado (ver feedback_no_editar_script_en_bucle / incidentes previos). */
 :root {
-  --bg: #f5f7f4;
+  --bg: #f6f9fb;
   --fg: #18322b;
   --muted: #61736b;
   --card: #fff;
   --line: #dbe5df;
-  --brand: #0f6b55;
-  --brand-2: #d8eee6;
+  --brand: #406c9e;
+  --brand-2: #e3eef7;
+  --hero-1: #16283d;
+  --hero-2: #2b4a6f;
+  --hero-3: #406c9e;
+  --hero-4: #6fa0bc;
+  --accent: #eec935;
   --yellow: #f2c230;
   --orange: #f08a24;
   --green: #2e9e5b;
   --red: #d64545;
   --blue: #2b4a6f;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(64, 108, 158, 0.14);
+  --glass-shadow: 0 10px 28px -16px rgba(22, 40, 61, 0.35);
 }
 * {
   box-sizing: border-box;
@@ -26,7 +39,7 @@ body {
   color: var(--fg);
 }
 body {
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: "Century Gothic", CenturyGothic, AppleGothic, Arial, sans-serif;
 }
 button,
 input,
@@ -35,9 +48,14 @@ select {
 }
 .shell {
   min-height: 100vh;
+  /* `.dark` vive aquí, no en <body>: sin este color explícito, todo texto sin
+     regla propia hereda el color YA RESUELTO de <body> (tema claro) en vez de
+     re-evaluar --fg bajo .dark, y queda ilegible sobre fondo oscuro. */
+  color: var(--fg);
+  background: var(--bg);
 }
 .topbar {
-  background: var(--fg);
+  background: linear-gradient(120deg, var(--hero-1), var(--hero-2) 55%, var(--hero-3));
   color: #fff;
   padding: 18px clamp(16px, 4vw, 48px);
   display: flex;
@@ -52,14 +70,29 @@ select {
   gap: 12px;
 }
 .brand-mark {
+  position: relative;
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: #f0c84b;
-  color: var(--fg);
+  background: var(--accent);
+  color: var(--hero-1);
   display: grid;
   place-items: center;
   font-weight: 700;
+  isolation: isolate;
+}
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  padding: 2px;
+  background: conic-gradient(from 0deg, var(--hero-3), var(--hero-4), var(--accent), var(--hero-3));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+  animation: girar 6s linear infinite;
 }
 .eyebrow {
   font-size: 11px;
@@ -73,8 +106,8 @@ select {
   font-weight: 600;
 }
 .demo {
-  background: #f0c84b;
-  color: var(--fg);
+  background: var(--accent);
+  color: var(--hero-1);
   font-size: 12px;
   font-weight: 600;
   padding: 8px 12px;
@@ -110,10 +143,16 @@ select {
   border-radius: 10px;
   padding: 9px 12px;
   color: var(--fg);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.control:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -8px rgba(22, 40, 61, 0.35);
 }
 .tabs {
   border-bottom: 1px solid var(--line);
   margin-bottom: 20px;
+  gap: 4px;
 }
 .tab {
   background: none;
@@ -121,23 +160,45 @@ select {
   padding: 12px 14px;
   color: var(--muted);
   cursor: pointer;
+  border-radius: 10px 10px 0 0;
+  transition: color 0.15s ease;
 }
+/* Pill metal: estado ACTIVO de selectores (BRAND-DIGITAL.md §4.3). Sin borde
+   giratorio — los selectores informan, no gritan. */
 .tab.active {
-  color: var(--brand);
-  border-bottom: 3px solid var(--brand);
+  position: relative;
+  color: #fff;
   font-weight: 600;
+  background: linear-gradient(135deg, var(--hero-2), var(--hero-3) 60%, var(--hero-4));
+  overflow: hidden;
+}
+.tab.active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.4) 50%, transparent 65%);
+  background-size: 220% 100%;
+  animation: brillo 2.6s ease-in-out infinite;
 }
 .summary-grid {
   align-items: stretch;
   margin-bottom: 22px;
 }
 .stat {
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: 14px;
   padding: 16px;
   min-width: 135px;
   flex: 1;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -18px rgba(22, 40, 61, 0.4);
 }
 .stat-label {
   font-size: 12px;
@@ -149,8 +210,11 @@ select {
   margin-top: 6px;
 }
 .panel {
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: 16px;
   padding: 18px;
   margin-bottom: 18px;
@@ -249,16 +313,19 @@ select {
   text-align: center;
 }
 .dark {
-  --bg: #101a17;
-  --fg: #eef7f2;
-  --muted: #a7b9b0;
-  --card: #17251f;
-  --line: #2d4037;
-  --brand: #7ed6b5;
-  --brand-2: #1d3c31;
+  --bg: #0e161f;
+  --fg: #eef4f9;
+  --muted: #9db0c2;
+  --card: #16222f;
+  --line: #29394a;
+  --brand: #8fc4ec;
+  --brand-2: #1c3450;
+  --glass-bg: rgba(22, 34, 47, 0.7);
+  --glass-border: rgba(143, 196, 236, 0.16);
+  --glass-shadow: 0 10px 28px -16px rgba(0, 0, 0, 0.55);
 }
 .dark .topbar {
-  background: #0b120f;
+  background: linear-gradient(120deg, #0a141f, var(--hero-1) 55%, var(--hero-2));
 }
 .dark .cell.V {
   background: #194c2d;
@@ -441,6 +508,49 @@ select {
   color: #ffd0d0;
 }
 
+/* Vista visual semanal de asistencia */
+.warning {
+  border: 1px solid #d7a72e;
+  background: #fff7d6;
+  color: #493900;
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.link-button { border: 0; background: transparent; color: var(--brand); text-decoration: underline; cursor: pointer; }
+.week-empty { border: 1px dashed var(--line); border-radius: 16px; }
+.week-visual-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; flex-wrap: wrap; }
+.week-filters { display: flex; gap: 10px; flex-wrap: wrap; }
+.week-day-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 18px 0; }
+.week-day-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--card); }
+.week-day-card.current-cut { border-color: var(--brand); box-shadow: inset 4px 0 var(--brand); }
+.week-day-card h3 { margin: 0 0 10px; text-transform: capitalize; }
+.week-day-card h3 small, .missing-group h3 small, .participant-group h3 small { color: var(--muted); font-weight: 400; }
+.week-day-card p { margin: 5px 0; }
+.week-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; margin: 14px 0; }
+.week-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.week-swatch { width: 13px; height: 13px; display: inline-block; border-radius: 4px; background: #e8edf2; }
+.week-swatch.propia, .participant-tile.propia { background: #d9f2e1; color: #176333; }
+.week-swatch.otra, .participant-tile.otra { background: #fff2bd; color: #755d00; }
+.week-swatch.sin_ingreso, .participant-tile.sin_ingreso { background: #e8edf2; color: #425466; }
+.participant-group { margin: 14px 0 18px; }
+.participant-group h3, .missing-group h3 { margin: 0 0 7px; font-size: 13px; overflow-wrap: anywhere; }
+.participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 5px; }
+.participant-tile { position: relative; background: #e8edf2; color: #273645; border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px; min-width: 0; min-height: 32px; display: flex; align-items: center; gap: 6px; }
+.participant-icon { flex: 0 0 auto; font-size: 14px; font-weight: 700; }
+.participant-name { min-width: 0; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-mark { position: absolute; right: 3px; top: -5px; padding: 1px 4px; border-radius: 999px; background: var(--orange); color: #fff; font-size: 8px; line-height: 1.2; }
+.missing-group { margin: 14px 0; }
+.missing-panel h2 small { color: var(--muted); font-weight: 400; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.dark .warning { background: #4c3d14; color: #fff0b3; }
+.dark .participant-tile.propia { background: #194c2d; color: #b4f1c8; }
+.dark .participant-tile.otra { background: #5e4d09; color: #fff0a7; }
+.dark .participant-tile.sin_ingreso { background: #2f3d49; color: #d8e2ee; }
+@media (max-width: 600px) {
+  .participant-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .participant-tile { padding: 6px; }
+}
+
 /* ── Asistencia por horario (vista semanal, 2026-09-21) ───────────────────── */
 .cards {
   display: flex;
@@ -450,12 +560,21 @@ select {
 }
 .cards .card {
   flex: 1 1 180px;
-  border: 1px solid var(--line);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: 10px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cards .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -18px rgba(22, 40, 61, 0.4);
 }
 .cards .card b {
   font-size: 26px;
@@ -513,10 +632,54 @@ select {
 .barra i {
   display: block;
   height: 100%;
-  background: #2e9e5b;
+  background: #6ea050;
 }
 .nota {
   font-size: 13px;
   opacity: 0.75;
   line-height: 1.5;
+}
+
+/* ── Sistema de movimiento (BRAND-DIGITAL.md §3) ──────────────────────────────
+   El movimiento sirve al dato, nunca compite con él: entradas discretas una sola
+   vez (sin scroll-trigger repetido), ciclos de brillo largos y de bajo contraste.
+   prefers-reduced-motion es obligatorio, no opcional (regla de oro #5). */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes brillo {
+  from { background-position: 220% 0; }
+  to { background-position: -220% 0; }
+}
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+.panel,
+.summary-grid .stat,
+.cards .card {
+  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.summary-grid .stat:nth-child(2),
+.cards .card:nth-child(2) { animation-delay: 0.06s; }
+.summary-grid .stat:nth-child(3),
+.cards .card:nth-child(3) { animation-delay: 0.12s; }
+.summary-grid .stat:nth-child(4),
+.cards .card:nth-child(4) { animation-delay: 0.18s; }
+.summary-grid .stat:nth-child(5),
+.cards .card:nth-child(5) { animation-delay: 0.24s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .summary-grid .stat,
+  .cards .card,
+  .tab.active::after,
+  .brand-mark::before {
+    animation: none !important;
+  }
+  .control,
+  .stat,
+  .cards .card {
+    transition: none !important;
+  }
 }

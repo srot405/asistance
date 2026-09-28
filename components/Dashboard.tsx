@@ -2,11 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DemoData } from "../lib/types";
-import { isWeekOverdue, yaOcurrio } from "../lib/conteos";
+import { isWeekOverdue } from "../lib/conteos";
 import Encabezado from "./Encabezado";
 import Filtros, { type Filters } from "./Filtros";
 import Resumen from "./Resumen";
 import ResumenPorFranja from "./ResumenPorFranja";
+import ResumenSemanaVisual from "./ResumenSemanaVisual";
 import ZoomLimit from "./ZoomLimit";
 import {
   authConfigurada,
@@ -16,9 +17,8 @@ import {
 } from "../lib/auth";
 
 const defaultFilters: Filters = {
-  // Se reemplaza por la semana más reciente al cargar: dejarla fija hacía que el
-  // panel abriera en una semana vieja, o se quedara en "Cargando…" para siempre
-  // si esa semana dejaba de existir.
+  // La fecha inicial se calcula en el servidor según el lunes COT vigente.
+  // No fijar aquí una semana histórica: el panel debe abrir el lunes actual.
   semana: "",
   ciudad: "",
   franja: "",
@@ -31,9 +31,9 @@ export default function Dashboard() {
   const pathname = usePathname();
   const vistaInicial = params.get("vista");
   const [tab, setTab] = useState(
-    vistaInicial === "Asistencia por horario" || vistaInicial?.startsWith("ZOOM")
+    vistaInicial === "Asistencia por horario" || vistaInicial === "Resumen" || vistaInicial?.startsWith("ZOOM")
       ? vistaInicial
-      : "Resumen",
+      : "Semana visual",
   );
   const [dark, setDark] = useState(false);
   const [filters, setFiltersState] = useState<Filters>({
@@ -46,6 +46,7 @@ export default function Dashboard() {
     ),
   } as Filters);
   const [weeks, setWeeks] = useState<DemoData[]>([]);
+  const [semanaActual, setSemanaActual] = useState("");
   // `modo` distingue tres situaciones que antes se confundían en un "Cargando…"
   // eterno (2026-09-21): el panel se construyó solo para el demo, con `demo=1`
   // incrustado en cada llamada y sin login. Con datos reales el servidor
@@ -54,10 +55,12 @@ export default function Dashboard() {
     "cargando",
   );
   const [fallo, setFallo] = useState("");
+  const [falloExport, setFalloExport] = useState("");
   const current = weeks.find((week) => week.semana === filters.semana) ?? null;
   const setFilters = (next: Filters) => {
     setFiltersState(next);
     const query = new URLSearchParams();
+    if (params.get("demo") === "1") query.set("demo", "1");
     Object.entries(next).forEach(([key, value]) => {
       if (value && value !== defaultFilters[key as keyof Filters])
         query.set(key, value);
@@ -71,33 +74,30 @@ export default function Dashboard() {
     async function traerSemanas(sufijo: string, cabeceras: HeadersInit) {
       const lista = await fetch(`/api/semanas${sufijo}`, { headers: cabeceras });
       if (!lista.ok) throw new Error(`semanas: HTTP ${lista.status}`);
-      const filas = await lista.json();
-      // El 401 devuelve un objeto {error}, no un arreglo: sin esta guarda el
-      // `.map` de abajo rompe la página entera con un TypeError.
-      if (!Array.isArray(filas)) throw new Error("respuesta inesperada");
+      const indice = await lista.json();
+      if (!indice || !Array.isArray(indice.semanas) || typeof indice.semanaActual !== "string")
+        throw new Error("respuesta inesperada");
+      setSemanaActual(indice.semanaActual);
+      const fechas = [...new Set([...indice.semanas.map((f: { semana: string }) => f.semana), indice.semanaActual])];
       const datos = await Promise.all(
-        filas.map(async (fila: { semana: string }) => {
+        fechas.map(async (semana: string) => {
           const r = await fetch(
-            `/api/datos?semana=${fila.semana}${sufijo ? "&demo=1" : ""}`,
+            `/api/datos?semana=${semana}${sufijo ? "&demo=1" : "&detalle=1"}`,
             { headers: cabeceras },
           );
-          if (!r.ok) throw new Error(`datos ${fila.semana}: HTTP ${r.status}`);
+          if (!r.ok) throw new Error(`datos ${semana}: HTTP ${r.status}`);
           return r.json();
         }),
       );
-      return datos as DemoData[];
+      return { datos: datos as DemoData[], semanaActual: indice.semanaActual as string };
     }
 
-    // La semana de la URL manda si existe. Si no, se abre en la más reciente que
-    // YA TENGA clases ocurridas: abrir en la semana en curso dejaba el panel en
-    // blanco todos los lunes, porque sus clases aún no han pasado. La semana
-    // nueva sigue en el selector para verificar que el roster quedó congelado.
-    function elegirSemana(datos: DemoData[]) {
-      const conDatos = datos.find(yaOcurrio) ?? datos[0];
+    function elegirSemana(datos: DemoData[], actual: string) {
+      const preferida = params.get("semana");
+      const elegida = preferida && datos.some((d) => d.semana === preferida) ? preferida : actual;
       setFiltersState((previos) =>
-        datos.some((d) => d.semana === previos.semana)
-          ? previos
-          : { ...previos, semana: conDatos?.semana ?? "" },
+        ({ ...previos, semana: datos.some((d) => d.semana === previos.semana)
+          ? previos.semana : elegida }),
       );
     }
 
@@ -106,10 +106,10 @@ export default function Dashboard() {
         // 1) ¿el servidor corre en modo demo? Solo entonces sirve sin sesión.
         const prueba = await fetch("/api/semanas?demo=1");
         if (prueba.ok) {
-          const datos = await traerSemanas("?demo=1", {});
+          const { datos, semanaActual: actual } = await traerSemanas("?demo=1", {});
           if (!cancelado) {
             setWeeks(datos);
-            elegirSemana(datos);
+            elegirSemana(datos, actual);
             setModo("demo");
           }
           return;
@@ -120,12 +120,12 @@ export default function Dashboard() {
           if (!cancelado) setModo("login");
           return;
         }
-        const datos = await traerSemanas("", {
+        const { datos, semanaActual: actual } = await traerSemanas("", {
           Authorization: `Bearer ${sesion.access_token}`,
         });
         if (!cancelado) {
           setWeeks(datos);
-          elegirSemana(datos);
+          elegirSemana(datos, actual);
           setModo("real");
         }
       } catch (e) {
@@ -200,6 +200,40 @@ export default function Dashboard() {
       slot.estado_captura,
     ),
   ).length;
+  async function exportar() {
+    setFalloExport("");
+    const vista = tab === "Asistencia por horario" ? tab : "Resumen";
+    const query = new URLSearchParams({ semana: filters.semana, vista });
+    const cabeceras: Record<string, string> = {};
+    if (modo === "demo") query.set("demo", "1");
+    else {
+      const sesion = await sesionActual();
+      if (!sesion?.access_token) {
+        setFalloExport("Tu sesión expiró. Vuelve a iniciar sesión para descargar el CSV.");
+        return;
+      }
+      cabeceras.Authorization = `Bearer ${sesion.access_token}`;
+    }
+    try {
+      const response = await fetch(`/api/exportar?${query}`, { headers: cabeceras, cache: "no-store" });
+      if (response.status === 401) {
+        setFalloExport("Tu sesión expiró. Vuelve a iniciar sesión para descargar el CSV.");
+        return;
+      }
+      if (!response.ok) throw new Error("No se pudo preparar el archivo. Inténtalo de nuevo.");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `asistencia_${filters.semana}_${vista === "Resumen" ? "resumen" : "asistencia_por_horario"}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setFalloExport("No se pudo descargar el CSV. Revisa tu conexión e inténtalo de nuevo.");
+    }
+  }
+  const sinFilaSemanaActual = current.semana === semanaActual && !current.semana_registrada;
+  const semanaSinClases = current.franjas_con_clase.length === 0;
   return (
     <div className={dark ? "shell dark" : "shell"}>
       <Encabezado dark={dark} setDark={setDark} demo={modo === "demo"} />
@@ -207,15 +241,17 @@ export default function Dashboard() {
         <Filtros
           data={current}
           weeks={weeks}
+          semanaActual={semanaActual}
           filters={filters}
           setFilters={setFilters}
           tab={tab}
-          onExport={() => {
-            window.location.href = `/api/exportar?semana=${filters.semana}&vista=${encodeURIComponent(tab)}${modo === "demo" ? "&demo=1" : ""}`;
-          }}
+          onExport={exportar}
         />
+        {falloExport && <p className="status" role="alert">{falloExport} <button className="link-button" onClick={() => iniciarSesionGoogle()}>Iniciar sesión</button></p>}
+        {sinFilaSemanaActual && <p className="warning" role="status">El roster de esta semana todavía no se ha congelado (se hace el lunes a las 06:00).</p>}
         <nav className="tabs" role="tablist" aria-label="Vistas">
           {[
+            "Semana visual",
             "Resumen",
             "Asistencia por horario",
             `ZOOM-LIMIT (${limitCount})`,
@@ -229,7 +265,7 @@ export default function Dashboard() {
               }
               key={name}
               role="tab"
-              aria-selected={tab === name}
+          aria-selected={tab === name || (name.startsWith("ZOOM") && tab.startsWith("ZOOM"))}
               onClick={() => changeTab(name)}
             >
               {name}
@@ -239,10 +275,17 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
-        {tab === "Resumen" && (
+        {tab !== "ZOOM" && semanaSinClases && <section className="empty week-empty">
+          <h2>La semana arrancó; los datos se llenan al terminar cada clase</h2>
+          {sinFilaSemanaActual && <p>El roster y el horario aparecerán cuando el equipo congele la semana.</p>}
+        </section>}
+        {tab === "Semana visual" && !semanaSinClases && (
+          <ResumenSemanaVisual data={current} demo={modo === "demo"} />
+        )}
+        {tab === "Resumen" && !semanaSinClases && (
           <Resumen data={current} weeks={weeks} filters={filters} />
         )}
-        {tab === "Asistencia por horario" && (
+        {tab === "Asistencia por horario" && !semanaSinClases && (
           <ResumenPorFranja data={current} weeks={weeks} filters={filters} />
         )}
         {tab.startsWith("ZOOM") && <ZoomLimit data={current} weeks={weeks} />}

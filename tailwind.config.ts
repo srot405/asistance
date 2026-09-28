@@ -7,7 +7,7 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: { sans: ["var(--font-inter)", "system-ui", "sans-serif"] },
+      fontFamily: { sans: ['"Century Gothic"', "CenturyGothic", "AppleGothic", "Arial", "sans-serif"] },
     },
   },
   plugins: [],

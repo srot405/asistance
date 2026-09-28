@@ -18,8 +18,8 @@ function TablaCorte({ filas, titulo, nota }: { filas: CorteResumen[]; titulo: st
   return <section className="panel">
     <h3>{titulo}</h3>
     {nota && <p className="nota">{nota}</p>}
-    <div className="table-scroll"><table><thead><tr><th>Corte</th><th>Roster</th><th>Medible</th><th>Fuera de dato (ZL)</th><th>Aún no ocurre</th><th>Propia</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>Asistencia</th></tr></thead>
-      <tbody>{filas.map((f) => <tr key={f.etiqueta}><td>{f.etiqueta}</td><td>{f.roster}</td><td>{f.medible}</td><td>{f.fueraDato}</td><td>{f.pendiente}</td><td>{f.entro} ({pctTexto(f.entro, f.medible)})</td><td>{f.aOtra} ({pctTexto(f.aOtra, f.medible)})</td><td>{f.colados} ({pctTexto(f.colados, f.medible)})</td><td>{f.falto} ({pctTexto(f.falto, f.medible)})</td><td><b>{f.si}/{f.medible} ({pctTexto(f.si, f.medible)})</b></td></tr>)}</tbody>
+    <div className="table-scroll"><table><thead><tr><th>Corte</th><th>Roster</th><th>Medible</th><th>Fuera de dato (ZL)</th><th>Aún no ocurre</th><th>Propia</th><th>A otra</th><th>Faltó</th><th>Asistencia</th></tr></thead>
+      <tbody>{filas.map((f) => <tr key={f.etiqueta}><td>{f.etiqueta}</td><td>{f.roster}</td><td>{f.medible}</td><td>{f.fueraDato}</td><td>{f.pendiente}</td><td>{f.entro} ({pctTexto(f.entro, f.medible)})</td><td>{f.aOtra} ({pctTexto(f.aOtra, f.medible)})</td><td>{f.falto} ({pctTexto(f.falto, f.medible)})</td><td><b>{f.si}/{f.medible} ({pctTexto(f.si, f.medible)})</b></td></tr>)}</tbody>
     </table></div>
   </section>;
 }
@@ -31,7 +31,7 @@ function sumar(filas: FranjaResumen[], etiqueta: string): CorteResumen {
   const si = t("entro") + t("aOtra");
   const medible = t("medible");
   return { etiqueta, roster: t("roster"), medible, fueraDato: t("fueraDato"), pendiente: t("pendiente"),
-           entro: t("entro"), aOtra: t("aOtra"), colados: t("colados"), falto: t("falto"), si,
+           entro: t("entro"), aOtra: t("aOtra"), falto: t("falto"), si,
            asistenciaPct: porcentaje(si, medible) };
 }
 
@@ -72,12 +72,11 @@ export default function ResumenPorFranja({ data, weeks = [], filters }: { data: 
       {yaOcurrio(data) && <div className="cards">
         <div className="card"><span>Entraron a su clase</span><b>{total.entro}</b><span>{porcentaje(total.entro, total.medible)}% de {total.medible} medibles</span></div>
         <div className="card"><span>Se recuperaron en otro horario</span><b>{total.aOtra}</b><span>{porcentaje(total.aOtra, total.medible)}%</span></div>
-        <div className="card"><span>Entraron sin ser de esa clase</span><b>{total.colados}</b><span>{porcentaje(total.colados, total.medible)}%</span></div>
         <div className="card"><span>No aparecieron</span><b>{total.falto}</b><span>{porcentaje(total.falto, total.medible)}%</span></div>
       </div>}
       {yaOcurrio(data) && <div className="status"><b>Asistencia total: {total.si}/{total.medible} ({total.asistenciaPct}%)</b> · fuera de dato por ZL: {total.fueraDato} de {total.roster} · sesiones sin dato: {data.franjas.filter((s) => SIN_DATO.has(s.estado_captura)).length}</div>}
     </section>
-    <TablaCorte titulo="Roster semanal" filas={semanales} nota="Propia + a otra = SI. Colados son visitas ajenas y no se suman al roster ni a la asistencia." />
+    <TablaCorte titulo="Roster semanal" filas={semanales} nota="Propia + a otra = SI." />
     <TablaCorte titulo="Roster diario" filas={diarios} nota={avisoSinHorario} />
     <section className="panel">
       <h3>Evolución entre semanas</h3>
@@ -87,15 +86,15 @@ export default function ResumenPorFranja({ data, weeks = [], filters }: { data: 
       </div>)}
       {weeks.some((w) => !yaOcurrio(w)) && <p className="nota">Fuera del gráfico: {weeks.filter((w) => !yaOcurrio(w)).map((w) => w.semana).join(", ")} — sus clases todavía no han ocurrido.</p>}
     </section>
-    <TablaCorte titulo="Corte por ciudad" filas={data.por_ciudad.filter((c) => !filters?.ciudad || c.etiqueta === filters.ciudad)} nota="Colados se atribuyen a la ciudad de origen de la persona visitante; no son roster adicional de la ciudad." />
+    <TablaCorte titulo="Corte por ciudad" filas={data.por_ciudad.filter((c) => !filters?.ciudad || c.etiqueta === filters.ciudad)} />
     <TablaCorte titulo="Corte por cuenta Zoom" filas={data.por_cuenta.filter((c) => !filters?.cuenta || c.etiqueta === filters.cuenta)} />
     <section className="panel">
       <h3>Detalle agregado por horario</h3>
       {avisoSinHorario && <p className="nota">{avisoSinHorario}</p>}
       {[...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([fecha, clases]) => <div key={fecha} className="dia-bloque">
         <h3>{nombreDia(fecha)} <small>{fecha}</small></h3>
-        <table className="tabla-franjas"><thead><tr><th>Clase</th><th>Roster</th><th>Medible</th><th>Entró</th><th>A otra</th><th>Colados</th><th>Faltó</th><th>% SI</th></tr></thead>
-          <tbody>{clases.map((c) => <tr key={c.slot}><td>{c.etiqueta}</td><td>{c.roster}</td><td>{c.medible}</td><td className="cell V">{c.entro}</td><td className="cell A">{c.aOtra}</td><td className="cell N">{c.colados}</td><td className="cell NO">{c.falto}</td><td>{pctTexto(c.entro + c.aOtra, c.medible)}</td></tr>)}</tbody>
+        <table className="tabla-franjas"><thead><tr><th>Clase</th><th>Roster</th><th>Medible</th><th>Entró</th><th>A otra</th><th>Faltó</th><th>% SI</th></tr></thead>
+          <tbody>{clases.map((c) => <tr key={c.slot}><td>{c.etiqueta}</td><td>{c.roster}</td><td>{c.medible}</td><td className="cell V">{c.entro}</td><td className="cell A">{c.aOtra}</td><td className="cell NO">{c.falto}</td><td>{pctTexto(c.entro + c.aOtra, c.medible)}</td></tr>)}</tbody>
         </table>
       </div>)}
     </section>

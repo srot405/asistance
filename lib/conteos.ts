@@ -7,6 +7,17 @@ export function sessionsWithoutData<T extends { estado_captura: string }>(
     ),
   );
 }
+
+export function semanaActualCOT(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const local = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
+  const lunes = (local.getUTCDay() + 6) % 7;
+  local.setUTCDate(local.getUTCDate() - lunes);
+  return local.toISOString().slice(0, 10);
+}
 export function isWeekOverdue(
   week: { estado_semana: string; semana: string },
   now = new Date(),
