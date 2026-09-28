@@ -110,3 +110,48 @@ export type CorteVisual = {
   rescataron: number;
   sinIngresarHastaHoy: number;
 };
+
+export type NivelHistorico = "Detalle" | "Solo semanal" | "Sin dato";
+export type DetalleHistorico = {
+  fecha: string;
+  slot_id?: string;
+  poblacion: number;
+  asistieron: number;
+  nunca: number;
+  porcentaje_retencion: number | null;
+  porcentaje_nunca: number | null;
+};
+export type ResumenHistorico = {
+  semana: string;
+  materia: string;
+  nivel: NivelHistorico;
+  poblacion: number | null;
+  asistieron: number | null;
+  nunca: number | null;
+  porcentaje_retencion: number | null;
+  porcentaje_nunca: number | null;
+  clases_programadas: number | null;
+  clases_capturadas: number;
+  porcentaje_cobertura: number | null;
+  captura_completa: boolean;
+  aviso: string;
+  metodo: string;
+  fuentes: string[];
+  cuadre: {
+    roster: number;
+    medibles: number;
+    sin_dato: number;
+    pendientes: number;
+    sin_clase: number;
+  };
+  detalle_dias: DetalleHistorico[] | null;
+  detalle_clases: DetalleHistorico[] | null;
+  no_identificados: number;
+  nunca_periodo: number | null;
+  periodo_desde: string | null;
+  periodo_hasta: string | null;
+};
+export type HistoricoData = {
+  resultados: ResumenHistorico[];
+  nunca_periodo: number | null;
+};

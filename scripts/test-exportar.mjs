@@ -1,19 +1,14 @@
 import assert from "node:assert/strict";
 import { construirCsv } from "../lib/exportar.mjs";
 
-const demo = {
-  por_franja: [{ fecha: "2026-09-15", slot_id: "backend-martes-18", roster: 2, entro: 1, aOtra: 1, falto: 0 }],
-  franjas_con_clase: [{ slot_id: "backend-martes-18" }, { slot_id: "backend-miercoles-18" }],
-  participantes: [{ nombre: "Nombre de prueba", franja: "backend-martes-18", estado_semana: "SI",
-    estado_por_franja: { "backend-martes-18": "V", "backend-miercoles-18": "N" } }],
-};
-const summary = construirCsv(demo, "Resumen");
-assert.equal(summary.contenido.split("\r\n")[0], '"fecha","franja","roster","entro","a_otra","falto"');
+const fila = { semana: "2026-09-14", materia: "Backend", nivel: "Detalle", poblacion: 726,
+  asistieron: 541, nunca: 185, porcentaje_retencion: 74.52, porcentaje_nunca: 25.48,
+  clases_capturadas: 14, clases_programadas: 14, porcentaje_cobertura: 100 };
+const summary = construirCsv(fila, "Resumen");
+assert.equal(summary.contenido.split("\r\n")[0],
+  '"semana","materia","nivel","poblacion","asistieron","nunca","porcentaje_retencion","porcentaje_nunca","clases_capturadas","clases_programadas","porcentaje_cobertura"');
+assert.match(summary.contenido, /"2026-09-14","Backend","Detalle"/);
 assert.equal(summary.archivo, "resumen");
-const attendance = construirCsv(demo, "Asistencia por horario");
-assert.equal(attendance.contenido.split("\r\n")[0], '"nombre","franja","estado_semanal","backend-martes-18","backend-miercoles-18"');
-assert.match(attendance.contenido, /"V","N"/);
-assert.equal(construirCsv(demo, "Asistencia por horario", true).contenido.includes("Nombre de prueba"), false);
-assert.match(construirCsv(demo, "Asistencia por horario", true).contenido, /Participante 001/);
-assert.throws(() => construirCsv(demo, "ZOOM-LIMIT"), RangeError);
-console.log("RESUMEN: tests_exportacion=5 estado=verde");
+assert.doesNotMatch(summary.contenido, /nombre|correo|cedula|persona/i);
+assert.throws(() => construirCsv(fila, "Asistencia por horario"), RangeError);
+console.log("RESUMEN: tests_exportacion=5 csv=solo_agregado nominal=rechazado estado=verde");

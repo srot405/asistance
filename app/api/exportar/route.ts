@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { leerSemana } from "../../../lib/servidor/leerSemana";
+import { leerHistorico } from "../../../lib/servidor/leerHistorico";
 import { construirCsv } from "../../../lib/exportar.mjs";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
@@ -17,12 +17,16 @@ export async function GET(request: Request) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
-  if (!(["Resumen", "Asistencia por horario"] as string[]).includes(vista))
+  if (vista !== "Resumen")
     return NextResponse.json({ error: "Vista de exportación no válida" }, { status: 400, headers });
   try {
-    const demo = MODO_DEMO;
-    const data = await leerSemana(semana, !demo);
-    const csv = construirCsv(data, vista, demo);
+    const data = await leerHistorico();
+    const materia = q.get("materia");
+    const fila = data.resultados.find((item) => item.semana === semana &&
+      (!materia || item.materia === materia));
+    if (!fila)
+      return NextResponse.json({ error: "Semana no disponible" }, { status: 404, headers });
+    const csv = construirCsv(fila, vista);
     const nombre = `asistencia_${semana}_${csv.archivo}.csv`;
     return new NextResponse(csv.contenido, { headers: {
       ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,

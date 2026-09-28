@@ -1,79 +1,99 @@
-"use client";
-import { useMemo, useState } from "react";
-import { crearCorteVisual } from "../lib/agregados";
-import type { DemoData, ParticipanteVisual } from "../lib/types";
+import type { ResumenHistorico } from "../lib/types";
 
-const nombreDia = (fecha: string) => new Intl.DateTimeFormat("es-CO", {
-  weekday: "long", timeZone: "UTC",
+const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
+const fechaLarga = (fecha: string) => new Intl.DateTimeFormat("es-CO", {
+  weekday: "long", day: "numeric", month: "short", timeZone: "UTC",
 }).format(new Date(`${fecha}T12:00:00Z`));
-const icono = { propia: "✓", otra: "↗", sin_ingreso: "·" } as const;
+const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
+// Con clases sin captura, "ingresaron" solo puede subir: la cifra es un piso, no el valor real.
+const esMinimo = (fila: ResumenHistorico) => fila.nivel !== "Sin dato" && !fila.captura_completa;
+const MINIMO = "mínimo: hubo clases sin captura";
 
-export default function ResumenSemanaVisual({ data, demo }: { data: DemoData; demo: boolean }) {
-  const [franja, setFranja] = useState("");
-  const [fecha, setFecha] = useState("");
-  const slots = data.franjas_con_clase;
-  const corte = useMemo(() => crearCorteVisual(data.participantes, slots, { fecha, franja }),
-    [data.participantes, slots, fecha, franja]);
-  const cortesDia = useMemo(() => data.dias_visibles
-    .filter((d) => !franja || slots.some((slot) => slot.slot_id === franja && slot.fecha === d.fecha))
-    .map((d) => ({ fecha: d.fecha,
-      corte: crearCorteVisual(data.participantes, slots, { fecha: d.fecha, franja }),
-    })), [data.participantes, data.dias_visibles, slots, franja]);
-  const etiquetas = useMemo(() => new Map(data.participantes.map((p, index) => [p.key,
-    demo ? `Participante ${String(index + 1).padStart(3, "0")}` : p.nombre ?? "Participante",
-  ])), [data.participantes, demo]);
-  const ficha = (p: ParticipanteVisual) => <article key={p.key}
-    className={`participant-tile ${p.estado_visual}`} title={p.estado_visual.replace("_", " ")}>
-    <span aria-hidden="true" className="participant-icon">{icono[p.estado_visual]}</span>
-    <span className="participant-name">{etiquetas.get(p.key)}</span>
-    {p.por_revisar && <span className="review-mark">Por revisar</span>}
-    <span className="sr-only">{p.estado_visual === "propia" ? "Entró a su clase" :
-      p.estado_visual === "otra" ? "Entró a otra sala" : "Sin ingreso"}</span>
-  </article>;
-  const tituloCorte = franja || (fecha ? `${nombreDia(fecha)} · ${fecha}` : "Toda la semana");
-  const resumen = (titulo: string, actual: typeof corte, principal = false) =>
-    <article className={principal ? "week-day-card current-cut" : "week-day-card"}>
-      <h3>{titulo}</h3><p>No ingresaron <b>{actual.noIngresaron}</b></p>
-      <p>Rescataron <b>{actual.rescataron}</b> <small>(entraron a otra clase)</small></p>
-      <p>Sin ingresar hasta hoy <b>{actual.sinIngresarHastaHoy}</b></p>
-    </article>;
+function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
+  const clase = nivel === "Detalle" ? "detail" : nivel === "Solo semanal" ? "weekly" : "missing";
+  return <span className={`level-badge ${clase}`}>{nivel}</span>;
+}
+
+export default function ResumenSemanaVisual({ actual, resultados, nuncaPeriodo }: {
+  actual: ResumenHistorico;
+  resultados: ResumenHistorico[];
+  nuncaPeriodo: number | null;
+}) {
   return <>
-    <section className="panel week-visual" aria-label="Resumen visual de la semana">
-      <div className="week-visual-heading">
-        <div><h2>La semana, de un vistazo</h2><p className="nota">Una ficha por persona. Solo aparecen clases que ya tuvieron actividad.</p></div>
-        <div className="week-filters">
-          <label>Día <select className="control" value={fecha} onChange={(e) => {
-            const next = e.target.value; setFecha(next);
-            if (franja && next && !slots.some((s) => s.slot_id === franja && s.fecha === next)) setFranja("");
-          }}><option value="">Toda la semana</option>{data.dias_visibles.map((d) => <option key={d.fecha} value={d.fecha}>{nombreDia(d.fecha)} · {d.fecha}</option>)}</select></label>
-          <label>Franja <select className="control" value={franja} onChange={(e) => {
-            const next = e.target.value; setFranja(next);
-            if (next) setFecha(slots.find((s) => s.slot_id === next)?.fecha ?? "");
-          }}><option value="">Todas las franjas</option>{slots.filter((s) => !fecha || s.fecha === fecha).map((s) => <option key={s.slot_id} value={s.slot_id}>{s.slot_id}</option>)}</select></label>
+    <section className="historical-hero">
+      <div><p className="eyebrow">Semana del {actual.semana} · {actual.materia}</p>
+        <h1>Ingresos a clases virtuales</h1>
+        <p className="hero-copy">Una lectura ejecutiva del alcance semanal, con el nivel de evidencia visible.</p>
+      </div>
+      <div className="period-never" aria-label="Nunca ingresaron en todo el período">
+        <strong>{nuncaPeriodo ?? "—"}</strong><span>nunca ingresaron en todo el período</span>
+        {actual.periodo_desde && actual.periodo_hasta && <small>{actual.periodo_desde} a {actual.periodo_hasta}</small>}
+      </div>
+    </section>
+
+    <section className="metric-grid" aria-label="Cifras de la semana">
+      <article className="metric-card retained"><span>Ingresaron</span>
+        <strong>{porcentaje(actual.porcentaje_retencion)}</strong>
+        <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a></small>
+      </article>
+      <article className="metric-card absent"><span>No ingresaron</span>
+        <strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small>
+      </article>
+    </section>
+
+    {actual.nivel === "Solo semanal" && <p className="historical-notice weekly-notice">{SOLO}</p>}
+    {actual.nivel === "Sin dato" && <p className="historical-notice missing-notice"><b>Sin dato suficiente.</b>{" "}
+      {actual.aviso.replace(/^Sin dato suficiente\s*·?\s*/, "")}</p>}
+
+    <section className="panel reconciliation" aria-label="Cuadre del roster">
+      <div className="section-heading"><div><h2>Cuadre del roster</h2><p>La población siempre debe quedar completamente explicada.</p></div><Nivel nivel={actual.nivel} /></div>
+      <div className="reconciliation-line" role="status"><b>{actual.cuadre.roster} roster</b><span>=</span>
+        <span>{actual.cuadre.medibles} medibles</span><span>+</span><span>{actual.cuadre.sin_dato} sin dato</span><span>+</span>
+        <span>{actual.cuadre.pendientes} pendientes</span><span>+</span><span>{actual.cuadre.sin_clase} sin clase ocurrida</span>
+      </div>
+      <p className="coverage-line">Captura: <b>{actual.clases_capturadas}</b> de <b>{actual.clases_programadas ?? "?"}</b> clases
+        {actual.porcentaje_cobertura != null && <> · {porcentaje(actual.porcentaje_cobertura)}</>}</p>
+    </section>
+
+    <section className="panel trend-panel">
+      <div className="section-heading"><div><h2>Tendencia semanal</h2><p>Cada semana muestra qué tan sólido es el dato.</p></div></div>
+      <div className="trend-legend" aria-label="Series de la tendencia"><span><i className="in" />Ingresaron</span><span><i className="out" />No ingresaron</span></div>
+      <div className="trend-list">{resultados.map((fila) => <article className="trend-row" key={`${fila.semana}-${fila.materia}`}>
+        <div className="trend-label"><b>{fila.semana}</b><span>{fila.materia}</span><Nivel nivel={fila.nivel} /></div>
+        <div className="trend-bars" aria-label={`${fila.semana}: ${porcentaje(fila.porcentaje_retencion)} ingresaron`}>
+          {fila.porcentaje_retencion == null ? <div className="trend-no-data">Dato no comparable</div> : <>
+            <div className="trend-track" title={`Ingresaron ${porcentaje(fila.porcentaje_retencion)} · No ingresaron ${porcentaje(fila.porcentaje_nunca)}`}>
+              <i className="trend-in" style={{ width: `${fila.porcentaje_retencion}%` }} />
+              <i className="trend-out" style={{ width: `${fila.porcentaje_nunca}%` }} />
+            </div>
+            <b>{porcentaje(fila.porcentaje_retencion)} / {porcentaje(fila.porcentaje_nunca)}</b>
+            {esMinimo(fila) && <small className="trend-minimo" title={`Captura: ${fila.clases_capturadas} de ${fila.clases_programadas ?? "?"} clases`}>
+              mínimo · {fila.clases_programadas == null ? "horario no verificable"
+                : `${fila.clases_capturadas} de ${fila.clases_programadas} clases`}</small>}</>}
         </div>
-      </div>
-      <div className="week-day-cards">
-        {resumen(tituloCorte, corte, true)}
-        {!fecha && !franja && cortesDia.map(({ fecha: fechaDia, corte: corteDia }) =>
-          <div key={fechaDia}>{resumen(`${nombreDia(fechaDia)} · ${fechaDia}`, corteDia)}</div>)}
-      </div>
-      <div className="week-legend" aria-label="Leyenda de estados">
-        <span><i className="week-swatch propia" /> ✓ Propia</span>
-        <span><i className="week-swatch otra" /> ↗ Otra sala</span>
-        <span><i className="week-swatch sin_ingreso" /> · Sin ingreso</span>
-      </div>
-      {corte.grupos.length === 0 ? <p className="nota">No hay roster con clase ocurrida en este corte.</p> :
-        <div className="participant-groups">{corte.grupos.map((grupo) => <section className="participant-group" key={grupo.slot_id}>
-          <h3>{grupo.slot_id} <small>{grupo.participantes.length}</small></h3>
-          <div className="participant-grid">{grupo.participantes.map(ficha)}</div>
-        </section>)}</div>}
+      </article>)}</div>
     </section>
-    <section className="panel missing-panel"><h2>Faltaron <small>{corte.sinIngresarHastaHoy}</small></h2>
-      {corte.grupos_faltantes.length === 0 ? <p className="nota">Nadie quedó sin ingresar en este corte.</p> :
-        corte.grupos_faltantes.map((grupo) => <section className="missing-group" key={grupo.slot_id}>
-          <h3>{grupo.slot_id} <small>{grupo.participantes.length}</small></h3>
-          <div className="participant-grid">{grupo.participantes.map(ficha)}</div>
-        </section>)}
-    </section>
+
+    {actual.nivel === "Detalle" && actual.detalle_dias && <section className="panel day-detail">
+      <div className="section-heading"><div><h2>Detalle por día</h2><p>Solo aparece cuando existe un roster congelado y trazable.</p></div></div>
+      <div className="day-grid">{actual.detalle_dias.map((dia) => <article className="day-card" key={dia.fecha}>
+        <h3>{fechaLarga(dia.fecha)}</h3><strong>{porcentaje(dia.porcentaje_retencion)}</strong>
+        <p>{dia.asistieron} ingresaron · {dia.nunca} no ingresaron</p><small>Roster medible: {dia.poblacion}</small>
+      </article>)}</div>
+      {actual.detalle_clases && <div className="class-table-wrap"><table className="class-table">
+        <thead><tr><th>Clase</th><th>Fecha</th><th>Roster</th><th>Ingresaron</th><th>%</th></tr></thead>
+        <tbody>{actual.detalle_clases.map((clase) => <tr key={`${clase.fecha}-${clase.slot_id}`}>
+          <td>{clase.slot_id}</td><td>{clase.fecha}</td><td>{clase.poblacion}</td><td>{clase.asistieron}</td>
+          <td>{porcentaje(clase.porcentaje_retencion)}</td>
+        </tr>)}</tbody>
+      </table></div>}
+    </section>}
+
+    <details className="panel definitions" id="definiciones"><summary>Cómo se calculan estas cifras</summary>
+      <p><b>Ingresaron:</b> personas del roster medible con al menos una entrada identificada en la semana.</p>
+      <p><b>No ingresaron:</b> personas medibles sin ninguna entrada identificada; no incluye clases pendientes ni sin dato.</p>
+      <p><b>Mínimo:</b> la semana tuvo clases sin captura (sobre todo de la cuenta soporte). El % real de ingreso es igual o mayor al mostrado.</p>
+      <p><b>Nunca en el período:</b> personas activas al cierre del período que no aparecen identificadas en ninguna semana mostrada.</p>
+    </details>
   </>;
 }
