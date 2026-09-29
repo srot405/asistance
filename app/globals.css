@@ -817,25 +817,6 @@ select {
 .calendar-day-numero { font-size: 18px; font-weight: 700; }
 .calendar-day-pct { font-size: 11px; font-weight: 600; }
 .calendar-day-pct.calendar-day-sin { font-weight: 400; opacity: 0.7; }
-/* "Presencial" (Samuel, 2026-09-29): franjas entre semana, distintas de las de sábado.
-   Estrella + color propio para reconocerlas de un vistazo, sin quitar el resto de estados.
-   Reforzado el mismo día (corrección de Samuel): el tinte de fondo casi no se notaba en
-   varios navegadores, así que se suma un borde inferior sólido más ancho -- sigue siendo
-   la marca de CLASE individual, secundaria frente a "sin sábado" (marca de SEMANA, abajo). */
-.calendar-day.presencial { border-color: var(--presencial); }
-.calendar-day.presencial.con-datos:not(.activo) { background: var(--presencial-bg); }
-.calendar-day.presencial::after {
-  content: ""; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px;
-  border-radius: 2px; background: var(--presencial); opacity: 0.6;
-}
-.calendar-day.activo.presencial::after { background: #fff; opacity: 0.75; }
-.calendar-day-estrella { position: absolute; top: 4px; right: 6px; font-size: 13px; font-weight: 700; color: var(--presencial); }
-.calendar-day.activo .calendar-day-estrella { color: #fff; }
-.badge-presencial {
-  display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 9px;
-  border-radius: 999px; font-size: 12px; font-weight: 600;
-  background: var(--presencial-bg); color: var(--presencial);
-}
 
 /* "Semana sin sábado" (Samuel, 2026-09-29, corrección del pedido anterior): marca de
    SEMANA completa, no de clase suelta -- ver lib/franjaTipo.mjs::semanaSinSabado. Mismos
