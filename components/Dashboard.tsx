@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { HistoricoData } from "../lib/types";
 import CalendarioSemana from "./CalendarioSemana";
 import Encabezado from "./Encabezado";
+import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
 import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "Historial"] as const;
+const PESTANAS = ["Semana", "Presencia", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -104,10 +105,12 @@ export default function Dashboard() {
           onClick={() => setPestana(nombre)}>{nombre}</button>)}
       </div>
 
-      {pestana === "Semana" ? <>
+      {pestana === "Semana" && <>
         <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} />
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} />
-      </> : <TendenciaHistorica resultados={data.resultados} />}
+      </>}
+      {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {pestana === "Historial" && <TendenciaHistorica resultados={data.resultados} />}
     </main>
   </div>;
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { HISTORICO_DEMO, SOLO_SEMANAL_UX } from "../lib/historico-demo.mjs";
 
-assert.ok(HISTORICO_DEMO.resultados.length >= 8, "tendencia de ocho semanas o más");
+assert.equal(HISTORICO_DEMO.resultados.length, 6, "6 semanas tras quitar HTML/CSS (2026-09-29)");
 assert.equal(HISTORICO_DEMO.resultados.filter((fila) => fila.nivel === "Detalle").length, 2);
 for (const fila of HISTORICO_DEMO.resultados) {
   if (fila.nivel === "Detalle") assert.ok(fila.detalle_dias?.length, `${fila.semana}: detalle diario`);
@@ -22,4 +22,4 @@ for (const key of ["nombre", "persona_id", "correo", "cedula", "participantes"])
   assert.equal(serialized.includes(`\"${key}\"`), false, `demo histórico sin ${key}`);
 const component = await readFile(new URL("../components/ResumenSemanaVisual.tsx", import.meta.url), "utf8");
 assert.doesNotMatch(component, /participant-tile|participant-name|\.nombre\b/);
-console.log("RESUMEN: historico=11 filas detalle=2 tendencia>=8 cuadre=exacto nominal=ausente estado=verde");
+console.log("RESUMEN: historico=6 filas detalle=2 cuadre=exacto nominal=ausente estado=verde");

@@ -169,6 +169,11 @@ export type FranjaInfo = {
   fecha: string;
   cuenta_zoom: string;
   horario_texto: string;
+  // Hora entera del día en COT (asist_franjas.hora_inicio/hora_fin, smallint).
+  // Solo se usan para la pestaña Presencia (TOC-91, ver lib/horarioFranja.mjs);
+  // el resto de vistas del calendario no los necesita.
+  hora_inicio?: number;
+  hora_fin?: number;
 };
 // Cifra agregada (sin PII) para un recorte (semana completa o una clase/día).
 export type ResumenFiltrado = {
@@ -196,4 +201,31 @@ export type AusenteNominal = {
   ciudad: string;
   slot_id: string;
   fecha: string;
+};
+
+// ── Pestaña "Presencia" (TOC-91, 2026-09-29): Presente/Entró y salió/Nunca
+// entró, mismo vocabulario que el reporte en vivo por correo. Solo existe para
+// semanas nivel "Detalle" — ver lib/servidor/leerPresenciaClase.ts.
+export type EstadoPresencia = "presente" | "entro_y_salio" | "nunca_entro";
+export type ConteosPresencia = Record<EstadoPresencia, number>;
+export type PresenciaClaseResponse = {
+  semana: string;
+  slot_id: string;
+  fecha: string;
+  horario_texto: string;
+  medible: number;
+  conteos: ConteosPresencia;
+  // Personas que sí ingresaron (asist_entradas) pero sin evento crudo
+  // joined/left localizable en zoom_live_log dentro de la franja: se cuentan
+  // como "entro_y_salio" (conservador: sabemos que entraron, no cuánto se
+  // quedaron) y se avisan aparte para no esconder el hueco de datos.
+  sin_evidencia: number;
+};
+// Fila nominal con la clasificación de presencia (PII): mismo criterio que
+// AusenteNominal, solo sale por el CSV autenticado de /api/exportar-nominal.
+export type PresenciaNominal = {
+  nombre: string;
+  ciudad: string;
+  estado: EstadoPresencia;
+  minutos: number | null;
 };

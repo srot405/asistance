@@ -737,6 +737,27 @@ select {
 .trend-in { background: linear-gradient(90deg, #2e9e5b, #79bd72); }
 .trend-out { background: linear-gradient(90deg, #f2a05b, #d96b3b); }
 .trend-no-data { grid-column: 1 / -1; color: var(--muted); font-size: 12px; border-bottom: 2px dotted var(--line); padding-bottom: 4px; }
+
+/* ── Gráfico de tendencia (TOC-91, 2026-09-29): SVG propio, ver TendenciaGrafico.tsx ── */
+.trend-chart { margin-bottom: 18px; }
+.trend-chart-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 4px 0; }
+.trend-chart-svg { display: block; }
+.trend-chart-grid { stroke: var(--line); stroke-width: 1; }
+.trend-chart-eje-y, .trend-chart-eje-x { font-size: 9.5px; fill: var(--muted); font-family: inherit; }
+.trend-chart-eje-x { font-size: 10px; }
+.trend-chart-linea-in { fill: none; stroke: var(--green); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.trend-chart-linea-out { fill: none; stroke: var(--orange); stroke-width: 1.6; stroke-dasharray: 5 4; stroke-linejoin: round; stroke-linecap: round; opacity: .85; }
+.trend-chart-sin-dato { font-size: 13px; fill: var(--muted); font-weight: 700; }
+.trend-chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--muted); align-items: center; }
+.trend-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.trend-chart-muestra-detalle, .trend-chart-muestra-semanal, .trend-chart-muestra-minimo { display: inline-block; width: 10px; height: 10px; }
+.trend-chart-muestra-detalle { border-radius: 50%; background: var(--muted); }
+.trend-chart-muestra-semanal { background: var(--muted); }
+.trend-chart-muestra-minimo { border-radius: 50%; border: 1.4px dashed var(--muted); background: transparent; }
+.trend-chart-sin-dato-leyenda { font-weight: 600; }
+@media (max-width: 720px) {
+  .trend-chart-legend { gap: 10px; font-size: 11px; }
+}
 .day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .day-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .day-card h3 { margin: 0 0 12px; font-size: 14px; text-transform: capitalize; }
@@ -804,4 +825,23 @@ select {
 @media (max-width: 720px) {
   .calendar-layout { grid-template-columns: 1fr; }
   .calendar-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ── Pestaña Presencia por clase (TOC-91, 2026-09-29) ──────────────────────
+   Presente/Entró y salió/Nunca entró, mismos emojis y colores semánticos que
+   la leyenda del reporte en vivo (--green/--orange/--red, no se tocan). */
+.presencia-selector { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); max-width: 340px; margin-bottom: 16px; }
+.presencia-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 10px; }
+.presencia-card { border-radius: 16px; padding: 20px; border: 1px solid var(--line); box-shadow: var(--glass-shadow); display: grid; gap: 4px; }
+.presencia-card span { font-weight: 600; font-size: 13px; }
+.presencia-card strong { font-size: clamp(30px, 5vw, 46px); line-height: 1; }
+.presencia-card small { opacity: .78; }
+.presencia-card.presente { background: linear-gradient(145deg, #e4f6e9, #f8fcf9); color: #145f31; }
+.presencia-card.entro-salio { background: linear-gradient(145deg, #fff2e1, #fffaf5); color: #8a4a10; }
+.presencia-card.nunca-entro { background: linear-gradient(145deg, #fbe6e6, #fdf7f7); color: #8c2222; }
+.dark .presencia-card.presente { background: #173c29; color: #c6f1d3; }
+.dark .presencia-card.entro-salio { background: #4e3413; color: #ffdfab; }
+.dark .presencia-card.nunca-entro { background: #4a1f1f; color: #ffc9c9; }
+@media (max-width: 720px) {
+  .presencia-grid { grid-template-columns: 1fr; }
 }

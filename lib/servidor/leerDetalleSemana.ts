@@ -16,8 +16,11 @@ async function tabla<T>(nombre: string, columnas: string, semana: string): Promi
 
 async function cargarBaseSupabase(semana: string) {
   const [roster, franjas, sesiones, entradas, celdas] = await Promise.all([
-    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id", semana),
-    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana),
+    // correo_norm: solo lo usa la pestaña Presencia (TOC-91, leerPresenciaClase.ts),
+    // el resto de este módulo lo ignora.
+    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id,correo_norm", semana),
+    // hora_inicio/hora_fin: idem, solo Presencia (lib/horarioFranja.mjs).
+    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto,hora_inicio,hora_fin", semana),
     tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha,entradas_totales", semana),
     tabla<EntradaRow>("asist_entradas", "persona_id,sesion_id", semana),
     tabla<CeldaRow>("asist_celda_semana", "persona_id,estado", semana),
@@ -31,7 +34,10 @@ function cargarBaseDemo(semana: string) {
   return construirBase(fixture.roster, fixture.franjas, fixture.sesiones, fixture.entradas, fixture.celdas);
 }
 
-async function cargarBase(semana: string) {
+// Exportada (TOC-91): leerPresenciaClase.ts reusa la MISMA carga de base
+// (roster/franjas/sesiones/entradas/celdas + demo vs. real) en vez de
+// reimplementarla — solo agrega la clasificación de presencia encima.
+export async function cargarBase(semana: string) {
   return MODO_DEMO ? cargarBaseDemo(semana) : cargarBaseSupabase(semana);
 }
 

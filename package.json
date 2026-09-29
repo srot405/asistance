@@ -22,7 +22,14 @@
     "test:detalle-calculo": "node scripts/test-detalle-calculo.mjs",
     "test:detalle-demo": "node scripts/test-detalle-demo.mjs",
     "test:detalle-route": "node scripts/test-detalle-route.mjs",
-    "test:exportar-nominal-route": "node scripts/test-exportar-nominal-route.mjs"
+    "test:exportar-nominal-route": "node scripts/test-exportar-nominal-route.mjs",
+    "test:horario-franja": "node scripts/test-horario-franja.mjs",
+    "test:estado-presencia": "node scripts/test-estado-presencia.mjs",
+    "test:estado-presencia-contrato": "node scripts/test-estado-presencia-contrato.mjs",
+    "test:presencia-demo": "node scripts/test-presencia-demo.mjs",
+    "test:presencia-route": "node scripts/test-presencia-route.mjs",
+    "test:presencia-clase": "node scripts/test-presencia-clase.mjs",
+    "test:tendencia-grafico": "node scripts/test-tendencia-grafico.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.0",

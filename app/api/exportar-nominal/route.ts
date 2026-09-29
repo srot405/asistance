@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
-import { construirCsvNominal } from "../../../lib/exportarNominal.mjs";
+import { construirCsvNominal, construirCsvPresencia } from "../../../lib/exportarNominal.mjs";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
 import { listarAusentesNominal, SEMANAS_DETALLE } from "../../../lib/servidor/leerDetalleSemana";
+import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
 
@@ -10,9 +11,14 @@ const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/cs
 // que /api/exportar. En MODO_DEMO usa nombres 100% sintéticos ("Persona Demo NN",
 // ver lib/detalle-demo.mjs) — jamás datos reales, y esta ruta jamás toca
 // producción cuando MODO_DEMO está activo (ver leerDetalleSemana.ts).
+//
+// `vista=presencia` (TOC-91, 2026-09-29): mismo CSV nominal, reusado en vez de
+// crear una ruta aparte — Presente/Entró y salió/Nunca entró de UNA franja,
+// con nombre; el resto de parámetros (alcance/ciudad/cuenta) no aplican ahí.
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const semana = q.get("semana") ?? "";
+  const vista = q.get("vista") === "presencia" ? "presencia" : "ausentes";
   const alcance = q.get("alcance") ?? "semana";
   const fecha = q.get("fecha") || undefined;
   const demoAllowed = MODO_DEMO && q.get("demo") === "1";
@@ -25,6 +31,22 @@ export async function GET(request: Request) {
   if (!SEMANAS_DETALLE.has(semana))
     return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
       { status: 400, headers });
+
+  if (vista === "presencia") {
+    const franja = q.get("franja") ?? "";
+    if (!franja) return NextResponse.json({ error: "Falta la franja (clase)" }, { status: 400, headers });
+    try {
+      const filas = await listarPresenciaNominal(semana, franja);
+      const csv = construirCsvPresencia(filas);
+      const nombre = `asistencia_${semana}_${franja}_${csv.archivo}.csv`;
+      return new NextResponse(csv.contenido, { headers: {
+        ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,
+      } });
+    } catch {
+      return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+    }
+  }
+
   if (alcance !== "semana" && alcance !== "dia")
     return NextResponse.json({ error: "Alcance inválido" }, { status: 400, headers });
   if (alcance === "dia" && !fecha)
