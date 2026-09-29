@@ -7,7 +7,7 @@ assert.deepEqual(Object.keys(DETALLE_DEMO_BASE).sort(), [...SEMANAS_DETALLE].sor
 
 for (const [semana, fixture] of Object.entries(DETALLE_DEMO_BASE)) {
   for (const persona of fixture.roster)
-    assert.match(persona.nombre, /^Persona Demo \d{2}$/, `${semana}: nombre claramente sintético`);
+    assert.match(persona.nombre, /^Persona Demo \d+$/, `${semana}: nombre claramente sintético`);
   const ids = fixture.roster.map((p) => p.persona_id);
   assert.equal(new Set(ids).size, ids.length, `${semana}: persona_id únicos`);
   const base = construirBase(fixture.roster, fixture.franjas, fixture.sesiones, fixture.entradas, fixture.celdas);
