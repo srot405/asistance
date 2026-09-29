@@ -8,6 +8,7 @@ import ResumenSemanaVisual from "./ResumenSemanaVisual";
 import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
 const PESTANAS = ["Semana", "Presencia", "Historial"] as const;
@@ -63,6 +64,11 @@ export default function Dashboard() {
 
   const actual = useMemo(() => data?.resultados.find((fila) =>
     clave(fila.semana, fila.materia) === seleccion) ?? null, [data, seleccion]);
+  // Marca de semana "sin sábado" (TOC-91, 2026-09-29): se calcula una sola vez aquí a
+  // partir de `data.resultados` y se reutiliza tanto en el selector como en el hero de
+  // ResumenSemanaVisual, para no repetir la comparación entre semanas hermanas.
+  const actualSinSabado = useMemo(() => actual ? semanaSinSabado(actual, data?.resultados ?? []) : false,
+    [actual, data]);
 
   async function exportar() {
     if (!actual) return;
@@ -90,10 +96,14 @@ export default function Dashboard() {
       <section className="historical-toolbar" aria-label="Controles del histórico">
         <label>Semana y materia <select className="control" value={seleccion}
           onChange={(event) => setSeleccion(event.target.value)}>
-          {[...data.resultados].reverse().map((fila) => <option
-            key={clave(fila.semana, fila.materia)} value={clave(fila.semana, fila.materia)}>
-            {fila.semana} · {fila.materia} · {fila.nivel}
-          </option>)}
+          {[...data.resultados].reverse().map((fila) => {
+            const sinSabado = semanaSinSabado(fila, data.resultados);
+            return <option key={clave(fila.semana, fila.materia)} value={clave(fila.semana, fila.materia)}
+              className={sinSabado ? "option-sin-sabado" : undefined}>
+              {fila.semana} · {fila.materia} · {fila.nivel}
+              {sinSabado ? ` · ${ICONO_SIN_SABADO} ${ETIQUETA_SIN_SABADO}` : ""}
+            </option>;
+          })}
         </select></label>
         <button className="control" onClick={exportar}>Exportar resumen CSV</button>
       </section>
@@ -106,7 +116,7 @@ export default function Dashboard() {
       </div>
 
       {pestana === "Semana" && <>
-        <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} />
+        <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} sinSabado={actualSinSabado} />
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} />
       </>}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}

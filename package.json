@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:acceso": "node scripts/test-acceso.mjs",
+    "test:franja-tipo": "node scripts/test-franja-tipo.mjs",
     "test:demo": "node scripts/test-demo.mjs",
     "test:bloqueo": "node scripts/test-bloqueo-demo.mjs",
     "test-sin-fijos": "node scripts/test-sin-fijos.mjs",

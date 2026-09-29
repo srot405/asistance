@@ -1,4 +1,5 @@
 import type { ResumenHistorico } from "../lib/types";
+import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 
 const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
 const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
@@ -15,13 +16,21 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
 // nunca mezclada con otras. La comparación entre semanas vive en la pestaña
 // "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
 // listado estático de antes a components/CalendarioSemana.tsx (interactivo).
-export default function ResumenSemanaVisual({ actual, nuncaPeriodo }: {
+export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado }: {
   actual: ResumenHistorico;
   nuncaPeriodo: number | null;
+  // TOC-91, 2026-09-29 (pedido de Samuel): esta semana el sábado no tuvo clase
+  // regular (ver lib/franjaTipo.mjs::semanaSinSabado). Se calcula una sola vez en
+  // Dashboard.tsx y se pasa aquí para no repetir la comparación entre semanas.
+  sinSabado: boolean;
 }) {
   return <>
     <section className="historical-hero">
-      <div><p className="eyebrow">Semana del {actual.semana} · {actual.materia}</p>
+      <div><p className="eyebrow">Semana del {actual.semana} · {actual.materia}
+          {sinSabado && <span className="badge-sin-sabado" title="Las franjas de sábado de esta semana no tuvieron clase regular.">
+            {ICONO_SIN_SABADO} Semana {ETIQUETA_SIN_SABADO}
+          </span>}
+        </p>
         <h1>Ingresos a clases virtuales</h1>
         <p className="hero-copy">Una lectura ejecutiva del alcance semanal, con el nivel de evidencia visible.</p>
       </div>

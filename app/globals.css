@@ -102,6 +102,9 @@ select {
   text-transform: uppercase;
   opacity: 0.72;
 }
+/* El badge "sin sábado" vive dentro de .eyebrow (ver ResumenSemanaVisual) pero no debe
+   heredar su opacidad ni mayúsculas -- necesita quedar sólido y legible tal cual. */
+.eyebrow .badge-sin-sabado { opacity: 1; text-transform: none; letter-spacing: normal; font-size: 12px; }
 .title {
   margin: 2px 0 0;
   font-size: clamp(20px, 3vw, 28px);
@@ -815,16 +818,41 @@ select {
 .calendar-day-pct { font-size: 11px; font-weight: 600; }
 .calendar-day-pct.calendar-day-sin { font-weight: 400; opacity: 0.7; }
 /* "Presencial" (Samuel, 2026-09-29): franjas entre semana, distintas de las de sábado.
-   Estrella + color propio para reconocerlas de un vistazo, sin quitar el resto de estados. */
+   Estrella + color propio para reconocerlas de un vistazo, sin quitar el resto de estados.
+   Reforzado el mismo día (corrección de Samuel): el tinte de fondo casi no se notaba en
+   varios navegadores, así que se suma un borde inferior sólido más ancho -- sigue siendo
+   la marca de CLASE individual, secundaria frente a "sin sábado" (marca de SEMANA, abajo). */
 .calendar-day.presencial { border-color: var(--presencial); }
 .calendar-day.presencial.con-datos:not(.activo) { background: var(--presencial-bg); }
-.calendar-day-estrella { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--presencial); }
+.calendar-day.presencial::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px;
+  border-radius: 2px; background: var(--presencial); opacity: 0.6;
+}
+.calendar-day.activo.presencial::after { background: #fff; opacity: 0.75; }
+.calendar-day-estrella { position: absolute; top: 4px; right: 6px; font-size: 13px; font-weight: 700; color: var(--presencial); }
 .calendar-day.activo .calendar-day-estrella { color: #fff; }
 .badge-presencial {
   display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 9px;
   border-radius: 999px; font-size: 12px; font-weight: 600;
   background: var(--presencial-bg); color: var(--presencial);
 }
+
+/* "Semana sin sábado" (Samuel, 2026-09-29, corrección del pedido anterior): marca de
+   SEMANA completa, no de clase suelta -- ver lib/franjaTipo.mjs::semanaSinSabado. Mismos
+   tokens --presencial/--presencial-bg que la marca de clase de arriba (misma familia
+   violeta, "coherente con lo demás" pedido por Samuel) pero con relleno SÓLIDO en vez de
+   un tinte apenas visible: el pedido explícito de hoy fue que quedara "más evidente" que
+   el primer intento, y este nivel es de semana (más alto que el de clase individual). */
+.badge-sin-sabado {
+  display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 3px 11px;
+  border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: var(--presencial); color: #fff; vertical-align: middle;
+}
+.trend-label-badges { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Marcador en el <select> nativo: mejor esfuerzo (el soporte de estilo de <option> es
+   inconsistente entre navegadores), la marca REAL y garantizada es el texto " · ◆ sin
+   sábado" que ya se agrega a la etiqueta de la opción en Dashboard.tsx. */
+.option-sin-sabado { color: var(--presencial); font-weight: 700; }
 .calendar-detail {
   background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
   display: grid; gap: 6px; align-content: start; min-height: 160px;

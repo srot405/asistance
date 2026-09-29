@@ -1,4 +1,5 @@
 import type { ResumenHistorico } from "../lib/types";
+import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 import TendenciaGrafico from "./TendenciaGrafico";
 
 const porcentaje = (valor: number | null) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -20,7 +21,13 @@ export default function TendenciaHistorica({ resultados }: { resultados: Resumen
     <TendenciaGrafico resultados={resultados} />
     <div className="trend-legend" aria-label="Series de la tendencia"><span><i className="in" />Ingresaron</span><span><i className="out" />No ingresaron</span></div>
     <div className="trend-list">{resultados.map((fila) => <article className="trend-row" key={`${fila.semana}-${fila.materia}`}>
-      <div className="trend-label"><b>{fila.semana}</b><span>{fila.materia}</span><Nivel nivel={fila.nivel} /></div>
+      <div className="trend-label"><b>{fila.semana}</b><span>{fila.materia}</span>
+        <span className="trend-label-badges"><Nivel nivel={fila.nivel} />
+          {semanaSinSabado(fila, resultados) && <span className="badge-sin-sabado"
+            title="Las franjas de sábado de esta semana no tuvieron clase regular.">
+            {ICONO_SIN_SABADO} {ETIQUETA_SIN_SABADO}</span>}
+        </span>
+      </div>
       <div className="trend-bars" aria-label={`${fila.semana}: ${porcentaje(fila.porcentaje_retencion)} ingresaron`}>
         {fila.porcentaje_retencion == null ? <div className="trend-no-data">Dato no comparable</div> : <>
           <div className="trend-track" title={`Ingresaron ${porcentaje(fila.porcentaje_retencion)} · No ingresaron ${porcentaje(fila.porcentaje_nunca)}`}>
