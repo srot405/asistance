@@ -1,11 +1,16 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import type { HistoricoData } from "../lib/types";
+import CalendarioSemana from "./CalendarioSemana";
 import Encabezado from "./Encabezado";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
+import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
+import { descargarCsv } from "../lib/descargas";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
+const PESTANAS = ["Semana", "Historial"] as const;
+type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
   const [dark, setDark] = useState(false);
@@ -14,6 +19,7 @@ export default function Dashboard() {
   const [modo, setModo] = useState<"cargando" | "demo" | "real" | "login" | "error">("cargando");
   const [fallo, setFallo] = useState("");
   const [falloExport, setFalloExport] = useState("");
+  const [pestana, setPestana] = useState<Pestana>("Semana");
 
   useEffect(() => {
     let cancelado = false;
@@ -61,32 +67,9 @@ export default function Dashboard() {
     if (!actual) return;
     setFalloExport("");
     const query = new URLSearchParams({ semana: actual.semana, materia: actual.materia, vista: "Resumen" });
-    const headers: Record<string, string> = {};
-    if (modo === "demo") query.set("demo", "1");
-    else {
-      const sesion = await sesionActual();
-      if (!sesion?.access_token) {
-        setFalloExport("Tu sesión expiró. Vuelve a iniciar sesión para descargar el CSV.");
-        return;
-      }
-      headers.Authorization = `Bearer ${sesion.access_token}`;
-    }
-    try {
-      const response = await fetch(`/api/exportar?${query}`, { headers, cache: "no-store" });
-      if (response.status === 401) {
-        setFalloExport("Tu sesión expiró. Vuelve a iniciar sesión para descargar el CSV.");
-        return;
-      }
-      if (!response.ok) throw new Error();
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `asistencia_${actual.semana}_resumen.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setFalloExport("No se pudo descargar el resumen. Revisa tu conexión e inténtalo de nuevo.");
-    }
+    const url = new URL(`/api/exportar?${query}`, window.location.origin);
+    const error = await descargarCsv(url, modo === "demo" ? "demo" : "real", `asistencia_${actual.semana}_resumen.csv`);
+    if (error) setFalloExport(error);
   }
 
   if (modo === "login") return <main className="main"><div className="empty">
@@ -114,8 +97,17 @@ export default function Dashboard() {
         <button className="control" onClick={exportar}>Exportar resumen CSV</button>
       </section>
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
-      <ResumenSemanaVisual actual={actual} resultados={data.resultados}
-        nuncaPeriodo={data.nunca_periodo} />
+
+      <div className="tabs" role="tablist" aria-label="Vistas del panel">
+        {PESTANAS.map((nombre) => <button key={nombre} type="button" role="tab"
+          aria-selected={pestana === nombre} className={`tab${pestana === nombre ? " active" : ""}`}
+          onClick={() => setPestana(nombre)}>{nombre}</button>)}
+      </div>
+
+      {pestana === "Semana" ? <>
+        <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} />
+        <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} />
+      </> : <TendenciaHistorica resultados={data.resultados} />}
     </main>
   </div>;
 }

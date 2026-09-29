@@ -14,7 +14,15 @@
     "test-capturas": "node scripts/capturas.mjs",
     "test:sin-fijos": "node scripts/test-sin-fijos.mjs",
     "test:conteos": "node scripts/test-conteos.mjs",
-    "test:capturas": "node scripts/capturas.mjs"
+    "test:capturas": "node scripts/capturas.mjs",
+    "test:historico": "node scripts/test-historico.mjs",
+    "test:datos-route": "node scripts/test-datos-route.mjs",
+    "test:exportar": "node scripts/test-exportar.mjs",
+    "test:exportar-route": "node scripts/test-exportar-route.mjs",
+    "test:detalle-calculo": "node scripts/test-detalle-calculo.mjs",
+    "test:detalle-demo": "node scripts/test-detalle-demo.mjs",
+    "test:detalle-route": "node scripts/test-detalle-route.mjs",
+    "test:exportar-nominal-route": "node scripts/test-exportar-nominal-route.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.0",

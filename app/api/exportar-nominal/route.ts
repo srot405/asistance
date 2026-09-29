@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { MODO_DEMO } from "../../../lib/demo.js";
+import { construirCsvNominal } from "../../../lib/exportarNominal.mjs";
+import { exigirAcceso } from "../../../lib/servidor/acceso";
+import { listarAusentesNominal, SEMANAS_DETALLE } from "../../../lib/servidor/leerDetalleSemana";
+
+const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
+
+// CSV con nombre: SIEMPRE detrás de exigirAcceso (Bearer @tocaunavida.org), igual
+// que /api/exportar. En MODO_DEMO usa nombres 100% sintéticos ("Persona Demo NN",
+// ver lib/detalle-demo.mjs) — jamás datos reales, y esta ruta jamás toca
+// producción cuando MODO_DEMO está activo (ver leerDetalleSemana.ts).
+export async function GET(request: Request) {
+  const q = new URL(request.url).searchParams;
+  const semana = q.get("semana") ?? "";
+  const alcance = q.get("alcance") ?? "semana";
+  const fecha = q.get("fecha") || undefined;
+  const demoAllowed = MODO_DEMO && q.get("demo") === "1";
+  if (!demoAllowed) {
+    const access = await exigirAcceso(request);
+    if (access instanceof NextResponse) return access;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
+    return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
+  if (!SEMANAS_DETALLE.has(semana))
+    return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
+      { status: 400, headers });
+  if (alcance !== "semana" && alcance !== "dia")
+    return NextResponse.json({ error: "Alcance inválido" }, { status: 400, headers });
+  if (alcance === "dia" && !fecha)
+    return NextResponse.json({ error: "Falta la fecha del día" }, { status: 400, headers });
+  const filtro = {
+    ciudad: q.get("ciudad") || undefined,
+    franja: q.get("franja") || undefined,
+    cuenta: q.get("cuenta") || undefined,
+    fecha: alcance === "dia" ? fecha : undefined,
+  };
+  try {
+    const filas = await listarAusentesNominal(semana, filtro);
+    const csv = construirCsvNominal(filas, alcance);
+    const nombre = `asistencia_${semana}_${csv.archivo}.csv`;
+    return new NextResponse(csv.contenido, { headers: {
+      ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,
+    } });
+  } catch {
+    return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+  }
+}

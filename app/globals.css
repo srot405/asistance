@@ -149,6 +149,14 @@ select {
   transform: translateY(-1px);
   box-shadow: 0 6px 14px -8px rgba(22, 40, 61, 0.35);
 }
+.control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.control:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
 .tabs {
   border-bottom: 1px solid var(--line);
   margin-bottom: 20px;
@@ -762,3 +770,38 @@ select {
 }
 
 .trend-minimo { grid-column: 2; margin-top: -6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+/* ── Calendario de la semana + filtros + CSV nominal (TOC-91, 2026-09-29) ────
+   Vista "Semana": solo aparece la semana elegida. El nominal (con nombre) nunca
+   se pinta en pantalla -- sale solo como archivo descargado. */
+.calendar-layout { display: grid; grid-template-columns: 1fr minmax(240px, 320px); gap: 18px; align-items: start; margin-bottom: 18px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.calendar-day {
+  display: grid; gap: 3px; justify-items: center; padding: 12px 6px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.calendar-day.con-datos:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(22, 40, 61, 0.4); }
+.calendar-day.sin-datos { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; opacity: 0.65; }
+.calendar-day.con-datos { border-color: var(--brand); }
+.calendar-day.activo { background: linear-gradient(135deg, var(--hero-2), var(--hero-3) 60%, var(--hero-4)); color: #fff; border-color: transparent; }
+.calendar-day-nombre { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; }
+.calendar-day-numero { font-size: 18px; font-weight: 700; }
+.calendar-day-pct { font-size: 11px; font-weight: 600; }
+.calendar-day-pct.calendar-day-sin { font-weight: 400; opacity: 0.7; }
+.calendar-detail {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  display: grid; gap: 6px; align-content: start; min-height: 160px;
+}
+.calendar-detail h3 { margin: 0; font-size: 14px; text-transform: capitalize; }
+.calendar-detail strong { font-size: 26px; color: var(--green); }
+.calendar-detail .control { justify-self: start; margin-top: 6px; }
+.calendar-clases { margin-top: 4px; overflow-x: auto; }
+.calendar-filters { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 14px; }
+.calendar-filters label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.calendar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.calendar-actions .status { flex-basis: 100%; margin: 6px 0 0; }
+@media (max-width: 720px) {
+  .calendar-layout { grid-template-columns: 1fr; }
+  .calendar-grid { grid-template-columns: repeat(4, 1fr); }
+}

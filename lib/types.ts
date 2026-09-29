@@ -155,3 +155,45 @@ export type HistoricoData = {
   resultados: ResumenHistorico[];
   nunca_periodo: number | null;
 };
+
+// ── Calendario / detalle por día filtrado (TOC-91, 2026-09-29) ──────────────
+// Solo existe para semanas nivel "Detalle" (roster congelado real: asist_roster
+// con columna ciudad). Ver lib/servidor/leerDetalleSemana.ts.
+export type FiltroDetalle = {
+  ciudad?: string;
+  franja?: string;
+  cuenta?: string;
+};
+export type FranjaInfo = {
+  slot_id: string;
+  fecha: string;
+  cuenta_zoom: string;
+  horario_texto: string;
+};
+// Cifra agregada (sin PII) para un recorte (semana completa o una clase/día).
+export type ResumenFiltrado = {
+  poblacion: number;
+  asistieron: number;
+  nunca: number;
+  porcentaje_retencion: number | null;
+  porcentaje_nunca: number | null;
+};
+export type DetalleSemanaResponse = {
+  semana: string;
+  nivel: "Detalle";
+  ciudades: string[];
+  franjas: FranjaInfo[];
+  cuentas: string[];
+  filtro: FiltroDetalle;
+  resumen: ResumenFiltrado;
+  porDia: DetalleHistorico[];
+  porClase: DetalleHistorico[];
+};
+// Fila nominal (PII): solo sale del servidor dentro de un CSV autenticado, nunca
+// en una respuesta JSON renderizada en pantalla.
+export type AusenteNominal = {
+  nombre: string;
+  ciudad: string;
+  slot_id: string;
+  fecha: string;
+};

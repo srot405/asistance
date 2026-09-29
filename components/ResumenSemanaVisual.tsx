@@ -1,9 +1,6 @@
 import type { ResumenHistorico } from "../lib/types";
 
 const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
-const fechaLarga = (fecha: string) => new Intl.DateTimeFormat("es-CO", {
-  weekday: "long", day: "numeric", month: "short", timeZone: "UTC",
-}).format(new Date(`${fecha}T12:00:00Z`));
 const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
 // Con clases sin captura, "ingresaron" solo puede subir: la cifra es un piso, no el valor real.
 const esMinimo = (fila: ResumenHistorico) => fila.nivel !== "Sin dato" && !fila.captura_completa;
@@ -14,9 +11,12 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
   return <span className={`level-badge ${clase}`}>{nivel}</span>;
 }
 
-export default function ResumenSemanaVisual({ actual, resultados, nuncaPeriodo }: {
+// Vista "Semana" (TOC-91, 2026-09-29): solo la semana elegida en el selector,
+// nunca mezclada con otras. La comparación entre semanas vive en la pestaña
+// "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
+// listado estático de antes a components/CalendarioSemana.tsx (interactivo).
+export default function ResumenSemanaVisual({ actual, nuncaPeriodo }: {
   actual: ResumenHistorico;
-  resultados: ResumenHistorico[];
   nuncaPeriodo: number | null;
 }) {
   return <>
@@ -54,40 +54,6 @@ export default function ResumenSemanaVisual({ actual, resultados, nuncaPeriodo }
       <p className="coverage-line">Captura: <b>{actual.clases_capturadas}</b> de <b>{actual.clases_programadas ?? "?"}</b> clases
         {actual.porcentaje_cobertura != null && <> · {porcentaje(actual.porcentaje_cobertura)}</>}</p>
     </section>
-
-    <section className="panel trend-panel">
-      <div className="section-heading"><div><h2>Tendencia semanal</h2><p>Cada semana muestra qué tan sólido es el dato.</p></div></div>
-      <div className="trend-legend" aria-label="Series de la tendencia"><span><i className="in" />Ingresaron</span><span><i className="out" />No ingresaron</span></div>
-      <div className="trend-list">{resultados.map((fila) => <article className="trend-row" key={`${fila.semana}-${fila.materia}`}>
-        <div className="trend-label"><b>{fila.semana}</b><span>{fila.materia}</span><Nivel nivel={fila.nivel} /></div>
-        <div className="trend-bars" aria-label={`${fila.semana}: ${porcentaje(fila.porcentaje_retencion)} ingresaron`}>
-          {fila.porcentaje_retencion == null ? <div className="trend-no-data">Dato no comparable</div> : <>
-            <div className="trend-track" title={`Ingresaron ${porcentaje(fila.porcentaje_retencion)} · No ingresaron ${porcentaje(fila.porcentaje_nunca)}`}>
-              <i className="trend-in" style={{ width: `${fila.porcentaje_retencion}%` }} />
-              <i className="trend-out" style={{ width: `${fila.porcentaje_nunca}%` }} />
-            </div>
-            <b>{porcentaje(fila.porcentaje_retencion)} / {porcentaje(fila.porcentaje_nunca)}</b>
-            {esMinimo(fila) && <small className="trend-minimo" title={`Captura: ${fila.clases_capturadas} de ${fila.clases_programadas ?? "?"} clases`}>
-              mínimo · {fila.clases_programadas == null ? "horario no verificable"
-                : `${fila.clases_capturadas} de ${fila.clases_programadas} clases`}</small>}</>}
-        </div>
-      </article>)}</div>
-    </section>
-
-    {actual.nivel === "Detalle" && actual.detalle_dias && <section className="panel day-detail">
-      <div className="section-heading"><div><h2>Detalle por día</h2><p>Solo aparece cuando existe un roster congelado y trazable.</p></div></div>
-      <div className="day-grid">{actual.detalle_dias.map((dia) => <article className="day-card" key={dia.fecha}>
-        <h3>{fechaLarga(dia.fecha)}</h3><strong>{porcentaje(dia.porcentaje_retencion)}</strong>
-        <p>{dia.asistieron} ingresaron · {dia.nunca} no ingresaron</p><small>Roster medible: {dia.poblacion}</small>
-      </article>)}</div>
-      {actual.detalle_clases && <div className="class-table-wrap"><table className="class-table">
-        <thead><tr><th>Clase</th><th>Fecha</th><th>Roster</th><th>Ingresaron</th><th>%</th></tr></thead>
-        <tbody>{actual.detalle_clases.map((clase) => <tr key={`${clase.fecha}-${clase.slot_id}`}>
-          <td>{clase.slot_id}</td><td>{clase.fecha}</td><td>{clase.poblacion}</td><td>{clase.asistieron}</td>
-          <td>{porcentaje(clase.porcentaje_retencion)}</td>
-        </tr>)}</tbody>
-      </table></div>}
-    </section>}
 
     <details className="panel definitions" id="definiciones"><summary>Cómo se calculan estas cifras</summary>
       <p><b>Ingresaron:</b> personas del roster medible con al menos una entrada identificada en la semana.</p>
