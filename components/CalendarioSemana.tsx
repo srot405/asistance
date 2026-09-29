@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { esFranjaPresencial, ESTRELLA_PRESENCIAL } from "../lib/franjaTipo.mjs";
 import type { DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -127,10 +128,13 @@ export default function CalendarioSemana({ actual, modo }: { actual: ResumenHist
           const dia = porDiaPorFecha.get(fecha);
           const tieneDatos = esDetalle && Boolean(dia);
           const activo = selectedDate === fecha;
+          const presencial = esFranjaPresencial(fecha);
           return <button key={fecha} type="button" disabled={!tieneDatos}
             aria-pressed={activo}
-            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}`}
+            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}${presencial ? " presencial" : ""}`}
+            title={presencial ? "Día entre semana (presencial)" : undefined}
             onClick={() => tieneDatos && setSelectedDate(activo ? null : fecha)}>
+            {presencial && <span className="calendar-day-estrella" aria-hidden="true">{ESTRELLA_PRESENCIAL}</span>}
             <span className="calendar-day-nombre">{fechaCorta(fecha)}</span>
             <span className="calendar-day-numero">{fecha.slice(8, 10)}</span>
             {tieneDatos && dia ? <span className="calendar-day-pct">{porcentaje(dia.porcentaje_retencion)}</span>
@@ -175,7 +179,9 @@ export default function CalendarioSemana({ actual, modo }: { actual: ResumenHist
       <label>Franja <select className="control" disabled={!esDetalle} value={filtro.franja ?? ""}
         onChange={(e) => setFiltro((f) => ({ ...f, franja: e.target.value || undefined }))}>
         <option value="">Todas</option>
-        {(detalle?.franjas ?? []).map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}
+        {(detalle?.franjas ?? []).map((f) => <option key={f.slot_id} value={f.slot_id}>
+          {esFranjaPresencial(f.fecha) ? `${ESTRELLA_PRESENCIAL} ` : ""}{f.horario_texto}
+        </option>)}
       </select></label>
       <label>Cuenta Zoom <select className="control" disabled={!esDetalle} value={filtro.cuenta ?? ""}
         onChange={(e) => setFiltro((f) => ({ ...f, cuenta: e.target.value || undefined }))}>

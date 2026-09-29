@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { esFranjaPresencial, ESTRELLA_PRESENCIAL } from "../lib/franjaTipo.mjs";
 import type { DetalleSemanaResponse, PresenciaClaseResponse, ResumenHistorico } from "../lib/types";
 
 async function headersAuth(modo: "demo" | "real", params: URLSearchParams): Promise<Record<string, string>> {
@@ -101,8 +102,14 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
 
     <label className="presencia-selector">Clase <select className="control" value={franjaId}
       onChange={(e) => setFranjaId(e.target.value)}>
-      {franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}
+      {franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>
+        {esFranjaPresencial(f.fecha) ? `${ESTRELLA_PRESENCIAL} ` : ""}{f.horario_texto}
+      </option>)}
     </select></label>
+    {franjaId && esFranjaPresencial(franjas.find((f) => f.slot_id === franjaId)?.fecha ?? "") &&
+      <span className="badge-presencial" title="Clase entre semana: normalmente con menor población que el bloque del sábado">
+        {ESTRELLA_PRESENCIAL} Presencial
+      </span>}
 
     {error && <p className="historical-notice missing-notice" role="alert">{error}</p>}
     {cargando && <p className="nota">Cargando…</p>}
