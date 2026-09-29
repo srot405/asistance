@@ -7,7 +7,7 @@ import { supabaseServidor } from "./supabase";
 const COLUMNAS = [
   "semana", "materia", "nivel", "poblacion", "asistieron", "nunca",
   "porcentaje_retencion", "porcentaje_nunca", "clases_programadas",
-  "clases_capturadas", "porcentaje_cobertura", "captura_completa", "aviso",
+  "clases_capturadas", "porcentaje_cobertura", "captura_completa", "sabado_excluido", "aviso",
   "metodo", "fuentes", "cuadre", "detalle_dias", "detalle_clases",
   "no_identificados", "nunca_periodo", "periodo_desde", "periodo_hasta",
 ].join(",");
