@@ -134,6 +134,11 @@ export type ResumenHistorico = {
   clases_capturadas: number;
   porcentaje_cobertura: number | null;
   captura_completa: boolean;
+  // Opcional: columna nueva (migración 078, aún sin aplicar en producción a esta fecha).
+  // El sábado de esa semana no tuvo clase regular (24-ago, 21-sep), con evidencia real,
+  // nunca por fecha fija -- ver historico_semanal.py::_cobertura(). Ausente = usar el
+  // heurístico de respaldo (lib/franjaTipo.mjs::semanaSinSabado) hasta que se recargue.
+  sabado_excluido?: boolean;
   aviso: string;
   metodo: string;
   fuentes: string[];

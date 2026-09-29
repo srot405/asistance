@@ -84,4 +84,13 @@ const coberturaIncompleta = { semana: "2026-09-21", materia: "Backend", nivel: "
 assert.equal(semanaSinSabado(coberturaIncompleta, [semanaConSabado, coberturaIncompleta], despuesDeCerrar), false,
   "menos días entre semana que la hermana de referencia: cobertura perdida, no se marca");
 
-console.log("RESUMEN: tests=franja-tipo casos=16 estado=verde");
+// sabado_excluido del backend (migración 078, 2026-09-29): si la fila ya lo trae, se usa
+// directo y ya no depende del heurístico -- cubre el caso real que el heurístico NO podía
+// (2026-08-24, nivel "Solo semanal") y también puede desactivar un falso positivo si el
+// backend concluye algo distinto al heurístico local.
+assert.equal(semanaSinSabado({ ...semanaReconstruida, sabado_excluido: true }, [semanaReconstruida], AHORA),
+  true, "el campo del backend cubre Solo semanal, donde el heurístico no tiene señal");
+assert.equal(semanaSinSabado({ ...semanaSinSabadoReal, sabado_excluido: false }, resultadosBackend, AHORA),
+  false, "el campo del backend manda incluso si el heurístico local diría true");
+
+console.log("RESUMEN: tests=franja-tipo casos=18 estado=verde");
