@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import type { DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -34,7 +35,15 @@ const PENDIENTE_NUNCA_PERIODO = "Pendiente: el histórico solo expone el conteo 
 // 2026-09-29). Solo pide /api/detalle y /api/exportar-nominal cuando la semana
 // elegida es nivel "Detalle" (roster congelado real): para el resto, la grilla
 // se muestra completa en gris y el panel lateral cae al agregado de `actual`.
-export default function CalendarioSemana({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
+export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
+  actual: ResumenHistorico; modo: "demo" | "real";
+  // Semana marcada "sin sábado" (mismo dato que ya pinta la insignia ◆ arriba, ver
+  // Dashboard.tsx). Sirve para marcar EN EL CALENDARIO cuál día es el responsable, sin
+  // repetir el error de hoy temprano (una estrella suelta en cualquier clase entre semana,
+  // que Samuel encontró confusa): acá solo se usa sobre la celda del sábado, y solo cuando
+  // esta semana puntual ya está confirmada como "sin sábado".
+  sinSabado?: boolean;
+}) {
   const [filtro, setFiltro] = useState<FiltroDetalle>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<DetalleSemanaResponse | null>(null);
@@ -127,10 +136,16 @@ export default function CalendarioSemana({ actual, modo }: { actual: ResumenHist
           const dia = porDiaPorFecha.get(fecha);
           const tieneDatos = esDetalle && Boolean(dia);
           const activo = selectedDate === fecha;
+          // Solo el sábado, y solo si esta semana ya está confirmada "sin sábado" (nunca
+          // por adivinar el día de la semana solo): marca cuál día es el motivo de la
+          // insignia de arriba, sin tocar el resto de celdas.
+          const esElSabadoResponsable = sinSabado && !esFranjaPresencial(fecha);
           return <button key={fecha} type="button" disabled={!tieneDatos}
             aria-pressed={activo}
-            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}`}
+            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}${esElSabadoResponsable ? " sabado-responsable" : ""}`}
+            title={esElSabadoResponsable ? "Este sábado no tuvo clase regular esta semana" : undefined}
             onClick={() => tieneDatos && setSelectedDate(activo ? null : fecha)}>
+            {esElSabadoResponsable && <span className="calendar-day-estrella" aria-hidden="true">{ICONO_SIN_SABADO}</span>}
             <span className="calendar-day-nombre">{fechaCorta(fecha)}</span>
             <span className="calendar-day-numero">{fecha.slice(8, 10)}</span>
             {tieneDatos && dia ? <span className="calendar-day-pct">{porcentaje(dia.porcentaje_retencion)}</span>

@@ -817,6 +817,11 @@ select {
 .calendar-day-numero { font-size: 18px; font-weight: 700; }
 .calendar-day-pct { font-size: 11px; font-weight: 600; }
 .calendar-day-pct.calendar-day-sin { font-weight: 400; opacity: 0.7; }
+/* Sábado responsable de "semana sin sábado" (Samuel, 2026-09-29): solo esta celda, solo
+   cuando la semana ya está confirmada como tal (icono-sin-sabado.mjs::semanaSinSabado).
+   Mismo ícono ◆ que la insignia de arriba -- misma categoría de aviso, no un marcador nuevo. */
+.calendar-day.sabado-responsable { border-color: var(--presencial); border-style: dashed; }
+.calendar-day-estrella { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--presencial); }
 
 /* "Semana sin sábado" (Samuel, 2026-09-29, corrección del pedido anterior): marca de
    SEMANA completa, no de clase suelta -- ver lib/franjaTipo.mjs::semanaSinSabado. Mismos

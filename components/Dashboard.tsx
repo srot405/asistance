@@ -117,7 +117,7 @@ export default function Dashboard() {
 
       {pestana === "Semana" && <>
         <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} sinSabado={actualSinSabado} />
-        <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} />
+        <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Historial" && <TendenciaHistorica resultados={data.resultados} />}
