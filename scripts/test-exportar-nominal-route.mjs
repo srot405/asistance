@@ -22,7 +22,7 @@ const require = (name) => {
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => { const token = request.headers.get("authorization");
     return token === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
   if (name.endsWith("/leerDetalleSemana")) return {
-    SEMANAS_DETALLE: new Set(["2026-09-14", "2026-09-21"]),
+    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
     listarAusentesNominal: async (semana, opts) => { llamadas.push({ semana, opts }); return filasFixture; },
   };
   if (name.endsWith("/leerPresenciaClase")) return {

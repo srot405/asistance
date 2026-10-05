@@ -21,6 +21,7 @@
     "test:exportar": "node scripts/test-exportar.mjs",
     "test:exportar-route": "node scripts/test-exportar-route.mjs",
     "test:detalle-calculo": "node scripts/test-detalle-calculo.mjs",
+    "test:semana-detalle": "node scripts/test-semana-detalle.mjs",
     "test:detalle-demo": "node scripts/test-detalle-demo.mjs",
     "test:detalle-route": "node scripts/test-detalle-route.mjs",
     "test:exportar-nominal-route": "node scripts/test-exportar-nominal-route.mjs",

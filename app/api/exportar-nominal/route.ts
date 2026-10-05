@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { construirCsvNominal, construirCsvPresencia } from "../../../lib/exportarNominal.mjs";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { listarAusentesNominal, SEMANAS_DETALLE } from "../../../lib/servidor/leerDetalleSemana";
+import { listarAusentesNominal, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
-  if (!SEMANAS_DETALLE.has(semana))
+  if (!(await semanaTieneDetalle(semana)))
     return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
       { status: 400, headers });
 

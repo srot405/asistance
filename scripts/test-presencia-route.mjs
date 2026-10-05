@@ -21,7 +21,7 @@ const require = (name) => {
     request.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } :
       NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (name.endsWith("/leerPresenciaClase")) return {
-    SEMANAS_DETALLE: new Set(["2026-09-14", "2026-09-21"]),
+    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
     leerPresenciaClase: async (semana, franja) => { lecturas.push({ semana, franja }); return fixture; },
   };
   throw new Error(`Import no previsto: ${name}`);

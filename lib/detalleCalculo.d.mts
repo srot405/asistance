@@ -17,7 +17,6 @@ export type BaseDetalle = {
   entradaFechaPorPersona: Map<string, Set<string>>;
 };
 
-export const SEMANAS_DETALLE: Set<string>;
 export function construirBase(roster: RosterRow[], franjas: FranjaRow[], sesiones: SesionRow[],
   entradas: EntradaRow[], celdas: CeldaRow[]): BaseDetalle;
 export type Poblacion = "medible" | "pendiente" | "sin_dato" | "sin_clase";

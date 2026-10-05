@@ -1,12 +1,21 @@
 import "server-only";
-import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase, SEMANAS_DETALLE } from "../detalleCalculo.mjs";
+import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../detalleCalculo.mjs";
 import type { CeldaRow, EntradaRow, FranjaRow, RosterRow, SesionRow } from "../detalleCalculo.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { AusenteNominal, DetalleSemanaResponse, FiltroDetalle } from "../types";
 import { supabaseServidor } from "./supabase";
 
-export { SEMANAS_DETALLE };
+// Una semana es "Detalle" (roster congelado real) si asist_semana_resumen la marca
+// así. Se consulta en vivo: nada que editar a mano cada semana. NO se deduce de
+// asist_roster porque las semanas "Solo semanal" (ago-sep) también tienen roster.
+export async function semanaTieneDetalle(semana: string): Promise<boolean> {
+  if (MODO_DEMO) return semana in DETALLE_DEMO_BASE;
+  const { data, error } = await supabaseServidor().from("asist_semana_resumen")
+    .select("semana").eq("semana", semana).eq("nivel", "Detalle").limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
 
 async function tabla<T>(nombre: string, columnas: string, semana: string): Promise<T[]> {
   const { data, error } = await supabaseServidor().from(nombre).select(columnas).eq("semana", semana);

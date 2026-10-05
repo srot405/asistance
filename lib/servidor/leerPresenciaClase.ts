@@ -5,10 +5,10 @@ import { eventosDemoParaPersona } from "../eventosPresenciaDemo.mjs";
 import { limitesFranjaMs } from "../horarioFranja.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { ConteosPresencia, EstadoPresencia, PresenciaClaseResponse, PresenciaNominal } from "../types";
-import { cargarBase, SEMANAS_DETALLE } from "./leerDetalleSemana";
+import { cargarBase, semanaTieneDetalle } from "./leerDetalleSemana";
 import { supabaseServidor } from "./supabase";
 
-export { SEMANAS_DETALLE };
+export { semanaTieneDetalle };
 
 // Ventana adicional alrededor de la franja para tolerar quien entra un poco
 // antes o se queda pasado el cierre nominal, sin salirse tanto como para
@@ -48,7 +48,7 @@ async function eventosRealesPorCorreo(inicioMs: number, finMs: number): Promise<
 }
 
 async function clasificarPresenciaFranja(semana: string, slotId: string) {
-  if (!SEMANAS_DETALLE.has(semana)) throw new Error("Esta semana no tiene roster congelado (nivel distinto de Detalle)");
+  if (!(await semanaTieneDetalle(semana))) throw new Error("Esta semana no tiene roster congelado (nivel distinto de Detalle)");
   const base = await cargarBase(semana);
   const franja = base.franjas.get(slotId);
   if (!franja) throw new Error("Franja no encontrada en esta semana");

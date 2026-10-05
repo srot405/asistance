@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase, SEMANAS_DETALLE } from "../lib/detalleCalculo.mjs";
+import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../lib/detalleCalculo.mjs";
 import { construirCsvNominal } from "../lib/exportarNominal.mjs";
 
 // Semana sintética: 2 franjas (martes Bogotá/comunicaciones, miércoles
@@ -83,7 +83,5 @@ assert.doesNotMatch(csv.contenido, /correo|cedula|cédula/i);
 assert.equal(csv.archivo, "no_ingresaron_semana");
 assert.throws(() => construirCsvNominal([], "mes"), RangeError);
 
-assert.equal(SEMANAS_DETALLE.has("2026-09-14"), true);
-assert.equal(SEMANAS_DETALLE.has("2026-08-31"), false, "Solo semanal no tiene roster nominal");
 
 console.log("RESUMEN: detalle_calculo=filtros_ciudad_franja_cuenta nominal=dia_y_semana sin_clase=excluido pendiente=excluido estado=verde");

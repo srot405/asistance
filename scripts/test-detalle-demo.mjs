@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { DETALLE_DEMO_BASE } from "../lib/detalle-demo.mjs";
-import { calcularDetalleSemana, construirBase, SEMANAS_DETALLE } from "../lib/detalleCalculo.mjs";
+import { calcularDetalleSemana, construirBase } from "../lib/detalleCalculo.mjs";
 
-// El fixture demo cubre exactamente las semanas nivel Detalle, ni una menos ni una de más.
-assert.deepEqual(Object.keys(DETALLE_DEMO_BASE).sort(), [...SEMANAS_DETALLE].sort());
+// Las semanas Detalle ya no son una lista fija: en demo son las llaves del fixture.
+assert.ok(Object.keys(DETALLE_DEMO_BASE).length > 0);
 
 for (const [semana, fixture] of Object.entries(DETALLE_DEMO_BASE)) {
   for (const persona of fixture.roster)

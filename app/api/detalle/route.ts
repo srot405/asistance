@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { leerDetalleSemana, SEMANAS_DETALLE } from "../../../lib/servidor/leerDetalleSemana";
+import { leerDetalleSemana, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 
 const headers = { "Cache-Control": "private, no-store" };
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
-  if (!SEMANAS_DETALLE.has(semana))
+  if (!(await semanaTieneDetalle(semana)))
     return NextResponse.json({ error: "Esta semana no tiene detalle por día (nivel distinto de Detalle)" },
       { status: 400, headers });
   const filtro = {
