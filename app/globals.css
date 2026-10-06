@@ -874,3 +874,13 @@ select {
 @media (max-width: 720px) {
   .presencia-grid { grid-template-columns: 1fr; }
 }
+
+/* TOC-131: SC = dia declarado sin clase. Gris neutro: no es dato faltante (ZL azul) ni ausencia (rojo). */
+.cell.SC {
+  background: #ececec;
+  color: #555555;
+}
+.dark .cell.SC {
+  background: #3a3a3a;
+  color: #cfcfcf;
+}

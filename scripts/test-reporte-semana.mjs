@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { construirBase } from "../lib/detalleCalculo.mjs";
 import { neutralizarFormula } from "../lib/csvSeguro.mjs";
-import { construirReporteSemana, construirCsvReporte } from "../lib/reporteSemana.mjs";
+import { construirReporteSemana, construirCsvReporte, LEYENDA } from "../lib/reporteSemana.mjs";
 
 // Semana incompleta sintetica: 1 franja capturada, 1 ZL, 1 por ocurrir; roster con tildes, comas y comillas.
 const franjas = [
@@ -93,3 +93,25 @@ const r2 = construirReporteSemana("2026-09-14", base2, { captura_completa: true 
 assert.equal(r2.completa, true);
 assert.match(construirCsvReporte(r2).contenido, /captura completa;/);
 console.log("RESUMEN: reporte_semana=ok incompleta=declarada zl_p_no_convertidos=0 cuadre=ok bom=ok estado=verde");
+
+// TOC-131: dia declarado sin clase (sesion sin_clase, celda SC) queda fuera del denominador: ni ZL ni NO.
+const frSC = [franjas[0], { slot_id: "d-sabado-sc", fecha: "2026-09-26", cuenta_zoom: "x" }];
+const sesSC = [sesiones[0], { sesion_id: "s9", slot_id: "d-sabado-sc", fecha: "2026-09-26", entradas_totales: 0, estado_captura: "sin_clase" }];
+const rosSC = [roster[0], { persona_id: "7", nombre: "Sabado Sinclase", ciudad: "Cali", slot_id: "d-sabado-sc" }];
+const celSC = [{ persona_id: "1", estado: "SI" }, { persona_id: "7", estado: "SC" }];
+const baseSC = construirBase(rosSC, frSC, sesSC, [{ persona_id: "1", sesion_id: "s1" }], celSC);
+const rSC = construirReporteSemana("2026-09-21", baseSC, { captura_completa: true });
+assert.equal(rSC.cuadre.sinClase, 1, "SC cuenta como sin clase");
+assert.equal(rSC.cuadre.medible, 1, "SC fuera del denominador");
+assert.equal(rSC.cuadre.fueraDato, 0, "SC no es ZL");
+assert.equal(rSC.cuadre.roster, rSC.cuadre.medible + rSC.cuadre.sinClase, "cuadre con SC");
+assert.equal(rSC.cuadra, true);
+assert.equal(rSC.sinDato.length, 0, "sin_clase no es sesion sin dato");
+assert.equal(rSC.completa, true, "semana completa pese a sin_clase");
+assert.equal(rSC.filas.find((f) => f.nombre.startsWith("Sabado")).semanal, "sin clase");
+assert.match(LEYENDA, /SC=/);
+// Con entradas reales, una sesion sin_clase NO se oculta (el dia sigue activo).
+const sesSC2 = [sesiones[0], { ...sesSC[1], entradas_totales: 3 }];
+const baseSC2 = construirBase(rosSC, frSC, sesSC2, [{ persona_id: "1", sesion_id: "s1" }], [{ persona_id: "1", estado: "SI" }, { persona_id: "7", estado: "NO?" }]);
+assert.equal(construirReporteSemana("2026-09-21", baseSC2, null).cuadre.medible, 2, "con entradas se mide");
+console.log("RESUMEN: sin_clase=ok");
