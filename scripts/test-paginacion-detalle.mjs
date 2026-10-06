@@ -25,6 +25,7 @@ const require = (name) => {
   if (name.endsWith("/reporteSemana.mjs")) return reporte;
   if (name.endsWith("/detalle-demo.mjs")) return { DETALLE_DEMO_BASE: {} };
   if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
+  if (name.endsWith("/leerTiempo")) return { leerTiempoReporte: async () => ({ disponible: false, personas: new Map(), resumen: null }) };
   if (name.endsWith("/supabase")) return { supabaseServidor: () => ({ from: (t) => {
     const c = { select: () => c, eq: () => c, order: (col) => { ordenes.push([t, col]); return c; }, limit: () => c,
       range: async (a, b) => ({ data: datos[t].slice(a, b + 1), error: null }),

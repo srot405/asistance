@@ -1,17 +1,25 @@
 import type { BaseDetalle } from "./detalleCalculo.d.mts";
+import type { ResumenPersonasTiempo } from "./tiempoContrato.d.mts";
 export const BOM: string;
 export const LEYENDA: string;
+export type TiempoReporteSemana = {
+  disponible: boolean;
+  personas: Map<string, { estado_tiempo: string; cumple_50: boolean | null; motivo: string | null; mejor_pct: number | null;
+    minutos_max: number | null; sesiones_consideradas: number; definitivo: boolean }>;
+  resumen: ResumenPersonasTiempo | null;
+};
+export const COLUMNAS_TIEMPO_REPORTE: readonly string[];
 export type ResumenSemana = { captura_completa?: boolean | null; nivel?: string; poblacion?: number | null;
   asistieron?: number | null; nunca?: number | null;
   cuadre?: { roster?: number; medibles?: number; sin_dato?: number; sin_clase?: number; pendientes?: number } | null };
 export type ReporteSemana = {
-  semana: string; baseTexto: string; completa: boolean; hayRevision: boolean; nivel: string; cuadra: boolean;
+  semana: string; tiempos: TiempoReporteSemana | null; baseTexto: string; completa: boolean; hayRevision: boolean; nivel: string; cuadra: boolean;
   comparacion: { estado: "OK" | "DISCREPA" | "SIN_RESUMEN" | "SIN_COMPARAR"; detalle: string[] };
   multiples: Array<{ franja: string; estados: string[] }>; sinResumen: boolean;
   cuadre: { roster: number; medible: number; fueraDato: number; pendiente: number; sinClase: number };
   sinDato: Array<{ fecha: string; franja: string; estado: string; motivo: string; personas: number }>;
-  filas: Array<{ nombre: string; ciudad: string; franja: string; fecha: string; semanal: string; dia: string }>;
+  filas: Array<{ persona_id: string; nombre: string; ciudad: string; franja: string; fecha: string; semanal: string; dia: string }>;
 };
 export function construirReporteSemana(semana: string, base: BaseDetalle & { sesiones?: Array<{ slot_id: string; estado_captura?: string }> },
-  resumen?: ResumenSemana | null, congelacion?: { congelada_en?: string | null; reconstruida?: boolean } | null): ReporteSemana;
+  resumen?: ResumenSemana | null, congelacion?: { congelada_en?: string | null; reconstruida?: boolean } | null, tiempos?: TiempoReporteSemana | null): ReporteSemana;
 export function construirCsvReporte(r: ReporteSemana): { contenido: string; archivo: string };

@@ -99,6 +99,9 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
         <p>Mismas 3 categorías del reporte en vivo por correo, aplicadas a una clase ya cerrada.</p></div>
     </div>
 
+    <p className="historical-notice weekly-notice" data-testid="aviso-presencia-legado">Esta pestaña usa el criterio de presencia en vivo (70 % de la clase).
+      El criterio oficial de tiempo (menos del 50 % del tiempo de su clase = rojo por tiempo) está en la pestaña <b>Tiempo</b>.</p>
+
     <label className="presencia-selector">Clase <select className="control" value={franjaId}
       onChange={(e) => setFranjaId(e.target.value)}>
       {franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
-import { construirCsvNominal, construirCsvPresencia } from "../lib/exportarNominal.mjs";
+import { construirCsvNominal, construirCsvPresencia, construirCsvTiempo } from "../lib/exportarNominal.mjs";
 import { construirCsvReporte, construirReporteSemana } from "../lib/reporteSemana.mjs";
 import { construirBase } from "../lib/detalleCalculo.mjs";
 
@@ -12,6 +12,12 @@ class NextResponse extends Response {
 }
 const llamadas = [];
 const llamadasPresencia = [];
+const llamadasTiempo = [];
+const filasTiempoFixture = [
+  { nombre: "Ana Uno", ciudad: "Cali", franja: "martes", franja_tiempo: "martes", es_visita: false, fecha: "2026-09-15", pct_tiempo: 49.9,
+    estado_tiempo: "rojo_tiempo", cumple_50: false, minutos: 59.9, motivo_sin_dato: null, definitivo: true },
+  { nombre: "=cmd|x", ciudad: "Cali", franja: "martes", franja_tiempo: "jueves", es_visita: true, fecha: "2026-09-17", pct_tiempo: 50,
+    estado_tiempo: "cumple", cumple_50: true, minutos: 60, motivo_sin_dato: null, definitivo: true }];
 const filasFixture = [{ nombre: "Beto Dos", ciudad: "Bogotá", slot_id: "martes", fecha: "2026-09-15" }];
 const filasPresenciaFixture = [{ nombre: "Ana Uno", ciudad: "Cali", estado: "presente", minutos: 118 }];
 const source = await readFile(new URL("../app/api/exportar-nominal/route.ts", import.meta.url), "utf8");
@@ -44,8 +50,9 @@ const require = (name) => {
   if (name.endsWith("/leerPresenciaClase")) return {
     listarPresenciaNominal: async (semana, franja) => { llamadasPresencia.push({ semana, franja }); return filasPresenciaFixture; },
   };
+  if (name.endsWith("/leerTiempo")) return { listarTiempoNominal: async (semana, filtro) => { llamadasTiempo.push({ semana, filtro }); return filasTiempoFixture; } };
   if (name.endsWith("/reporteSemana.mjs")) return { construirCsvReporte };
-  if (name.endsWith("/exportarNominal.mjs")) return { construirCsvNominal, construirCsvPresencia };
+  if (name.endsWith("/exportarNominal.mjs")) return { construirCsvNominal, construirCsvPresencia, construirCsvTiempo };
   throw new Error(`Import no previsto: ${name}`);
 };
 vm.runInNewContext(compiled, { exports, require, Response, URL, Request, console });
@@ -111,7 +118,23 @@ assert.match((await sinRosterSinResumen.json()).error, /roster congelado/, "ya n
 const soloSemanal = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-08-31&vista=reporte", { headers }));
 assert.equal(soloSemanal.status, 400);
 assert.match((await soloSemanal.json()).error, /Solo semanal/);
-for (const url of ["vista=reporte", "vista=ausentes", "vista=presencia&franja=x"]) {
+// vista=tiempo (TOC-140): CSV nominal autenticado, una fila por persona-sesion, visita con es_visita=SI.
+assert.equal((await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-14&vista=tiempo"))).status, 401, "vista=tiempo exige auth");
+assert.equal(llamadasTiempo.length, 0, "sin Bearer no se llama al lector nominal");
+const tNoDetalle = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-08-31&vista=tiempo", { headers }));
+assert.equal(tNoDetalle.status, 400);
+const tiempo = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-14&vista=tiempo&ciudad=Cali&cuenta=soporte", { headers }));
+assert.equal(tiempo.status, 200);
+assert.equal(tiempo.headers.get("content-disposition"), 'attachment; filename="asistencia_2026-09-14_tiempo.csv"');
+assert.equal(tiempo.headers.get("cache-control"), "private, no-store");
+assert.equal(JSON.stringify(llamadasTiempo.at(-1)), JSON.stringify({ semana: "2026-09-14", filtro: { ciudad: "Cali", franja: null, cuenta: "soporte" } }));
+const bytes = new Uint8Array(await tiempo.clone().arrayBuffer());
+assert.deepEqual([...bytes.slice(0, 3)], [0xef, 0xbb, 0xbf], "BOM UTF-8 en el archivo");
+const tiempoCsv = await tiempo.text();
+assert.match(tiempoCsv, /^"nombre","ciudad","franja","franja_tiempo","es_visita","fecha","pct_tiempo","estado_tiempo","cumple_50","minutos","motivo_sin_dato","definitivo"\r\n/);
+assert.match(tiempoCsv, /"Ana Uno","Cali","martes","martes","NO","2026-09-15","49.9","rojo_tiempo","NO","59.9","","SI"/);
+assert.match(tiempoCsv, /"'=cmd\|x","Cali","martes","jueves","SI","2026-09-17","50","cumple","SI"/, "visita = SI y formula neutralizada");
+for (const url of ["vista=reporte", "vista=ausentes", "vista=presencia&franja=x", "vista=tiempo"]) {
   const caida = await exports.GET(new Request(`http://local/api/exportar-nominal?semana=2026-01-01&${url}`, { headers }));
   assert.equal(caida.status, 503, `${url}: red caida -> 503 JSON`);
   assert.deepEqual(await caida.json(), { error: "No disponible" });

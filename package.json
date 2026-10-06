@@ -35,7 +35,20 @@
     "test:presencia-demo": "node scripts/test-presencia-demo.mjs",
     "test:presencia-route": "node scripts/test-presencia-route.mjs",
     "test:presencia-clase": "node scripts/test-presencia-clase.mjs",
-    "test:tendencia-grafico": "node scripts/test-tendencia-grafico.mjs"
+    "test:tendencia-grafico": "node scripts/test-tendencia-grafico.mjs",
+    "test:tiempo-vista": "node scripts/test-tiempo-vista.mjs",
+    "test:histograma": "node scripts/test-histograma-tiempo.mjs",
+    "test:tiempo-calculo": "node scripts/test-tiempo-calculo.mjs",
+    "test:cuadre-tiempo": "node scripts/test-cuadre-tiempo.mjs",
+    "test:tiempo-route": "node scripts/test-tiempo-route.mjs",
+    "test:tiempo-semanas-route": "node scripts/test-tiempo-route.mjs",
+    "test:tiempo-paginacion": "node scripts/test-tiempo-paginacion.mjs",
+    "test:tiempo-degradado": "node scripts/test-tiempo-degradado.mjs",
+    "test:tendencia-tiempo": "node scripts/test-tendencia-tiempo.mjs",
+    "test:csv-tiempo": "node scripts/test-csv-tiempo.mjs",
+    "test:tiempo-ui": "node scripts/test-tiempo-ui.mjs",
+    "test:tiempo-muestras": "node scripts/test-tiempo-muestras.mjs",
+    "test:tiempo": "npm run test:tiempo-vista && npm run test:histograma && npm run test:tiempo-calculo && npm run test:cuadre-tiempo && npm run test:tiempo-route && npm run test:tiempo-paginacion && npm run test:tiempo-degradado && npm run test:tendencia-tiempo && npm run test:csv-tiempo && npm run test:tiempo-ui && npm run test:tiempo-muestras"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.0",

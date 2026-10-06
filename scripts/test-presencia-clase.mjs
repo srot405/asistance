@@ -48,6 +48,7 @@ function ejecutar({ modoDemo, zoomLiveLogRows }) {
     if (name.endsWith("/eventosPresenciaDemo.mjs")) return eventosDemo;
     if (name.endsWith("/horarioFranja.mjs")) return horarioFranja;
     if (name.endsWith("/demo.js")) return { MODO_DEMO: modoDemo };
+    if (name.endsWith("/leerTiempo")) return { leerTiempoPersonasClase: async () => new Map() };
     if (name.endsWith("/leerDetalleSemana")) return {
       semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
       cargarBase: async () => base,

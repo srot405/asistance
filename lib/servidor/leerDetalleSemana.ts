@@ -6,6 +6,7 @@ import type { ReporteSemana, ResumenSemana } from "../reporteSemana.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { AusenteNominal, DetalleSemanaResponse, FiltroDetalle } from "../types";
+import { leerTiempoReporte } from "./leerTiempo";
 import { supabaseServidor } from "./supabase";
 
 // Una semana es "Detalle" (roster congelado real) si asist_semana_resumen la marca
@@ -103,5 +104,7 @@ export async function leerReporteSemana(semana: string): Promise<ReporteSemana |
     const fila = data?.[0] as { congelada_en?: string | null; notas?: string | null } | undefined;
     if (fila) congelacion = { congelada_en: fila.congelada_en, reconstruida: /reconstruid/i.test(fila.notas ?? "") };
   }
-  return construirReporteSemana(semana, base, resumen, congelacion);
+  // TOC-140: veredicto de tiempo por persona (MEJOR sesion). Sin tablas -> no_calculado; el reporte nunca falla por el tiempo.
+  const tiempos = await leerTiempoReporte(semana).catch(() => null);
+  return construirReporteSemana(semana, base, resumen, congelacion, tiempos);
 }

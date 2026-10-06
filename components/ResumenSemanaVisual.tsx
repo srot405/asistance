@@ -1,6 +1,8 @@
 import type { ResumenHistorico } from "../lib/types";
 import { textoBaseSeguimiento } from "../lib/baseSeguimiento.mjs";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
+import type { TiempoNoDisponible, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
+import { ICONOS, TEXTO_NO_DISPONIBLE, textoCobertura } from "../lib/tiempoVista.mjs";
 
 const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
 const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
@@ -17,14 +19,18 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
 // nunca mezclada con otras. La comparación entre semanas vive en la pestaña
 // "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
 // listado estático de antes a components/CalendarioSemana.tsx (interactivo).
-export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado }: {
+export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, tiempo, irATiempo }: {
   actual: ResumenHistorico;
   nuncaPeriodo: number | null;
   // TOC-91, 2026-09-29 (pedido de Samuel): esta semana el sábado no tuvo clase
   // regular (ver lib/franjaTipo.mjs::semanaSinSabado). Se calcula una sola vez en
   // Dashboard.tsx y se pasa aquí para no repetir la comparación entre semanas.
   sinSabado: boolean;
+  // TOC-140: tarjeta de tiempo (opcional para no romper usos anteriores).
+  tiempo?: { estado: string; datos: TiempoSemanaResponse | TiempoNoDisponible | null };
+  irATiempo?: () => void;
 }) {
+  const t = tiempo?.datos && tiempo.datos.disponible ? tiempo.datos : null;
   return <>
     <section className="historical-hero">
       <div><p className="eyebrow">Semana del {actual.semana} · {actual.materia}
@@ -49,6 +55,13 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado }:
       <article className="metric-card absent"><span>No ingresaron</span>
         <strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small>
       </article>
+      {tiempo && actual.nivel === "Detalle" && <article className="metric-card tiempo" data-testid="tarjeta-tiempo"><span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Tiempo en clase</span>
+        {t && t.hay_tiempos ? <>
+          <strong>{t.semana_agregada.n_medibles > 0 ? `${Math.round((t.semana_agregada.n_cumplen / t.semana_agregada.n_medibles) * 100)} %` : "—"}</strong>
+          <small>{t.semana_agregada.n_cumplen} de {t.semana_agregada.n_medibles} medidos cumplen el 50 % del tiempo de su clase · <b>{textoCobertura(t.semana_agregada)}</b>
+            {t.provisional && <> · ⏳ provisional</>}{irATiempo && <> · <button type="button" className="link-boton" onClick={irATiempo}>ver detalle</button></>}</small></>
+          : <><strong>—</strong><small>{tiempo.estado === "cargando" ? "Cargando tiempo…" : tiempo.estado === "vacio" ? "Aún no hay tiempos calculados para esta semana." : TEXTO_NO_DISPONIBLE}</small></>}
+      </article>}
     </section>
 
     {actual.nivel === "Solo semanal" && <p className="historical-notice weekly-notice">{SOLO}</p>}

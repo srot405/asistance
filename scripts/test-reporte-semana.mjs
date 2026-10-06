@@ -45,7 +45,12 @@ const csv = construirCsvReporte(r);
 assert.equal(csv.contenido.charCodeAt(0), 0xFEFF, "BOM UTF-8");
 assert.equal(csv.archivo, "reporte_captura_incompleta");
 const lineas = csv.contenido.slice(1).split("\r\n");
-assert.equal(lineas[0], '"tipo_fila","semana","nombre","ciudad","franja","fecha","estado_semana","estado_dia","detalle"');
+// TOC-140: las 7 columnas de tiempo van AL FINAL (no se reordena nada anterior)
+assert.equal(lineas[0], '"tipo_fila","semana","nombre","ciudad","franja","fecha","estado_semana","estado_dia","detalle",' +
+  '"pct_tiempo","estado_tiempo","cumple_50","minutos","motivo_sin_dato","sesiones_consideradas","definitivo"');
+assert.match(lineas[1], /; tiempo=no calculado/, "sin datos de tiempo el RESUMEN lo declara");
+assert.match(lineas.find((l) => l.startsWith('"PERSONA"')), /"","no_calculado","","","","",""$/, "estado_tiempo=no_calculado, nunca 0");
+assert.match(LEYENDA, /cumple_50=SI.*no se pudo medir.*MEJOR clase/);
 assert.match(lineas[1], /captura incompleta; Seguimiento: 5 estudiantes \(congelado el 28\/09\); roster=5; medible=2; fuera_dato=1; pendiente=1; sin_clase=1; cuadre=OK/);
 assert.equal(lineas.filter((l) => l.startsWith('"FRANJA_SIN_DATO"')).length, 2);
 assert.match(csv.contenido, /"Pérez, Ana ""la mejor"""/, "tildes, comas y comillas escapadas");

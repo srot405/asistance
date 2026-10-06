@@ -18,6 +18,7 @@ async function cargar({ modoDemo, filas, error = null, real = false, tablas = {}
     if (name.endsWith("/reporteSemana.mjs")) return real ? reporteLib : {};
     if (name.endsWith("/detalle-demo.mjs")) return { DETALLE_DEMO_BASE: { "2026-09-14": {} } };
     if (name.endsWith("/demo.js")) return { MODO_DEMO: modoDemo };
+    if (name.endsWith("/leerTiempo")) return { leerTiempoReporte: async () => ({ disponible: false, personas: new Map(), resumen: null }) };
     if (name.endsWith("/supabase")) return { supabaseServidor: () => ({ from: (t) => {
       const q = { t, eq: [] };
       const cadena = { select: () => cadena, eq: (c, v) => { q.eq.push([c, v]); return cadena; }, order: () => cadena,

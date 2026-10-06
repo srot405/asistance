@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
-import { construirCsvNominal, construirCsvPresencia } from "../../../lib/exportarNominal.mjs";
+import { construirCsvNominal, construirCsvPresencia, construirCsvTiempo } from "../../../lib/exportarNominal.mjs";
 import { construirCsvReporte } from "../../../lib/reporteSemana.mjs";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
 import { leerReporteSemana, listarAusentesNominal, nivelSemana, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
+import { listarTiempoNominal } from "../../../lib/servidor/leerTiempo";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
 
@@ -19,7 +20,8 @@ const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/cs
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const semana = q.get("semana") ?? "";
-  const vista = q.get("vista") === "presencia" ? "presencia" : q.get("vista") === "reporte" ? "reporte" : "ausentes";
+  const vista = q.get("vista") === "presencia" ? "presencia" : q.get("vista") === "reporte" ? "reporte"
+    : q.get("vista") === "tiempo" ? "tiempo" : "ausentes";
   const alcance = q.get("alcance") ?? "semana";
   const fecha = q.get("fecha") || undefined;
   const demoAllowed = MODO_DEMO && q.get("demo") === "1";
@@ -59,6 +61,21 @@ export async function GET(request: Request) {
   if (!tieneDetalle)
     return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
       { status: 400, headers });
+
+  // vista=tiempo (TOC-140): una fila por persona-sesion con el veredicto guardado por el backend (cumple_50 + pct_tiempo).
+  // Sin tablas de tiempo: 200 con estado_tiempo=no_calculado (no es un error). Siempre tras exigirAcceso (arriba).
+  if (vista === "tiempo") {
+    try {
+      const filas = await listarTiempoNominal(semana, {
+        ciudad: q.get("ciudad") || null, franja: q.get("franja") || null, cuenta: q.get("cuenta") || null });
+      const csv = construirCsvTiempo(filas);
+      return new NextResponse(csv.contenido, { headers: {
+        ...headers, "Content-Disposition": `attachment; filename="asistencia_${semana}_${csv.archivo}.csv"`,
+      } });
+    } catch {
+      return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
+    }
+  }
 
   if (vista === "presencia") {
     const franja = q.get("franja") ?? "";

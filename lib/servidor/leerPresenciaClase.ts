@@ -6,6 +6,7 @@ import { limitesFranjaMs } from "../horarioFranja.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { ConteosPresencia, EstadoPresencia, PresenciaClaseResponse, PresenciaNominal } from "../types";
 import { cargarBase, semanaTieneDetalle } from "./leerDetalleSemana";
+import { leerTiempoPersonasClase } from "./leerTiempo";
 import { supabaseServidor } from "./supabase";
 
 export { semanaTieneDetalle };
@@ -59,12 +60,12 @@ async function clasificarPresenciaFranja(semana: string, slotId: string) {
 
   const conteos: ConteosPresencia = { presente: 0, entro_y_salio: 0, nunca_entro: 0 };
   let sinEvidencia = 0;
-  const detalle: Array<{ nombre: string; ciudad: string; estado: EstadoPresencia; minutos: number | null }> = [];
+  const detalle: Array<{ persona_id: string; nombre: string; ciudad: string; estado: EstadoPresencia; minutos: number | null }> = [];
 
   for (const persona of rosterFranja) {
     if (!entroEnFecha(base, persona.persona_id, franja.fecha)) {
       conteos.nunca_entro += 1;
-      detalle.push({ nombre: persona.nombre, ciudad: persona.ciudad, estado: "nunca_entro", minutos: 0 });
+      detalle.push({ persona_id: persona.persona_id, nombre: persona.nombre, ciudad: persona.ciudad, estado: "nunca_entro", minutos: 0 });
       continue;
     }
     const eventos = MODO_DEMO
@@ -75,12 +76,12 @@ async function clasificarPresenciaFranja(semana: string, slotId: string) {
       // conservador, se cuenta como "entró y salió" sin inventar minutos.
       sinEvidencia += 1;
       conteos.entro_y_salio += 1;
-      detalle.push({ nombre: persona.nombre, ciudad: persona.ciudad, estado: "entro_y_salio", minutos: null });
+      detalle.push({ persona_id: persona.persona_id, nombre: persona.nombre, ciudad: persona.ciudad, estado: "entro_y_salio", minutos: null });
       continue;
     }
     const resultado = clasificarPresencia(eventos, inicioMs, finMs);
     conteos[resultado.estado as EstadoPresencia] += 1;
-    detalle.push({ nombre: persona.nombre, ciudad: persona.ciudad, estado: resultado.estado as EstadoPresencia,
+    detalle.push({ persona_id: persona.persona_id, nombre: persona.nombre, ciudad: persona.ciudad, estado: resultado.estado as EstadoPresencia,
       minutos: resultado.minutos });
   }
 
@@ -99,6 +100,11 @@ export async function leerPresenciaClase(semana: string, slotId: string): Promis
 // — el llamador es responsable de que solo salga por un CSV autenticado.
 export async function listarPresenciaNominal(semana: string, slotId: string): Promise<PresenciaNominal[]> {
   const { detalle } = await clasificarPresenciaFranja(semana, slotId);
-  return detalle.map(({ nombre, ciudad, estado, minutos }) => ({ nombre, ciudad, estado, minutos }))
+  // TOC-140: tiempo (criterio oficial del 50 %) al final del CSV; si no hay tablas/medicion, queda "no_calculado".
+  const tiempo = await leerTiempoPersonasClase(semana, slotId);
+  return detalle.map(({ persona_id, nombre, ciudad, estado, minutos }) => {
+    const t = tiempo.get(persona_id);
+    return { nombre, ciudad, estado, minutos, pct_tiempo: t?.pct_tiempo ?? null, estado_tiempo: t?.estado_tiempo ?? null, cumple_50: t?.cumple_50 ?? null };
+  })
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 }

@@ -142,6 +142,8 @@ export type ResumenHistorico = {
   // TOC-136: cuándo se congeló el roster de la semana (asist_semanas) = base del denominador.
   congelada_en?: string | null;
   roster_reconstruido?: boolean;
+  // TOC-140: cuándo se cerró la semana (asist_semanas.cerrada_en); null = semana abierta/provisional.
+  cerrada_en?: string | null;
   aviso: string;
   metodo: string;
   fuentes: string[];
@@ -236,6 +238,10 @@ export type PresenciaNominal = {
   ciudad: string;
   estado: EstadoPresencia;
   minutos: number | null;
+  // TOC-140: tiempo en clase de esa persona (solo CSV nominal; ausentes si no hay medicion).
+  pct_tiempo?: number | null;
+  estado_tiempo?: string | null;
+  cumple_50?: boolean | null;
 };
 
 // Pestaña "Cobertura": roster semanal contra lo que registró el webhook de Zoom
