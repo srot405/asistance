@@ -2,7 +2,7 @@ import "server-only";
 import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../detalleCalculo.mjs";
 import type { CeldaRow, EntradaRow, FranjaRow, RosterRow, SesionRow } from "../detalleCalculo.d.mts";
 import { construirReporteSemana } from "../reporteSemana.mjs";
-import type { ReporteSemana } from "../reporteSemana.d.mts";
+import type { ReporteSemana, ResumenSemana } from "../reporteSemana.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { AusenteNominal, DetalleSemanaResponse, FiltroDetalle } from "../types";
@@ -17,6 +17,16 @@ export async function semanaTieneDetalle(semana: string): Promise<boolean> {
     .select("semana").eq("semana", semana).eq("nivel", "Detalle").limit(1);
   if (error) throw error;
   return (data ?? []).length > 0;
+}
+
+// Nivel registrado de la semana en asist_semana_resumen; null si aun no hay fila (semana en
+// curso / sin resumen). Lo usa el reporte, que se decide por roster congelado y no por el resumen.
+export async function nivelSemana(semana: string): Promise<string | null> {
+  if (MODO_DEMO) return semana in DETALLE_DEMO_BASE ? "Detalle" : null;
+  const { data, error } = await supabaseServidor().from("asist_semana_resumen")
+    .select("nivel").eq("semana", semana).limit(1);
+  if (error) throw error;
+  return (data?.[0] as { nivel?: string } | undefined)?.nivel ?? null;
 }
 
 // Pagina de a 1000 (tope por defecto de PostgREST) con orden estable: sin esto, una
@@ -75,14 +85,15 @@ export async function listarAusentesNominal(semana: string, opts: FiltroDetalle 
 // Reporte CSV completo (TOC-91): sirve con semana incompleta. Devuelve null si la
 // semana no tiene roster congelado (la ruta responde 404 claro, no 500).
 export async function leerReporteSemana(semana: string): Promise<ReporteSemana | null> {
+  if (MODO_DEMO && !(semana in DETALLE_DEMO_BASE)) return null;
   const base = await cargarBase(semana);
   if (base.roster.length === 0) return null;
-  let resumen: { captura_completa?: boolean | null; nivel?: string } | null = null;
+  let resumen: ResumenSemana | null = null;
   if (!MODO_DEMO) {
     const { data, error } = await supabaseServidor().from("asist_semana_resumen")
-      .select("nivel,captura_completa").eq("semana", semana).eq("nivel", "Detalle").limit(1);
+      .select("nivel,captura_completa,poblacion,asistieron,nunca,cuadre").eq("semana", semana).limit(1);
     if (error) throw error;
-    resumen = data?.[0] ?? null;
+    resumen = (data?.[0] as ResumenSemana | undefined) ?? null;
   }
   return construirReporteSemana(semana, base, resumen);
 }

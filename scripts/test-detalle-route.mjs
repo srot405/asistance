@@ -22,7 +22,7 @@ const require = (name) => {
     request.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } :
       NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (name.endsWith("/leerDetalleSemana")) return {
-    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
+    semanaTieneDetalle: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno"); return ["2026-09-14", "2026-09-21"].includes(s); },
     leerDetalleSemana: async (semana, filtro) => { lecturas.push({ semana, filtro }); return fixture; },
   };
   throw new Error(`Import no previsto: ${name}`);
@@ -40,6 +40,11 @@ assert.equal(malaSemana.status, 400);
 const noDetalle = await exports.GET(new Request("http://local/api/detalle?semana=2026-08-31", { headers }));
 assert.equal(noDetalle.status, 400, "una semana Solo semanal/Sin dato no tiene ruta de detalle");
 assert.match((await noDetalle.json()).error, /nivel distinto de Detalle/);
+
+const caida = await exports.GET(new Request("http://local/api/detalle?semana=2026-01-01", { headers }));
+assert.equal(caida.status, 503, "error de red en semanaTieneDetalle -> JSON 503, no 500 HTML");
+assert.equal(caida.headers.get("content-type"), "application/json");
+assert.deepEqual(await caida.json(), { error: "No disponible" }, "sin filtrar detalles internos");
 
 const allowed = await exports.GET(new Request("http://local/api/detalle?semana=2026-09-14&ciudad=Bogot%C3%A1", { headers }));
 assert.equal(allowed.status, 200);

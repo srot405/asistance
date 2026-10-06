@@ -3,7 +3,7 @@ import { MODO_DEMO } from "../../../lib/demo.js";
 import { construirCsvNominal, construirCsvPresencia } from "../../../lib/exportarNominal.mjs";
 import { construirCsvReporte } from "../../../lib/reporteSemana.mjs";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { leerReporteSemana, listarAusentesNominal, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
+import { leerReporteSemana, listarAusentesNominal, nivelSemana, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
@@ -29,14 +29,15 @@ export async function GET(request: Request) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
-  if (!(await semanaTieneDetalle(semana)))
-    return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
-      { status: 400, headers });
-
-  // vista=reporte: roster completo + estado por persona + resumen de captura
-  // incompleta (ZL/P/NO?). Sirve con la semana a medias; nunca convierte ZL/P en NO.
+  // vista=reporte: se decide por la EXISTENCIA del roster congelado, no por asist_semana_resumen
+  // (la semana en curso aun no tiene resumen). Solo una semana explicitamente "Solo semanal" se
+  // rechaza (400); sin roster -> 404 claro; sin resumen -> se sirve y RESUMEN declara "resumen no generado".
   if (vista === "reporte") {
     try {
+      const nivel = await nivelSemana(semana);
+      if (nivel && nivel !== "Detalle")
+        return NextResponse.json({ error: `Esta semana es "${nivel}": no tiene roster nominal por clase` },
+          { status: 400, headers });
       const reporte = await leerReporteSemana(semana);
       if (!reporte)
         return NextResponse.json({ error: "Esta semana no tiene roster congelado todavía" }, { status: 404, headers });
@@ -45,9 +46,19 @@ export async function GET(request: Request) {
         ...headers, "Content-Disposition": `attachment; filename="asistencia_${semana}_${csv.archivo}.csv"`,
       } });
     } catch {
-      return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+      return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
     }
   }
+
+  let tieneDetalle: boolean;
+  try {
+    tieneDetalle = await semanaTieneDetalle(semana);
+  } catch {
+      return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
+  }
+  if (!tieneDetalle)
+    return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
+      { status: 400, headers });
 
   if (vista === "presencia") {
     const franja = q.get("franja") ?? "";

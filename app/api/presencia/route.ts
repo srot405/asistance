@@ -19,7 +19,13 @@ export async function GET(request: Request) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
-  if (!(await semanaTieneDetalle(semana)))
+  let tieneDetalle: boolean;
+  try {
+    tieneDetalle = await semanaTieneDetalle(semana);
+  } catch {
+    return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
+  }
+  if (!tieneDetalle)
     return NextResponse.json({ error: "Esta semana no tiene presencia por clase (nivel distinto de Detalle)" },
       { status: 400, headers });
   if (!franja)

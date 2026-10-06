@@ -21,7 +21,7 @@ const require = (name) => {
     request.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } :
       NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (name.endsWith("/leerPresenciaClase")) return {
-    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
+    semanaTieneDetalle: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno"); return ["2026-09-14", "2026-09-21"].includes(s); },
     leerPresenciaClase: async (semana, franja) => { lecturas.push({ semana, franja }); return fixture; },
   };
   throw new Error(`Import no previsto: ${name}`);
@@ -43,6 +43,11 @@ assert.match((await noDetalle.json()).error, /nivel distinto de Detalle/);
 const sinFranja = await exports.GET(new Request("http://local/api/presencia?semana=2026-09-14", { headers }));
 assert.equal(sinFranja.status, 400, "falta franja");
 assert.match((await sinFranja.json()).error, /Falta la franja/);
+
+const caida = await exports.GET(new Request("http://local/api/presencia?semana=2026-01-01&franja=x", { headers }));
+assert.equal(caida.status, 503, "error de red en semanaTieneDetalle -> JSON 503, no 500 HTML");
+assert.equal(caida.headers.get("content-type"), "application/json");
+assert.deepEqual(await caida.json(), { error: "No disponible" }, "sin filtrar detalles internos");
 
 const allowed = await exports.GET(new Request(
   "http://local/api/presencia?semana=2026-09-14&franja=backend-martes-18", { headers }));

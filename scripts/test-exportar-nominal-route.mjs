@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import { construirCsvNominal, construirCsvPresencia } from "../lib/exportarNominal.mjs";
-import { construirCsvReporte } from "../lib/reporteSemana.mjs";
+import { construirCsvReporte, construirReporteSemana } from "../lib/reporteSemana.mjs";
+import { construirBase } from "../lib/detalleCalculo.mjs";
 
 class NextResponse extends Response {
   static json(body, init = {}) { return new NextResponse(JSON.stringify(body), { ...init,
@@ -23,8 +24,18 @@ const require = (name) => {
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => { const token = request.headers.get("authorization");
     return token === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
   if (name.endsWith("/leerDetalleSemana")) return {
-    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"].includes(s),
-    leerReporteSemana: async (s) => s === "2026-09-28" ? { semana: s, completa: false, hayRevision: true, nivel: "Detalle", cuadra: true,
+    semanaTieneDetalle: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno");
+      return ["2026-09-14", "2026-09-21", "2026-09-28"].includes(s); },
+    // Semanas: 08-31 "Solo semanal"; 10-05 "Detalle" sin roster; 10-12 sin fila de resumen y SIN roster; 10-19 con roster congelado
+    // pero SIN resumen (semana en curso); 01-01 simula caida de red.
+    nivelSemana: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno");
+      return { "2026-08-31": "Solo semanal", "2026-09-28": "Detalle", "2026-10-05": "Detalle" }[s] ?? null; },
+    leerReporteSemana: async (s) => s === "2026-10-19" ? construirReporteSemana(s,
+      construirBase([{ persona_id: "1", nombre: "=cmd|' /C calc'!A0", ciudad: "Cali", slot_id: "x-lunes" }],
+        [{ slot_id: "x-lunes", fecha: "2026-10-19", cuenta_zoom: "z" }],
+        [{ sesion_id: "s1", slot_id: "x-lunes", fecha: "2026-10-19", entradas_totales: 1, estado_captura: "capturada" }],
+        [{ persona_id: "1", sesion_id: "s1" }], [{ persona_id: "1", estado: "SI" }]), null) :
+      s === "2026-09-28" ? { semana: s, completa: false, hayRevision: true, nivel: "Detalle", cuadra: true,
       cuadre: { roster: 1, medible: 0, fueraDato: 1, pendiente: 0, sinClase: 0 },
       sinDato: [{ fecha: "2026-10-03", franja: "backend-sábado-08-avanzado", estado: "zoom_limit_pendiente", motivo: "Zoom limit", personas: 1 }],
       filas: [{ nombre: "Ñandú, Ana", ciudad: "Cali", franja: "backend-sábado-08-avanzado", fecha: "2026-10-03", semanal: "ZL", dia: "ZL" }] } : null,
@@ -87,6 +98,24 @@ const repSinRoster = await exports.GET(new Request("http://local/api/exportar-no
 assert.equal(repSinRoster.status, 404, "semana sin congelar: mensaje claro, no 500");
 assert.match((await repSinRoster.json()).error, /roster congelado/);
 assert.equal((await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-28&vista=reporte"))).status, 401);
+
+// Reporte basado en roster congelado, no en asist_semana_resumen (3 casos + red caida).
+const sinResumen = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-10-19&vista=reporte", { headers }));
+assert.equal(sinResumen.status, 200, "roster congelado sin fila de resumen: se sirve el reporte");
+const sinResumenTxt = await sinResumen.text();
+assert.match(sinResumenTxt, /resumen no generado/);
+assert.match(sinResumenTxt, /"'=cmd\|/, "formula neutralizada en el CSV servido");
+const sinRosterSinResumen = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-10-12&vista=reporte", { headers }));
+assert.equal(sinRosterSinResumen.status, 404);
+assert.match((await sinRosterSinResumen.json()).error, /roster congelado/, "ya no es el 400 enganoso de 'nivel distinto de Detalle'");
+const soloSemanal = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-08-31&vista=reporte", { headers }));
+assert.equal(soloSemanal.status, 400);
+assert.match((await soloSemanal.json()).error, /Solo semanal/);
+for (const url of ["vista=reporte", "vista=ausentes", "vista=presencia&franja=x"]) {
+  const caida = await exports.GET(new Request(`http://local/api/exportar-nominal?semana=2026-01-01&${url}`, { headers }));
+  assert.equal(caida.status, 503, `${url}: red caida -> 503 JSON`);
+  assert.deepEqual(await caida.json(), { error: "No disponible" });
+}
 
 console.log("RESUMEN: exportar_nominal=200_con_nombre auth=401_sin_token nivel_invalido=400 dia_sin_fecha=400 " +
   "presencia=200_con_nombre estado=verde");
