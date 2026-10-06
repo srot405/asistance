@@ -8,7 +8,7 @@ const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/cs
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
-  const semana = q.get("semana") ?? "2026-09-14";
+  const semana = q.get("semana") ?? "";
   const vista = q.get("vista") ?? "Resumen";
   const demoAllowed = MODO_DEMO && q.get("demo") === "1";
   if (!demoAllowed) {

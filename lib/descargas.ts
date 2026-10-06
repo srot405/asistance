@@ -15,7 +15,14 @@ export async function descargarCsv(url: URL, modo: "demo" | "real", nombreArchiv
   try {
     const response = await fetch(url, { headers, cache: "no-store" });
     if (response.status === 401) return "Tu sesión expiró. Vuelve a iniciar sesión para descargar el archivo.";
-    if (!response.ok) throw new Error();
+    if (!response.ok) {
+      // Mensaje claro del servidor (400/404: semana sin roster, sin resumen) en vez del genérico.
+      if (response.status === 400 || response.status === 404) {
+        const cuerpo = await response.json().catch(() => null) as { error?: string } | null;
+        if (cuerpo?.error) return cuerpo.error;
+      }
+      throw new Error();
+    }
     const blobUrl = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");
     link.href = blobUrl;

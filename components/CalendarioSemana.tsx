@@ -102,6 +102,14 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     porcentaje_retencion: actual.porcentaje_retencion, porcentaje_nunca: actual.porcentaje_nunca,
   };
 
+  async function descargarReporte() {
+    setFalloExport("");
+    const params = new URLSearchParams({ semana: actual.semana, vista: "reporte" });
+    const url = new URL(`/api/exportar-nominal?${params}`, window.location.origin);
+    const error = await descargarCsv(url, modo, `asistencia_${actual.semana}_reporte.csv`);
+    if (error) setFalloExport(error);
+  }
+
   async function descargarNominal(alcance: "semana" | "dia") {
     setFalloExport("");
     const params = new URLSearchParams({ semana: actual.semana, alcance });
@@ -202,6 +210,10 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     <div className="calendar-actions">
       <button className="control" disabled={!esDetalle} onClick={() => descargarNominal("semana")}>
         Descargar CSV: no ingresaron esta semana{modo === "demo" && " (práctica)"}
+      </button>
+      <button className="control" onClick={descargarReporte}
+        title="Roster completo con estado por persona y resumen de captura; sirve aunque la semana esté incompleta">
+        Descargar reporte CSV (semana completa o incompleta){modo === "demo" && " (práctica)"}
       </button>
       <button className="control" disabled title={PENDIENTE_NUNCA_PERIODO}>
         CSV: nunca ingresaron en el período (pendiente)

@@ -12,7 +12,7 @@ async function cargar({ modoDemo, filas, error = null }) {
   const exports = {};
   const require = (name) => {
     if (name === "server-only") return {};
-    if (name.endsWith("/detalleCalculo.mjs")) return {};
+    if (name.endsWith("/detalleCalculo.mjs") || name.endsWith("/reporteSemana.mjs")) return {};
     if (name.endsWith("/detalle-demo.mjs")) return { DETALLE_DEMO_BASE: { "2026-09-14": {} } };
     if (name.endsWith("/demo.js")) return { MODO_DEMO: modoDemo };
     if (name.endsWith("/supabase")) return { supabaseServidor: () => ({ from: (t) => {

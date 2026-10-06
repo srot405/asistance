@@ -5,7 +5,7 @@ export type RosterRow = { persona_id: string; nombre: string; ciudad: string; sl
   // zoom_live_log.correo — el resto del cálculo de detalle no lo necesita.
   correo_norm?: string };
 export type FranjaRow = FranjaInfo;
-export type SesionRow = { sesion_id: string; slot_id: string; fecha: string; entradas_totales: number };
+export type SesionRow = { sesion_id: string; slot_id: string; fecha: string; entradas_totales: number; estado_captura?: string };
 export type EntradaRow = { persona_id: string; sesion_id: string };
 export type CeldaRow = { persona_id: string; estado: string };
 export type BaseDetalle = {
@@ -15,6 +15,7 @@ export type BaseDetalle = {
   slotsSinClase: Set<string>;
   celdaPorPersona: Map<string, string>;
   entradaFechaPorPersona: Map<string, Set<string>>;
+  sesiones: SesionRow[];
 };
 
 export function construirBase(roster: RosterRow[], franjas: FranjaRow[], sesiones: SesionRow[],

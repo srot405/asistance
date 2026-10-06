@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import { construirCsvNominal, construirCsvPresencia } from "../lib/exportarNominal.mjs";
+import { construirCsvReporte } from "../lib/reporteSemana.mjs";
 
 class NextResponse extends Response {
   static json(body, init = {}) { return new NextResponse(JSON.stringify(body), { ...init,
@@ -22,12 +23,17 @@ const require = (name) => {
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => { const token = request.headers.get("authorization");
     return token === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
   if (name.endsWith("/leerDetalleSemana")) return {
-    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
+    semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"].includes(s),
+    leerReporteSemana: async (s) => s === "2026-09-28" ? { semana: s, completa: false, hayRevision: true, nivel: "Detalle", cuadra: true,
+      cuadre: { roster: 1, medible: 0, fueraDato: 1, pendiente: 0, sinClase: 0 },
+      sinDato: [{ fecha: "2026-10-03", franja: "backend-sábado-08-avanzado", estado: "zoom_limit_pendiente", motivo: "Zoom limit", personas: 1 }],
+      filas: [{ nombre: "Ñandú, Ana", ciudad: "Cali", franja: "backend-sábado-08-avanzado", fecha: "2026-10-03", semanal: "ZL", dia: "ZL" }] } : null,
     listarAusentesNominal: async (semana, opts) => { llamadas.push({ semana, opts }); return filasFixture; },
   };
   if (name.endsWith("/leerPresenciaClase")) return {
     listarPresenciaNominal: async (semana, franja) => { llamadasPresencia.push({ semana, franja }); return filasPresenciaFixture; },
   };
+  if (name.endsWith("/reporteSemana.mjs")) return { construirCsvReporte };
   if (name.endsWith("/exportarNominal.mjs")) return { construirCsvNominal, construirCsvPresencia };
   throw new Error(`Import no previsto: ${name}`);
 };
@@ -68,6 +74,19 @@ assert.equal(presencia.headers.get("content-disposition"),
   'attachment; filename="asistencia_2026-09-14_backend-martes-18_presencia_clase.csv"');
 assert.match(await presencia.text(), /Ana Uno/, "CSV de presencia también lleva nombre, detrás de exigirAcceso");
 assert.equal(llamadasPresencia.at(-1).franja, "backend-martes-18");
+
+const rep = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-28&vista=reporte", { headers }));
+assert.equal(rep.status, 200);
+assert.equal(rep.headers.get("content-disposition"), 'attachment; filename="asistencia_2026-09-28_reporte_captura_incompleta.csv"');
+const repBytes = new Uint8Array(await rep.clone().arrayBuffer());
+assert.deepEqual([...repBytes.slice(0, 3)], [0xEF, 0xBB, 0xBF], "BOM UTF-8 en los bytes");
+const repTxt = await rep.text();
+assert.match(repTxt, /captura incompleta/);
+assert.match(repTxt, /"Ñandú, Ana"/);
+const repSinRoster = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-10-05&vista=reporte", { headers }));
+assert.equal(repSinRoster.status, 404, "semana sin congelar: mensaje claro, no 500");
+assert.match((await repSinRoster.json()).error, /roster congelado/);
+assert.equal((await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-28&vista=reporte"))).status, 401);
 
 console.log("RESUMEN: exportar_nominal=200_con_nombre auth=401_sin_token nivel_invalido=400 dia_sin_fecha=400 " +
   "presencia=200_con_nombre estado=verde");

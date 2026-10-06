@@ -1,6 +1,8 @@
 import "server-only";
 import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../detalleCalculo.mjs";
 import type { CeldaRow, EntradaRow, FranjaRow, RosterRow, SesionRow } from "../detalleCalculo.d.mts";
+import { construirReporteSemana } from "../reporteSemana.mjs";
+import type { ReporteSemana } from "../reporteSemana.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
 import { MODO_DEMO } from "../demo.js";
 import type { AusenteNominal, DetalleSemanaResponse, FiltroDetalle } from "../types";
@@ -17,22 +19,32 @@ export async function semanaTieneDetalle(semana: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
-async function tabla<T>(nombre: string, columnas: string, semana: string): Promise<T[]> {
-  const { data, error } = await supabaseServidor().from(nombre).select(columnas).eq("semana", semana);
-  if (error) throw error;
-  return (data ?? []) as unknown as T[];
+// Pagina de a 1000 (tope por defecto de PostgREST) con orden estable: sin esto, una
+// semana con >1000 entradas se truncaba en silencio y generaba ausentes falsos.
+const PAGINA = 1000;
+async function tabla<T>(nombre: string, columnas: string, semana: string, orden: string[]): Promise<T[]> {
+  const salida: T[] = [];
+  for (let desde = 0; ; desde += PAGINA) {
+    let consulta = supabaseServidor().from(nombre).select(columnas).eq("semana", semana);
+    for (const col of orden) consulta = consulta.order(col, { ascending: true });
+    const { data, error } = await consulta.range(desde, desde + PAGINA - 1);
+    if (error) throw error;
+    const lote = (data ?? []) as unknown as T[];
+    salida.push(...lote);
+    if (lote.length < PAGINA) return salida;
+  }
 }
 
 async function cargarBaseSupabase(semana: string) {
   const [roster, franjas, sesiones, entradas, celdas] = await Promise.all([
     // correo_norm: solo lo usa la pestaña Presencia (TOC-91, leerPresenciaClase.ts),
     // el resto de este módulo lo ignora.
-    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id,correo_norm", semana),
+    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id,correo_norm", semana, ["persona_id"]),
     // hora_inicio/hora_fin: idem, solo Presencia (lib/horarioFranja.mjs).
-    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto,hora_inicio,hora_fin", semana),
-    tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha,entradas_totales", semana),
-    tabla<EntradaRow>("asist_entradas", "persona_id,sesion_id", semana),
-    tabla<CeldaRow>("asist_celda_semana", "persona_id,estado", semana),
+    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto,hora_inicio,hora_fin", semana, ["slot_id"]),
+    tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha,entradas_totales,estado_captura", semana, ["sesion_id"]),
+    tabla<EntradaRow>("asist_entradas", "persona_id,sesion_id", semana, ["persona_id", "sesion_id"]),
+    tabla<CeldaRow>("asist_celda_semana", "persona_id,estado", semana, ["persona_id"]),
   ]);
   return construirBase(roster, franjas, sesiones, entradas, celdas);
 }
@@ -58,4 +70,19 @@ export async function leerDetalleSemana(semana: string, filtro: FiltroDetalle = 
 export async function listarAusentesNominal(semana: string, opts: FiltroDetalle & { fecha?: string }): Promise<AusenteNominal[]> {
   const base = await cargarBase(semana);
   return listarAusentesDesdeBase(base, opts);
+}
+
+// Reporte CSV completo (TOC-91): sirve con semana incompleta. Devuelve null si la
+// semana no tiene roster congelado (la ruta responde 404 claro, no 500).
+export async function leerReporteSemana(semana: string): Promise<ReporteSemana | null> {
+  const base = await cargarBase(semana);
+  if (base.roster.length === 0) return null;
+  let resumen: { captura_completa?: boolean | null; nivel?: string } | null = null;
+  if (!MODO_DEMO) {
+    const { data, error } = await supabaseServidor().from("asist_semana_resumen")
+      .select("nivel,captura_completa").eq("semana", semana).eq("nivel", "Detalle").limit(1);
+    if (error) throw error;
+    resumen = data?.[0] ?? null;
+  }
+  return construirReporteSemana(semana, base, resumen);
 }

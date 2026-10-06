@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { construirCsvNominal, construirCsvPresencia } from "../../../lib/exportarNominal.mjs";
+import { construirCsvReporte } from "../../../lib/reporteSemana.mjs";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { listarAusentesNominal, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
+import { leerReporteSemana, listarAusentesNominal, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
@@ -18,7 +19,7 @@ const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/cs
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const semana = q.get("semana") ?? "";
-  const vista = q.get("vista") === "presencia" ? "presencia" : "ausentes";
+  const vista = q.get("vista") === "presencia" ? "presencia" : q.get("vista") === "reporte" ? "reporte" : "ausentes";
   const alcance = q.get("alcance") ?? "semana";
   const fecha = q.get("fecha") || undefined;
   const demoAllowed = MODO_DEMO && q.get("demo") === "1";
@@ -31,6 +32,22 @@ export async function GET(request: Request) {
   if (!(await semanaTieneDetalle(semana)))
     return NextResponse.json({ error: "Esta semana no tiene roster nominal (nivel distinto de Detalle)" },
       { status: 400, headers });
+
+  // vista=reporte: roster completo + estado por persona + resumen de captura
+  // incompleta (ZL/P/NO?). Sirve con la semana a medias; nunca convierte ZL/P en NO.
+  if (vista === "reporte") {
+    try {
+      const reporte = await leerReporteSemana(semana);
+      if (!reporte)
+        return NextResponse.json({ error: "Esta semana no tiene roster congelado todavía" }, { status: 404, headers });
+      const csv = construirCsvReporte(reporte);
+      return new NextResponse(csv.contenido, { headers: {
+        ...headers, "Content-Disposition": `attachment; filename="asistencia_${semana}_${csv.archivo}.csv"`,
+      } });
+    } catch {
+      return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+    }
+  }
 
   if (vista === "presencia") {
     const franja = q.get("franja") ?? "";
