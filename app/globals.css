@@ -875,6 +875,23 @@ select {
   .presencia-grid { grid-template-columns: 1fr; }
 }
 
+/* Pestaña Cobertura: roster semanal vs. captura real de Zoom */
+.cob-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cob-tabla th, .cob-tabla td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.cob-tabla td.num, .cob-tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cob-dia td { font-weight: 700; padding-top: 14px; border-bottom: 2px solid var(--line); }
+.cob-dia td::first-letter { text-transform: uppercase; }
+.cob-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.cob-estado.capturada { background: #e4f6e9; color: #145f31; }
+.cob-estado.en_curso { background: #e3effc; color: #194f8c; }
+.cob-estado.pendiente, .cob-estado.sin_entradas_aun { background: #eceaf1; color: #4d4a58; }
+.cob-estado.sin_captura { background: #fbe6e6; color: #8c2222; }
+.shell.dark .cob-estado.capturada { background: #17402a; color: #9fe0b4; }
+.shell.dark .cob-estado.en_curso { background: #1a3552; color: #a9cdf5; }
+.shell.dark .cob-estado.pendiente, .shell.dark .cob-estado.sin_entradas_aun { background: #34313f; color: #cbc8d6; }
+.shell.dark .cob-estado.sin_captura { background: #4a1f1f; color: #f2b4b4; }
+.cob-tabla-wrap { overflow-x: auto; }
+
 /* TOC-131: SC = dia declarado sin clase. Gris neutro: no es dato faltante (ZL azul) ni ausencia (rojo). */
 .cell.SC {
   background: #ececec;

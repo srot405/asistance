@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { HistoricoData } from "../lib/types";
 import CalendarioSemana from "./CalendarioSemana";
+import Cobertura from "./Cobertura";
 import Encabezado from "./Encabezado";
 import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
@@ -11,7 +12,7 @@ import { descargarCsv } from "../lib/descargas";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "Presencia", "Historial"] as const;
+const PESTANAS = ["Semana", "Presencia", "Cobertura", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -120,6 +121,7 @@ export default function Dashboard() {
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {pestana === "Cobertura" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Historial" && <TendenciaHistorica resultados={data.resultados} />}
     </main>
   </div>;

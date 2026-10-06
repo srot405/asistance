@@ -234,3 +234,11 @@ export type PresenciaNominal = {
   estado: EstadoPresencia;
   minutos: number | null;
 };
+
+// Pestaña "Cobertura": roster semanal contra lo que registró el webhook de Zoom
+// (lib/coberturaClases.mjs). Solo agregados, sin PII.
+export type CoberturaResponse = import("./coberturaClases.mjs").CoberturaCalculada & {
+  semana: string;
+  materia: string;
+  ahora: string;
+};
