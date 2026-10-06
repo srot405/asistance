@@ -23,6 +23,7 @@ export function porcentajeCumple(c: Pick<Cont, "n_medibles" | "n_cumplen"> | nul
 export function porcentajeRojo(c: Pick<Cont, "n_medibles" | "n_rojo"> | null): number | null;
 export function coberturaTiempo(c: Pick<Cont, "n_ingresaron" | "n_medibles"> | null): number | null;
 export function textoCobertura(c: Pick<Cont, "n_ingresaron" | "n_medibles"> | null): string;
+export function porcentajeUnDecimal(valor: number | null): string;
 export function porcentajeTexto(valor: number | null): string;
 export function nivelCobertura(cobertura: number | null | Pick<Cont, "n_ingresaron" | "n_medibles">): "sin_dato" | "baja" | "ok";
 export function cuadreTiempo(c: Cont): { ok: boolean; errores: string[] };

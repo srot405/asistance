@@ -30,7 +30,8 @@ export async function GET(request: Request) {
       { status: 400, headers });
   const filtro = { ciudad: params.get("ciudad") || null, franja: params.get("franja") || null, cuenta: params.get("cuenta") || null };
   try {
-    const data = await leerTiempoSemana(semana, filtro);
+    const ligero = params.get("ligero") === "1";
+    const data = await leerTiempoSemana(semana, filtro, { ligero });
     return NextResponse.json(data, { headers });
   } catch {
     return NextResponse.json({ error: "No disponible" }, { status: 503, headers });

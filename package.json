@@ -43,12 +43,14 @@
     "test:tiempo-route": "node scripts/test-tiempo-route.mjs",
     "test:tiempo-semanas-route": "node scripts/test-tiempo-route.mjs",
     "test:tiempo-paginacion": "node scripts/test-tiempo-paginacion.mjs",
+    "test:tiempo-render": "node scripts/test-tiempo-render.mjs",
+    "test:tiempo-egress": "node scripts/test-tiempo-egress.mjs",
     "test:tiempo-degradado": "node scripts/test-tiempo-degradado.mjs",
     "test:tendencia-tiempo": "node scripts/test-tendencia-tiempo.mjs",
     "test:csv-tiempo": "node scripts/test-csv-tiempo.mjs",
     "test:tiempo-ui": "node scripts/test-tiempo-ui.mjs",
     "test:tiempo-muestras": "node scripts/test-tiempo-muestras.mjs",
-    "test:tiempo": "npm run test:tiempo-vista && npm run test:histograma && npm run test:tiempo-calculo && npm run test:cuadre-tiempo && npm run test:tiempo-route && npm run test:tiempo-paginacion && npm run test:tiempo-degradado && npm run test:tendencia-tiempo && npm run test:csv-tiempo && npm run test:tiempo-ui && npm run test:tiempo-muestras"
+    "test:tiempo": "npm run test:tiempo-vista && npm run test:histograma && npm run test:tiempo-calculo && npm run test:cuadre-tiempo && npm run test:tiempo-route && npm run test:tiempo-paginacion && npm run test:tiempo-egress && npm run test:tiempo-render && npm run test:tiempo-degradado && npm run test:tendencia-tiempo && npm run test:csv-tiempo && npm run test:tiempo-ui && npm run test:tiempo-muestras"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.0",

@@ -80,6 +80,9 @@ export async function GET(request: Request) {
   if (vista === "presencia") {
     const franja = q.get("franja") ?? "";
     if (!franja) return NextResponse.json({ error: "Falta la franja (clase)" }, { status: 400, headers });
+    // La franja viaja al nombre del archivo (Content-Disposition): solo letras, digitos, "_" y "-" (los ids reales
+    // llevan tildes: backend-sábado-08-uno, por eso se admite Latin-1 ademas de \w). Comillas/saltos de linea -> 400.
+    if (!/^[\wÀ-ÿ-]+$/.test(franja)) return NextResponse.json({ error: "Franja inválida" }, { status: 400, headers });
     try {
       const filas = await listarPresenciaNominal(semana, franja);
       const csv = construirCsvPresencia(filas);

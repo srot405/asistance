@@ -11,7 +11,7 @@ import TendenciaTiempo from "./TendenciaTiempo";
 import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
-import { useTiempoSemana } from "../lib/useTiempo";
+import { alCambiarSesionTiempo, useTiempoSemana } from "../lib/useTiempo";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
@@ -60,7 +60,8 @@ export default function Dashboard() {
       }
     }
     cargar();
-    const { data: auth } = clienteAuth().auth.onAuthStateChange((evento) => {
+    const { data: auth } = clienteAuth().auth.onAuthStateChange((evento, sesion) => {
+      alCambiarSesionTiempo(evento, sesion?.user?.id);
       if (evento === "SIGNED_IN" || evento === "TOKEN_REFRESHED") cargar();
     });
     return () => { cancelado = true; auth.subscription.unsubscribe(); };
@@ -74,9 +75,10 @@ export default function Dashboard() {
   const actualSinSabado = useMemo(() => actual ? semanaSinSabado(actual, data?.resultados ?? []) : false,
     [actual, data]);
 
-  // TOC-140: cifra de tiempo para la tarjeta de la pestaña Semana (misma consulta que la pestaña Tiempo; con caché).
+  // TOC-140: cifra de tiempo para la tarjeta de la pestaña Semana. Lectura LIGERA (solo conteos por clase, sin la vista
+  // por persona) y solo mientras esa pestaña está abierta; la lectura completa la dispara únicamente la pestaña Tiempo.
   const tiempoSemana = useTiempoSemana(actual?.semana ?? "", {}, modo === "demo" ? "demo" : "real",
-    Boolean(actual) && actual?.nivel === "Detalle" && (modo === "demo" || modo === "real"));
+    pestana === "Semana" && Boolean(actual) && actual?.nivel === "Detalle" && (modo === "demo" || modo === "real"), true);
 
   async function exportar() {
     if (!actual) return;

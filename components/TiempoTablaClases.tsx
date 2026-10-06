@@ -1,8 +1,8 @@
 import type { AgregadoTiempo, ClaseTiempo, DiaTiempo } from "../lib/tiempoContrato.d.mts";
-import { ICONOS, porcentajeCumple, porcentajeRojo } from "../lib/tiempoVista.mjs";
+import { ICONOS, porcentajeCumple, porcentajeRojo, porcentajeUnDecimal } from "../lib/tiempoVista.mjs";
 
-const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v)} %`);
-const cob = (a: AgregadoTiempo) => (a.cobertura == null ? "—" : `${Math.round(a.cobertura * 100)} %${a.nivel_cobertura === "baja" ? " ⚠" : ""}`);
+const pct = porcentajeUnDecimal;
+const cob = (a: AgregadoTiempo) => (a.cobertura == null ? "—" : `${porcentajeUnDecimal(a.cobertura * 100)}${a.nivel_cobertura === "baja" ? " ⚠" : ""}`);
 
 function Fila({ titulo, a, extra, fuerte }: { titulo: string; a: AgregadoTiempo; extra?: string; fuerte?: boolean }) {
   const sinMedicion = a.sin_medicion;

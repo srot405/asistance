@@ -34,7 +34,7 @@ export async function cargarLector(datos, fallos = {}) {
     throw new Error(`Import no previsto: ${name}`);
   };
   const exports = {};
-  vm.runInNewContext(compiled, { exports, require, console });
+  vm.runInNewContext(compiled, { exports, require, console, Date });
   return { lector: exports, consultas };
 }
 

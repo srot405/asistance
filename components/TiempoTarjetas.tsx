@@ -1,7 +1,7 @@
 import type { AgregadoTiempo } from "../lib/tiempoContrato.d.mts";
-import { ETIQUETAS, ICONOS, TEXTO_SIN_DATO_AYUDA, porcentajeCumple, porcentajeRojo, porcentajeTexto, textoCobertura } from "../lib/tiempoVista.mjs";
+import { ETIQUETAS, ICONOS, TEXTO_SIN_DATO_AYUDA, porcentajeCumple, porcentajeRojo, porcentajeTexto, porcentajeUnDecimal, textoCobertura } from "../lib/tiempoVista.mjs";
 
-const entero = (v: number | null) => (v == null ? "—" : `${Math.round(v)} %`);
+const entero = porcentajeUnDecimal;
 
 // Cuatro tarjetas: cumple (✓), rojo por tiempo (⏱), sin dato (◌) y mediana. El % se calcula SOLO sobre los medidos;
 // con 0 medidos muestra "—" (nunca 0 %) y un panel que explica por que.

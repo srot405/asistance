@@ -59,7 +59,46 @@ async function unaFila<T>(tabla: string, columnas: string, semana: string): Prom
 
 type FilaSemanaDb = { congelada_en: string | null; cerrada_en: string | null; estado: string; notas: string | null };
 
-export async function leerTiempoSemana(semana: string, filtro: FiltroTiempo = {}): Promise<TiempoSemanaResponse | TiempoNoDisponible> {
+type BaseSemana = {
+  clases: FilaClaseBackend[]; filasPersona: FilaPersonaDb[]; franjas: FranjaTiempo[]; fila: FilaSemanaDb | null;
+  resumen: Record<string, unknown> | null;
+};
+
+// Cache de servidor por semana (TTL corto): guarda SOLO las filas crudas SIN nombre/persona_id/correo y no depende del
+// usuario (el acceso ya se exigio en la ruta antes de llegar aqui), asi que no mezcla permisos. Cambiar un filtro
+// (ciudad/clase/cuenta) se resuelve en memoria sobre la misma lectura en vez de releer v_asist_tiempo_persona (egress).
+export const TTL_CACHE_TIEMPO_MS = 60_000;
+const MAX_ENTRADAS_CACHE = 6;
+const cacheBase = new Map<string, { en: number; lectura: Promise<BaseSemana> }>();
+export function vaciarCacheTiempo(): void { cacheBase.clear(); }
+
+async function leerBaseSemana(semana: string, conPersonas: boolean): Promise<BaseSemana> {
+  const ahora = Date.now();
+  // Una lectura completa (con personas) tambien sirve a quien pide solo la ligera.
+  for (const clave of conPersonas ? [`${semana}|1`] : [`${semana}|1`, `${semana}|0`]) {
+    const hit = cacheBase.get(clave);
+    if (hit && ahora - hit.en < TTL_CACHE_TIEMPO_MS) return hit.lectura;
+  }
+  const clave = `${semana}|${conPersonas ? 1 : 0}`;
+  const lectura = (async (): Promise<BaseSemana> => {
+    const clases = await tablaTiempo<FilaClaseBackend>("asist_tiempo_clase", COLUMNAS_CLASE, semana, ["sesion_id"]);
+    const [filasPersona, franjas, fila, resumen] = await Promise.all([
+      conPersonas && clases.length ? tablaTiempo<FilaPersonaDb>("v_asist_tiempo_persona", COLUMNAS_PERSONA, semana, ["sesion_id", "persona_id"]) : Promise.resolve([]),
+      tablaTiempo<FranjaTiempo>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana, ["slot_id"]),
+      unaFila<FilaSemanaDb>("asist_semanas", "congelada_en,cerrada_en,estado,notas", semana),
+      unaFila<Record<string, unknown>>("asist_semana_resumen", COLUMNAS_RESUMEN, semana),
+    ]);
+    return { clases, filasPersona, franjas, fila, resumen };
+  })();
+  cacheBase.set(clave, { en: ahora, lectura });
+  lectura.catch(() => { if (cacheBase.get(clave)?.lectura === lectura) cacheBase.delete(clave); });
+  while (cacheBase.size > MAX_ENTRADAS_CACHE) cacheBase.delete(cacheBase.keys().next().value as string);
+  return lectura;
+}
+
+// `ligero`: SOLO lo que necesita la tarjeta de la pestana Semana (conteos de asist_tiempo_clase); no lee la vista por persona.
+export async function leerTiempoSemana(semana: string, filtro: FiltroTiempo = {}, opciones: { ligero?: boolean } = {}):
+  Promise<TiempoSemanaResponse | TiempoNoDisponible> {
   if (MODO_DEMO) {
     const d = (TIEMPO_DEMO as Record<string, any>)[semana];
     if (!d) throw new Error(`Sin datos demo de tiempo para ${semana}`);
@@ -67,18 +106,15 @@ export async function leerTiempoSemana(semana: string, filtro: FiltroTiempo = {}
       info: { ...d.info, resumen_personas: normalizarResumenPersonas(d.resumenFila) } });
   }
   try {
-    const clases = await tablaTiempo<FilaClaseBackend>("asist_tiempo_clase", COLUMNAS_CLASE, semana, ["sesion_id"]);
-    const [filasPersona, franjas, fila, resumen] = await Promise.all([
-      clases.length ? tablaTiempo<FilaPersonaDb>("v_asist_tiempo_persona", COLUMNAS_PERSONA, semana, ["sesion_id", "persona_id"]) : Promise.resolve([]),
-      tablaTiempo<FranjaTiempo>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana, ["slot_id"]),
-      unaFila<FilaSemanaDb>("asist_semanas", "congelada_en,cerrada_en,estado,notas", semana),
-      unaFila<Record<string, unknown>>("asist_semana_resumen", COLUMNAS_RESUMEN, semana),
-    ]);
+    const ligero = Boolean(opciones.ligero);
+    const { clases, filasPersona, franjas, fila, resumen } = await leerBaseSemana(semana, !ligero);
     const resumenPersonas: ResumenPersonasTiempo | null = normalizarResumenPersonas(resumen);
-    return armarTiempoSemana({ clases, personas: filasPersona.map(aFilaPersona), franjas, filtro, info: {
+    const respuesta = armarTiempoSemana({ clases, personas: filasPersona.map(aFilaPersona), franjas, filtro: ligero ? {} : filtro, info: {
       semana, roster: resumenPersonas?.roster ?? null, congelada_en: fila?.congelada_en ?? null,
       reconstruida: /reconstruid/i.test(fila?.notas ?? ""), provisional: fila?.estado !== "cerrada", cerrada_en: fila?.cerrada_en ?? null,
       umbral_pct: resumenPersonas?.umbral_pct ?? null, resumen_personas: resumenPersonas } });
+    // Sin la vista por persona no hay con que comparar: no se afirma una discrepancia que no existe.
+    return ligero ? { ...respuesta, cuadre_backend: { estado: "SIN_COMPARAR", detalle: [] } } : respuesta;
   } catch (error) {
     if (esTablaAusente(error)) return NO_DISPONIBLE;
     throw error;

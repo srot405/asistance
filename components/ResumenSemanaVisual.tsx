@@ -58,8 +58,9 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, t
       {tiempo && actual.nivel === "Detalle" && <article className="metric-card tiempo" data-testid="tarjeta-tiempo"><span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Tiempo en clase</span>
         {t && t.hay_tiempos ? <>
           <strong>{t.semana_agregada.n_medibles > 0 ? `${Math.round((t.semana_agregada.n_cumplen / t.semana_agregada.n_medibles) * 100)} %` : "—"}</strong>
-          <small>{t.semana_agregada.n_cumplen} de {t.semana_agregada.n_medibles} medidos cumplen el 50 % del tiempo de su clase · <b>{textoCobertura(t.semana_agregada)}</b>
-            {t.provisional && <> · ⏳ provisional</>}{irATiempo && <> · <button type="button" className="link-boton" onClick={irATiempo}>ver detalle</button></>}</small></>
+          <small>{t.semana_agregada.n_cumplen} de {t.semana_agregada.n_medibles} medidos cumplen (suma de clases) · 50 % del tiempo de su clase · <b>{textoCobertura(t.semana_agregada)}</b>
+            {t.provisional && <> · ⏳ provisional</>} · el veredicto semanal usa la mejor sesión: {irATiempo
+              ? <button type="button" className="link-boton" onClick={irATiempo}>ver pestaña Tiempo</button> : "ver pestaña Tiempo"}</small></>
           : <><strong>—</strong><small>{tiempo.estado === "cargando" ? "Cargando tiempo…" : tiempo.estado === "vacio" ? "Aún no hay tiempos calculados para esta semana." : TEXTO_NO_DISPONIBLE}</small></>}
       </article>}
     </section>

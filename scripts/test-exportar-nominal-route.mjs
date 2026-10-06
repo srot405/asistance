@@ -93,6 +93,18 @@ assert.equal(presencia.headers.get("content-disposition"),
 assert.match(await presencia.text(), /Ana Uno/, "CSV de presencia también lleva nombre, detrás de exigirAcceso");
 assert.equal(llamadasPresencia.at(-1).franja, "backend-martes-18");
 
+// Bajo 2: la franja va al filename -> comilla, salto de linea, barra o espacio = 400 y NO se lee nada
+const antesPresencia = llamadasPresencia.length;
+for (const mala of ['x"y', "x%0D%0Ainjected", "x%0Ay", "a/b", "a%20b", "..%2F..", "x;y"]) {
+  const r = await exports.GET(new Request(`http://local/api/exportar-nominal?semana=2026-09-14&vista=presencia&franja=${mala}`, { headers }));
+  assert.equal(r.status, 400, `franja ${mala} rechazada`);
+  assert.equal(r.headers.get("content-disposition"), null);
+}
+assert.equal(llamadasPresencia.length, antesPresencia, "una franja invalida no llega al lector");
+const conTilde = await exports.GET(new Request(
+  `http://local/api/exportar-nominal?semana=2026-09-14&vista=presencia&franja=${encodeURIComponent("backend-sábado-08-uno")}`, { headers }));
+assert.equal(conTilde.status, 200, "los ids reales con tilde siguen validos");
+
 const rep = await exports.GET(new Request("http://local/api/exportar-nominal?semana=2026-09-28&vista=reporte", { headers }));
 assert.equal(rep.status, 200);
 assert.equal(rep.headers.get("content-disposition"), 'attachment; filename="asistencia_2026-09-28_reporte_captura_incompleta.csv"');
