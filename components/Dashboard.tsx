@@ -4,6 +4,7 @@ import type { HistoricoData } from "../lib/types";
 import CalendarioSemana from "./CalendarioSemana";
 import Cobertura from "./Cobertura";
 import Encabezado from "./Encabezado";
+import EnVivo from "./EnVivo";
 import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
 import Tiempo from "./Tiempo";
@@ -12,10 +13,11 @@ import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
 import { alCambiarSesionTiempo, useTiempoSemana } from "../lib/useTiempo";
+import { alCambiarSesionVivo } from "../lib/useVivo";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "Presencia", "Cobertura", "Tiempo", "Historial"] as const;
+const PESTANAS = ["Semana", "En vivo", "Presencia", "Cobertura", "Tiempo", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -62,6 +64,7 @@ export default function Dashboard() {
     cargar();
     const { data: auth } = clienteAuth().auth.onAuthStateChange((evento, sesion) => {
       alCambiarSesionTiempo(evento, sesion?.user?.id);
+      alCambiarSesionVivo(evento, sesion?.user?.id);
       if (evento === "SIGNED_IN" || evento === "TOKEN_REFRESHED") cargar();
     });
     return () => { cancelado = true; auth.subscription.unsubscribe(); };
@@ -130,6 +133,7 @@ export default function Dashboard() {
           tiempo={{ estado: tiempoSemana.estado, datos: tiempoSemana.datos }} irATiempo={() => setPestana("Tiempo")} />
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}
+      {pestana === "En vivo" && <EnVivo modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Cobertura" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}

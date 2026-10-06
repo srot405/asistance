@@ -45,7 +45,7 @@ assert.match(css, /@media \(max-width: 600px\) \{ \.tiempo-grid \{ grid-template
 assert.match(fuentes.Tiempo, /TEXTO_NO_DISPONIBLE/);
 assert.match(fuentes.TendenciaTiempo, /TEXTO_NO_DISPONIBLE/);
 const dash = await leer("components/Dashboard.tsx");
-assert.match(dash, /\["Semana", "Presencia", "Cobertura", "Tiempo", "Historial"\]/);
+assert.match(dash, /\["Semana", "En vivo", "Presencia", "Cobertura", "Tiempo", "Historial"\]/);
 for (const comp of ["<Presencia ", "<Cobertura ", "<CalendarioSemana ", "<TendenciaHistorica "]) assert.ok(dash.includes(comp), `${comp} sigue`);
 // 9) Presencia queda como vista legada con aviso hacia Tiempo
 assert.match(await leer("components/Presencia.tsx"), /criterio de presencia en vivo \(70 % de la clase\)[\s\S]*pestaña <b>Tiempo<\/b>/);

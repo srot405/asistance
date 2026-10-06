@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "test:acceso": "node scripts/test-acceso.mjs",
+    "test:vivo-calculo": "node scripts/test-vivo-calculo.mjs",
+    "test:vivo-route": "node scripts/test-vivo-route.mjs",
     "test:franja-tipo": "node scripts/test-franja-tipo.mjs",
     "test:demo": "node scripts/test-demo.mjs",
     "test:bloqueo": "node scripts/test-bloqueo-demo.mjs",
@@ -50,6 +52,10 @@
     "test:csv-tiempo": "node scripts/test-csv-tiempo.mjs",
     "test:tiempo-ui": "node scripts/test-tiempo-ui.mjs",
     "test:tiempo-muestras": "node scripts/test-tiempo-muestras.mjs",
+    "test:vivo-vista": "node scripts/test-vivo-vista.mjs",
+    "test:vivo-controlador": "node scripts/test-vivo-controlador.mjs",
+    "test:vivo-render": "node scripts/test-vivo-render.mjs",
+    "test:vivo": "npm run test:vivo-vista && npm run test:vivo-controlador && npm run test:vivo-render",
     "test:tiempo": "npm run test:tiempo-vista && npm run test:histograma && npm run test:tiempo-calculo && npm run test:cuadre-tiempo && npm run test:tiempo-route && npm run test:tiempo-paginacion && npm run test:tiempo-egress && npm run test:tiempo-render && npm run test:tiempo-degradado && npm run test:tendencia-tiempo && npm run test:csv-tiempo && npm run test:tiempo-ui && npm run test:tiempo-muestras"
   },
   "dependencies": {
