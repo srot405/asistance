@@ -16,6 +16,7 @@ const datos = {
   asist_entradas: Array.from({ length: N }, (_, i) => ({ persona_id: `e${i}`, sesion_id: "z1" })),
   asist_celda_semana: [],
   asist_semana_resumen: [{ nivel: "Detalle", captura_completa: true }],
+  asist_semanas: [{ congelada_en: "2026-09-28T12:00:00Z", notas: "" }],
 };
 const ordenes = [];
 const require = (name) => {
