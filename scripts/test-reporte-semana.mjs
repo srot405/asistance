@@ -28,7 +28,7 @@ const celdas = [
 const base = construirBase(roster, franjas, sesiones, [{ persona_id: "1", sesion_id: "s1" }], celdas);
 const resumenOk = { captura_completa: false, nivel: "Detalle", poblacion: 2, asistieron: 1, nunca: 1,
   cuadre: { roster: 5, medibles: 2, sin_dato: 1, sin_clase: 1, pendientes: 1 } };
-const r = construirReporteSemana("2026-09-28", base, resumenOk);
+const r = construirReporteSemana("2026-09-28", base, resumenOk, { congelada_en: "2026-09-28T13:05:00Z" });
 assert.equal(r.completa, false);
 assert.equal(r.filas.length, roster.length, "incluye TODO el roster");
 assert.deepEqual(r.cuadre, { roster: 5, medible: 2, fueraDato: 1, pendiente: 1, sinClase: 1 });
@@ -46,7 +46,7 @@ assert.equal(csv.contenido.charCodeAt(0), 0xFEFF, "BOM UTF-8");
 assert.equal(csv.archivo, "reporte_captura_incompleta");
 const lineas = csv.contenido.slice(1).split("\r\n");
 assert.equal(lineas[0], '"tipo_fila","semana","nombre","ciudad","franja","fecha","estado_semana","estado_dia","detalle"');
-assert.match(lineas[1], /captura incompleta; roster=5; medible=2; fuera_dato=1; pendiente=1; sin_clase=1; cuadre=OK/);
+assert.match(lineas[1], /captura incompleta; Seguimiento: 5 estudiantes \(congelado el 28\/09\); roster=5; medible=2; fuera_dato=1; pendiente=1; sin_clase=1; cuadre=OK/);
 assert.equal(lineas.filter((l) => l.startsWith('"FRANJA_SIN_DATO"')).length, 2);
 assert.match(csv.contenido, /"Pérez, Ana ""la mejor"""/, "tildes, comas y comillas escapadas");
 assert.equal(lineas.filter((l) => l.startsWith('"PERSONA"')).length, 5);

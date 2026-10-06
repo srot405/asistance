@@ -1,4 +1,5 @@
 import type { ResumenHistorico } from "../lib/types";
+import { textoBaseSeguimiento } from "../lib/baseSeguimiento.mjs";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 
 const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
@@ -60,6 +61,8 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado }:
         <span>{actual.cuadre.medibles} medibles</span><span>+</span><span>{actual.cuadre.sin_dato} sin dato</span><span>+</span>
         <span>{actual.cuadre.pendientes} pendientes</span><span>+</span><span>{actual.cuadre.sin_clase} sin clase ocurrida</span>
       </div>
+      {actual.cuadre.roster > 0 && <p className="coverage-line" data-testid="base-seguimiento">Base del denominador:{" "}
+        <b>{textoBaseSeguimiento(actual.cuadre.roster, actual.congelada_en, { reconstruida: actual.roster_reconstruido })}</b></p>}
       <p className="coverage-line">Captura: <b>{actual.clases_capturadas}</b> de <b>{actual.clases_programadas ?? "?"}</b> clases
         {actual.porcentaje_cobertura != null && <> · {porcentaje(actual.porcentaje_cobertura)}</>}</p>
     </section>

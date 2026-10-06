@@ -27,6 +27,7 @@
     "test:exportar-nominal-route": "node scripts/test-exportar-nominal-route.mjs",
     "test:horario-franja": "node scripts/test-horario-franja.mjs",
     "test:reporte-semana": "node scripts/test-reporte-semana.mjs",
+    "test:base-seguimiento": "node scripts/test-base-seguimiento.mjs",
     "test:paginacion-detalle": "node scripts/test-paginacion-detalle.mjs",
     "test:cobertura": "node scripts/test-cobertura.mjs",
     "test:estado-presencia": "node scripts/test-estado-presencia.mjs",

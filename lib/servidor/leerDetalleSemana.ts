@@ -95,5 +95,13 @@ export async function leerReporteSemana(semana: string): Promise<ReporteSemana |
     if (error) throw error;
     resumen = (data?.[0] as ResumenSemana | undefined) ?? null;
   }
-  return construirReporteSemana(semana, base, resumen);
+  let congelacion: { congelada_en?: string | null; reconstruida?: boolean } | null = null;
+  if (!MODO_DEMO) {
+    const { data, error } = await supabaseServidor().from("asist_semanas")
+      .select("congelada_en,notas").eq("semana", semana).limit(1);
+    if (error) throw error;
+    const fila = data?.[0] as { congelada_en?: string | null; notas?: string | null } | undefined;
+    if (fila) congelacion = { congelada_en: fila.congelada_en, reconstruida: /reconstruid/i.test(fila.notas ?? "") };
+  }
+  return construirReporteSemana(semana, base, resumen, congelacion);
 }

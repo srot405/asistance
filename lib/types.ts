@@ -139,6 +139,9 @@ export type ResumenHistorico = {
   // nunca por fecha fija -- ver historico_semanal.py::_cobertura(). Ausente = usar el
   // heurístico de respaldo (lib/franjaTipo.mjs::semanaSinSabado) hasta que se recargue.
   sabado_excluido?: boolean;
+  // TOC-136: cuándo se congeló el roster de la semana (asist_semanas) = base del denominador.
+  congelada_en?: string | null;
+  roster_reconstruido?: boolean;
   aviso: string;
   metodo: string;
   fuentes: string[];
