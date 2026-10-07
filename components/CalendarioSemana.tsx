@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
 import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
+import { useConfianzaSemana } from "../lib/useTiempo";
+import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
 import type { DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -51,6 +53,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   const [errorDetalle, setErrorDetalle] = useState("");
   const [falloExport, setFalloExport] = useState("");
   const esDetalle = actual.nivel === "Detalle";
+  const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
 
   // Cambiar de semana limpia día y filtros: "si se elige ver una semana, solo se
   // ve información de esa semana" (pedido explícito, no mezclar).
@@ -170,10 +173,11 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
             <p>{diaSeleccionado.asistieron} ingresaron · {diaSeleccionado.nunca} no ingresaron ·
               roster medible {diaSeleccionado.poblacion}</p>
             {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table">
-              <thead><tr><th>Clase</th><th>Roster</th><th>Ingresaron</th><th>%</th></tr></thead>
+              <thead><tr><th>Clase</th><th>Roster</th><th>Ingresaron</th><th>%</th><th>Confianza</th></tr></thead>
               <tbody>{clasesDelDia.map((clase) => <tr key={`${clase.fecha}-${clase.slot_id}`}>
                 <td>{horarioDe(clase.slot_id)}</td><td>{clase.poblacion}</td><td>{clase.asistieron}</td>
                 <td>{porcentaje(clase.porcentaje_retencion)}</td>
+                <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
               </tr>)}</tbody>
             </table></div>}
             <button className="control" onClick={() => descargarNominal("dia")}>

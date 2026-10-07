@@ -945,6 +945,22 @@ select {
 .tiempo-card.t-sindato { background: var(--t-sindato-bg); color: var(--t-sindato-fg); border: 2px dotted var(--t-sindato); }
 .tiempo-card.t-mediana { background: var(--card); }
 .tiempo-visitas { margin: 6px 0; }
+/* Chips de confianza de la captura y del cuadre por clase (TOC-151): icono + texto, nunca solo color. */
+.chips-conf { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.chip-conf { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.chip-conf b { font-weight: 700; margin-right: 2px; }
+.chip-conf-capturada, .chip-cuadre-cuadrada { background: #e4f6e9; color: #145f31; }
+.chip-conf-dudosa { background: #fff0b3; color: #5a4300; }
+.chip-conf-zoom_limit { background: #ece6fa; color: #4b2f8c; border-style: dashed; border-color: currentColor; }
+.chip-conf-sin_captura, .chip-cuadre-con_diferencias { background: #fbe6e6; color: #8c2222; }
+.chip-conf-por_ocurrir, .chip-conf-en_curso, .chip-conf-sin_clase, .chip-cuadre-sin_cuadre { background: #eceaf1; color: #4d4a58; }
+.chip-cuadre-sin_cuadre { border-style: dotted; border-color: currentColor; }
+.shell.dark .chip-conf-capturada, .shell.dark .chip-cuadre-cuadrada { background: #17402a; color: #9fe0b4; }
+.shell.dark .chip-conf-dudosa { background: #4c3d14; color: #fff0b3; }
+.shell.dark .chip-conf-zoom_limit { background: #2f2650; color: #cdbdf5; }
+.shell.dark .chip-conf-sin_captura, .shell.dark .chip-cuadre-con_diferencias { background: #4a1f1f; color: #f2b4b4; }
+.shell.dark .chip-conf-por_ocurrir, .shell.dark .chip-conf-en_curso, .shell.dark .chip-conf-sin_clase, .shell.dark .chip-cuadre-sin_cuadre { background: #34313f; color: #cbc8d6; }
+.presencia-confianza { margin: 0 0 12px; }
 .visitas-matriz thead th { white-space: normal; min-width: 84px; font-size: 11px; text-align: center; }
 .visitas-matriz th[scope="row"], .visitas-tabla th[scope="row"] { text-align: left; font-weight: 600; }
 .visitas-matriz td { text-align: center; }

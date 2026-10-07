@@ -4,6 +4,7 @@ import { sesionActual } from "./auth";
 import { estadoVistaTiempo } from "./tiempoVista.mjs";
 import type { FiltroTiempo, TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "./tiempoContrato.d.mts";
 import type { VisitasRespuesta } from "./visitasCalculo.d.mts";
+import type { ConfianzaSemanaResponse } from "./confianzaClase.d.mts";
 
 type Modo = "demo" | "real";
 export type EstadoTiempo = "cargando" | "ok" | "no_disponible" | "vacio" | "no_detalle" | "error";
@@ -72,6 +73,12 @@ export function useTiempoSemana(semana: string, filtro: FiltroTiempo, modo: Modo
     else for (const k of ["ciudad", "franja", "cuenta"] as const) if (filtro[k]) params.set(k, String(filtro[k]));
     return pedir<TiempoSemanaResponse | TiempoNoDisponible>("/api/tiempo", params, modo);
   });
+}
+
+// Confianza de la captura y estado del cuadre por clase (TOC-151): una sola lectura por semana, compartida por Semana, Presencia y Tiempo.
+export function useConfianzaSemana(semana: string, modo: Modo, activa = true): Respuesta<ConfianzaSemanaResponse> {
+  const clave = activa && semana ? `c|${modo}|${semana}` : null;
+  return usarPeticion(clave, () => pedir<ConfianzaSemanaResponse>("/api/confianza", new URLSearchParams({ semana }), modo));
 }
 
 // Visitas nominales (TOC-147): mismos filtros que Tiempo; se pide solo cuando la pestaña ya tiene tiempos (activa).

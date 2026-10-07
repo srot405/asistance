@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { useConfianzaSemana } from "../lib/useTiempo";
+import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
 import type { DetalleSemanaResponse, PresenciaClaseResponse, ResumenHistorico } from "../lib/types";
 
 async function headersAuth(modo: "demo" | "real", params: URLSearchParams): Promise<Record<string, string>> {
@@ -26,6 +28,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [falloExport, setFalloExport] = useState("");
+  const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
 
   useEffect(() => { setFranjaId(""); setDatos(null); setError(""); setFalloExport(""); }, [actual.semana]);
 
@@ -103,6 +106,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       onChange={(e) => setFranjaId(e.target.value)}>
       {franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}
     </select></label>
+    {franjaId && <p className="presencia-confianza"><ChipConfianza c={confianza.get(franjaId)} /></p>}
 
     {error && <p className="historical-notice missing-notice" role="alert">{error}</p>}
     {cargando && <p className="nota">Cargando…</p>}

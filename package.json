@@ -41,6 +41,7 @@
     "test:visitas-calculo": "node scripts/test-visitas-calculo.mjs",
     "test:visitas-lector": "node scripts/test-visitas-lector.mjs",
     "test:visitas-route": "node scripts/test-visitas-route.mjs",
+    "test:confianza": "node scripts/test-confianza.mjs",
     "test:visitas": "npm run test:visitas-calculo && npm run test:visitas-lector && npm run test:visitas-route",
     "test:tendencia-grafico": "node scripts/test-tendencia-grafico.mjs",
     "test:tiempo-vista": "node scripts/test-tiempo-vista.mjs",

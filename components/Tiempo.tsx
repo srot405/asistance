@@ -4,7 +4,8 @@ import { descargarCsv } from "../lib/descargas";
 import type { FiltroTiempo, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
 import { TEXTO_NO_DISPONIBLE, ICONOS, TEXTO_ROJO_SEMANAL, UMBRAL_PORCENTAJE_ROJO, ETIQUETAS } from "../lib/tiempoVista.mjs";
 import type { ResumenHistorico } from "../lib/types";
-import { useTiempoSemana } from "../lib/useTiempo";
+import { useConfianzaSemana, useTiempoSemana } from "../lib/useTiempo";
+import { mapaConfianza } from "./ChipConfianza";
 import CoberturaTiempo from "./CoberturaTiempo";
 import HistogramaTiempo from "./HistogramaTiempo";
 import LeyendaTiempo from "./LeyendaTiempo";
@@ -22,6 +23,10 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
   useEffect(() => { setFiltro({}); setFalloExport(""); }, [actual.semana]);
   const { estado, datos, recargar } = useTiempoSemana(actual.semana, filtro, modo, esDetalle);
   const d = datos && datos.disponible ? (datos as TiempoSemanaResponse) : null;
+  // TOC-151: chip de confianza + cuadre por clase; si no hay lectura, la tabla queda como antes.
+  const lecturaConfianza = useConfianzaSemana(actual.semana, modo, esDetalle).datos;
+  const confianza = mapaConfianza(lecturaConfianza);
+  const resumenConfianza = lecturaConfianza && lecturaConfianza.disponible ? lecturaConfianza : null;
 
   async function descargar() {
     setFalloExport("");
@@ -72,7 +77,9 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <h3>Distribución del % del tiempo de clase</h3>
       <HistogramaTiempo histograma={d.histograma} />
 
-      <TiempoTablaClases clases={d.por_clase} dias={d.por_dia} semana={d.semana_agregada} />
+      {resumenConfianza && <p className="nota" data-testid="resumen-confianza">Confianza de la captura: {resumenConfianza.resumen.capturadas} de {resumenConfianza.resumen.clases} clases capturadas
+        {resumenConfianza.cuadre_disponible ? ` · cuadre: ${resumenConfianza.resumen.cuadradas} cuadradas, ${resumenConfianza.resumen.con_diferencias} con diferencias, ${resumenConfianza.resumen.sin_cuadre} sin cuadre.` : " · el cuadre automático aún no está disponible en esta base."}</p>}
+      <TiempoTablaClases clases={d.por_clase} dias={d.por_dia} semana={d.semana_agregada} confianza={confianza} />
 
       {d.semana_personas && !filtro.ciudad && !filtro.franja && !filtro.cuenta && <section className="panel tiempo-personas" aria-label="Veredicto semanal por persona">
         <h3>Veredicto de la semana por persona (la MEJOR clase)</h3>
