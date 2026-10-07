@@ -244,8 +244,8 @@ export async function leerTiempoReporte(semana: string): Promise<TiempoReporte> 
 
 export type TiempoPresencia = { estado_tiempo: string; pct_tiempo: number | null; cumple_50: boolean | null; minutos: number | null };
 
-// Presencia (pantalla y CSV): tiempo de las personas PROPIAS de una clase. Cualquier fallo -> mapa vacio y la presencia
-// declara "sin dato de tiempo" (nunca inventa Parcial ni Presente).
+// Presencia (pantalla y CSV): tiempo de las personas PROPIAS de una clase. Tablas ausentes -> mapa vacio y la presencia
+// declara "sin dato de tiempo" (nunca inventa Parcial ni Presente); un fallo real lanza y la ruta responde 503.
 export async function leerTiempoPersonasClase(semana: string, slotId: string): Promise<Map<string, TiempoPresencia>> {
   if (MODO_DEMO) {
     const d = (TIEMPO_DEMO as Record<string, any>)[semana];
@@ -265,7 +265,10 @@ export async function leerTiempoPersonasClase(semana: string, slotId: string): P
         pct_tiempo: f.pct_tiempo == null ? null : Number(f.pct_tiempo), minutos: f.minutos == null ? null : Number(f.minutos) });
       if (lote.length < PAGINA) return salida;
     }
-  } catch {
-    return new Map();
+  } catch (error) {
+    // Sin las tablas de tiempo (aun no existen) la presencia declara "sin dato de tiempo": es el degradado de siempre. Cualquier OTRO
+    // fallo (red, permisos, 500) se propaga: devolver un mapa vacio mostraria a TODOS como "Sin dato de tiempo" con un 200 enganoso.
+    if (esTablaAusente(error)) return new Map();
+    throw error;
   }
 }

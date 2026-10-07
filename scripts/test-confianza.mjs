@@ -28,10 +28,21 @@ const r = armarConfianza({ semana: "2099-01-05", sesiones, cuadre: [cu("a", "ok"
 const por = Object.fromEntries(r.clases.map((c) => [c.slot_id, c]));
 assert.deepEqual(r.clases.map((c) => c.confianza), ["capturada", "dudosa", "zoom_limit", "sin_captura", "por_ocurrir", "capturada"]);
 assert.equal(por.a.cuadre.estado, "cuadrada"); assert.equal(por.b.cuadre.estado, "con_diferencias"); assert.equal(por.b.cuadre.n_diferencias, 3);
-assert.equal(por.c.cuadre.estado, "sin_cuadre", "sin fila en asist_cuadre_clase: todavia sin cuadre");
+assert.equal(por.c.cuadre, null, "zoom_limit sin fila de cuadre: no se pinta «Sin cuadre»");
+assert.equal(por.e.cuadre, null, "por_ocurrir sin fila de cuadre: nada que cuadrar");
+assert.equal(por.d.cuadre.estado, "sin_cuadre", "sin_captura sin fila en asist_cuadre_clase: todavia sin cuadre");
+assert.equal(por.f.cuadre.estado, "sin_cuadre", "capturada (recuperada) sin fila: sin cuadre");
+// «Cuadrada» solo junto a una captura confiable; «Con diferencias» siempre se muestra
+const raras = armarConfianza({ semana: "x", sesiones: [ses("z", "zoom_limit_pendiente"), ses("d", "dudosa"), ses("k", "capturada")],
+  cuadre: [cu("z", "ok"), cu("d", "ok"), cu("k", "ok")] });
+const porR = Object.fromEntries(raras.clases.map((c) => [c.slot_id, c]));
+assert.equal(porR.z.cuadre, null, "ZL + cuadrada: sin chip de cuadre"); assert.equal(porR.d.cuadre, null, "dudosa + cuadrada: sin chip de cuadre");
+assert.equal(porR.k.cuadre.estado, "cuadrada");
+const difZl = armarConfianza({ semana: "x", sesiones: [ses("z", "zoom_limit_pendiente")], cuadre: [cu("z", "con_diferencias", { n_diferencias: 1 })] });
+assert.equal(difZl.clases[0].cuadre.estado, "con_diferencias", "la alerta nunca se oculta");
 assert.equal(r.cuadre_disponible, true);
-assert.deepEqual(r.resumen, { clases: 6, capturadas: 2, cuadradas: 1, con_diferencias: 1, sin_cuadre: 4 });
-assert.equal(r.resumen.cuadradas + r.resumen.con_diferencias + r.resumen.sin_cuadre, r.resumen.clases, "los tres estados de cuadre cuadran con las clases");
+assert.deepEqual(r.resumen, { clases: 6, capturadas: 2, cuadradas: 1, con_diferencias: 1, sin_cuadre: 2 });
+assert.equal(r.resumen.cuadradas + r.resumen.con_diferencias + r.resumen.sin_cuadre + r.clases.filter((c) => c.cuadre === null).length, r.resumen.clases, "estados de cuadre + clases sin chip = clases");
 
 // varias sesiones en la misma franja: manda la peor; cualquier diferencia manda en el cuadre; n_api null si falta una fuente
 const doble = armarConfianza({ semana: "x", sesiones: [ses("a", "capturada", "2099-01-05", "s1"), ses("a", "sin_captura", "2099-01-05", "s2")],
@@ -143,7 +154,11 @@ assert.equal((await ok.json()).clases.length, 6);
 const chips = await renderizar("components/ChipConfianza.tsx", { c: por.b });
 assert.match(chips, /Dudosa/); assert.match(chips, /Con diferencias \(3 diferencias\)/);
 assert.match(await renderizar("components/ChipConfianza.tsx", { c: por.a }), /Capturada[\s\S]*Cuadrada/);
-assert.match(await renderizar("components/ChipConfianza.tsx", { c: por.c }), /Zoom limit[\s\S]*Sin cuadre/);
+const htmlB = await renderizar("components/ChipConfianza.tsx", { c: por.b }, { html: true });
+const zl = await renderizar("components/ChipConfianza.tsx", { c: por.c });
+assert.match(zl, /Zoom limit/); assert.doesNotMatch(zl, /Sin cuadre|Cuadrada/, "ZL no muestra cuadre");
+assert.match(htmlB, /aria-label="Captura: Dudosa\./, "la ayuda tambien va en aria-label"); assert.match(htmlB, /class="est-sr"/, "y como texto accesible");
+assert.match(htmlB, /aria-label="Cuadre: Con diferencias/);
 assert.match(await renderizar("components/ChipConfianza.tsx", { c: por.d }), /Sin captura/);
 const solo = await renderizar("components/ChipConfianza.tsx", { c: sinCuadre.clases[0] });
 assert.match(solo, /Capturada/); assert.doesNotMatch(solo, /Cuadrada|Sin cuadre|Con diferencias/, "sin 084 no se muestra cuadre");

@@ -148,6 +148,8 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
 
+    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «Nunca entró» sale de las entradas registradas (asist_entradas) y el tiempo de «Presente / Parcial» sale
+      de la API de Zoom (pestaña Tiempo). Si una persona aparece distinta aquí y en Tiempo, es porque cada pantalla lee su fuente; no es un error de cálculo.</p>
     <details className="panel definitions"><summary>Cómo se calculan estas categorías</summary>
       <p><b>🟢 Presente:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
       <p><b>🟠 Parcial:</b> estuvo menos del 50&nbsp;% del tiempo de su clase.</p>

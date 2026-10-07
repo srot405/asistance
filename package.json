@@ -43,6 +43,7 @@
     "test:visitas-route": "node scripts/test-visitas-route.mjs",
     "test:confianza": "node scripts/test-confianza.mjs",
     "test:roles-rutas": "node scripts/test-roles-rutas.mjs",
+    "test:hallazgos-auditoria": "node scripts/test-hallazgos-auditoria.mjs",
     "test:estadisticas-calculo": "node scripts/test-estadisticas-calculo.mjs",
     "test:estadisticas-route": "node scripts/test-estadisticas-route.mjs",
     "test:visitas": "npm run test:visitas-calculo && npm run test:visitas-lector && npm run test:visitas-route",

@@ -116,7 +116,7 @@ export async function GET(request: Request) {
         ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,
       } });
     } catch {
-      return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+      return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
     }
   }
 

@@ -34,6 +34,6 @@ export async function GET(request: Request) {
     const data = await leerPresenciaClase(semana, franja);
     return NextResponse.json(data, { headers });
   } catch {
-    return NextResponse.json({ error: "No disponible" }, { status: 500, headers });
+    return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
   }
 }
