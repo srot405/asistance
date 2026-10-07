@@ -4,6 +4,7 @@ import type { HistoricoData } from "../lib/types";
 import CalendarioSemana from "./CalendarioSemana";
 import Cobertura from "./Cobertura";
 import Encabezado from "./Encabezado";
+import Estadisticas from "./Estadisticas";
 import EnVivo from "./EnVivo";
 import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
@@ -15,10 +16,12 @@ import { descargarCsv } from "../lib/descargas";
 import { alCambiarSesionTiempo, useRolAcceso, useTiempoSemana } from "../lib/useTiempo";
 import { RolContext, ROL_CARGANDO, fijarRolDemo, type RolUi } from "../lib/rolUi";
 import { alCambiarSesionVivo } from "../lib/useVivo";
+import { FILTROS_VACIOS } from "../lib/estadisticasCalculo.mjs";
+import type { FiltrosEstadisticas } from "../lib/estadisticasCalculo.d.mts";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "En vivo", "Presencia", "Cobertura", "Tiempo", "Historial"] as const;
+const PESTANAS = ["Semana", "En vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -30,6 +33,7 @@ export default function Dashboard() {
   const [falloExport, setFalloExport] = useState("");
   const [pestana, setPestana] = useState<Pestana>("Semana");
   const [rolDemo, setRolDemo] = useState("");
+  const [filtrosEst, setFiltrosEst] = useState<FiltrosEstadisticas>({ ...FILTROS_VACIOS });   // TOC-150: persisten al cambiar de pestaña
   fijarRolDemo(rolDemo);   // antes de los hijos: sus claves de cache y peticiones leen el rol de practica
 
   useEffect(() => {
@@ -148,6 +152,7 @@ export default function Dashboard() {
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Cobertura" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {pestana === "Estadísticas" && <Estadisticas actual={actual} modo={modo === "demo" ? "demo" : "real"} filtros={filtrosEst} setFiltros={setFiltrosEst} />}
       {pestana === "Historial" && <>
         <TendenciaHistorica resultados={data.resultados} />
         <TendenciaTiempo resultados={data.resultados} modo={modo === "demo" ? "demo" : "real"} />

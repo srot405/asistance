@@ -1049,3 +1049,36 @@ select {
 .vivo-ayuda { margin-left: 6px; cursor: help; font-size: 14px; border-radius: 4px; }
 .vivo-ayuda:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 @media (max-width: 600px) { .vivo-tarjeta { padding: 14px; } .vivo-circulo { width: 52px; height: 52px; font-size: 22px; } .vivo-burbuja { gap: 10px; padding: 10px; } }
+
+/* ===== TOC-150: pestana Estadisticas. Nunca solo color: cada nivel = color + icono (✓ ▲ ✕ ◌) + texto; «<5» = suprimido. ===== */
+:root { --e-amarillo-bg: #fff0b3; --e-amarillo-fg: #5a4300; --e-amarillo: #c99a00; }
+.dark { --e-amarillo-bg: #4c3d14; --e-amarillo-fg: #fff0b3; --e-amarillo: #f2c230; }
+.est-panel h3 { margin: 20px 0 6px; font-size: 15px; }
+.est-filtros { align-items: end; }
+.est-fija { display: inline-block; padding: 6px 10px; }
+.est-aparte { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.est-tabla td, .est-tabla th { vertical-align: middle; }
+.est-sub { display: block; font-weight: 400; opacity: .75; font-size: 11px; }
+.est-celda { text-align: center !important; white-space: nowrap; }
+.est-verde { background: var(--t-cumple-bg); color: var(--t-cumple-fg); }
+.est-amarillo { background: var(--e-amarillo-bg); color: var(--e-amarillo-fg); }
+.est-rojo { background: repeating-linear-gradient(45deg, var(--t-rojo-bg) 0 8px, var(--t-rojo-claro) 8px 10px); color: var(--t-rojo-fg); }
+.est-sin_dato, .est-vacia { background: var(--t-sindato-bg); color: var(--t-sindato-fg); }
+.est-supr { background: var(--t-sindato-bg); color: var(--t-sindato-fg); border: 1px dotted var(--t-sindato); font-weight: 700; }
+.est-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.est-barras { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.est-barras li { display: grid; grid-template-columns: minmax(80px, 140px) 1fr 90px; gap: 10px; align-items: center; font-size: 13px; }
+.est-barra-pista { height: 14px; background: var(--t-sindato-bg); border-radius: 7px; overflow: hidden; }
+.est-barra { display: block; height: 100%; border-radius: 7px; }
+.est-barra-verde { background: var(--t-cumple); }
+.est-barra-amarillo { background: var(--e-amarillo); }
+.est-barra-rojo { background: repeating-linear-gradient(45deg, var(--t-rojo) 0 4px, var(--t-rojo-claro) 4px 6px); }
+.est-barra-sin_dato { background: var(--t-sindato); }
+.est-barra-valor { text-align: right; white-space: nowrap; }
+.est-leyenda-tend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0; margin: 6px 0; font-size: 12px; }
+.est-supr-svg { font-size: 10px; fill: var(--muted); font-weight: 700; }
+@media (max-width: 640px) {
+  .est-aparte { grid-template-columns: 1fr; }
+  .est-barras li { grid-template-columns: 1fr 70px; }
+  .est-barras .est-barra-pista { grid-column: 1 / -1; grid-row: 2; }
+}

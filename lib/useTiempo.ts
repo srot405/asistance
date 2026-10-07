@@ -6,6 +6,7 @@ import { aplicarRolDemo, rolDemoActual, type RolUi } from "./rolUi";
 import type { FiltroTiempo, TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "./tiempoContrato.d.mts";
 import type { VisitasRespuesta } from "./visitasCalculo.d.mts";
 import type { ConfianzaSemanaResponse } from "./confianzaClase.d.mts";
+import type { EstadisticasRespuesta } from "./estadisticasCalculo.d.mts";
 
 type Modo = "demo" | "real";
 export type EstadoTiempo = "cargando" | "ok" | "no_disponible" | "vacio" | "no_detalle" | "error";
@@ -99,4 +100,10 @@ export function useTiempoSerie(modo: Modo, activa = true): Respuesta<TiempoSerie
 // Rol del usuario para la interfaz (TOC-148). Una lectura por sesion y rol de practica; si falla, la UI no ofrece el nominal.
 export function useRolAcceso(modo: Modo, activa = true): Respuesta<RolUi> {
   return usarPeticion(activa ? `r|${modo}|${modo === "demo" ? rolDemoActual() : ""}` : null, () => pedir<RolUi>("/api/rol", new URLSearchParams(), modo));
+}
+
+// Estadisticas (TOC-150): agregados de v_asist_corte / v_asist_corte_nivel de UNA semana (+ la serie por ciudad). Una lectura por semana;
+// los filtros se resuelven en el navegador con lib/estadisticasCalculo.mjs, asi cambiar un filtro no repite la consulta (egress).
+export function useEstadisticas(semana: string, modo: Modo, activa = true): Respuesta<EstadisticasRespuesta> {
+  return usarPeticion(activa && semana ? `e|${modo}|${semana}` : null, () => pedir<EstadisticasRespuesta>("/api/estadisticas", new URLSearchParams({ semana }), modo));
 }

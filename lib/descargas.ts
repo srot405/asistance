@@ -35,3 +35,18 @@ export async function descargarCsv(url: URL, modo: "demo" | "real", nombreArchiv
     return "No se pudo descargar el archivo. Revisa tu conexión e inténtalo de nuevo.";
   }
 }
+
+// Descarga de un CSV ya armado en el navegador (el corte agregado de Estadisticas: sin nombres, no pasa por el servidor).
+export function descargarTexto(contenido: string, nombreArchivo: string): string | null {
+  try {
+    const blobUrl = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = nombreArchivo;
+    link.click();
+    URL.revokeObjectURL(blobUrl);
+    return null;
+  } catch {
+    return "No se pudo generar el archivo.";
+  }
+}
