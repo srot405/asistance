@@ -1,0 +1,14 @@
+export type ModoAcceso = "compatibilidad" | "estricto" | "error";
+export type NominalAcceso = "todo" | "ciudad" | "ninguno" | "error";
+export type Acceso = { modo: ModoAcceso; rol: "admin" | "monitor" | "sin_rol" | null; ciudad: string | null; nominal: NominalAcceso };
+export type AutorizacionNominal = { ok: true; ciudad: string | null } | { ok: false; status: 403 | 503; mensaje: string };
+export const ACCESO_ERROR: Acceso;
+export const MENSAJE_SIN_NOMINAL: string;
+export const MENSAJE_CIUDAD_AJENA: string;
+export function normalizarCiudad(valor: unknown): string;
+export function mismaCiudad(a: unknown, b: unknown): boolean;
+export function resolverAcceso(payload: unknown): Acceso;
+export function autorizarNominal(acceso: Acceso | null | undefined, ciudadPedida?: string | null): AutorizacionNominal;
+export function filtrarPorCiudad<T extends Record<string, any>>(filas: T[], ciudad: string | null | undefined, campo?: string): T[];
+export function accesoDemo(params: URLSearchParams): Acceso;
+export function vistaAcceso(a: Acceso): Acceso;

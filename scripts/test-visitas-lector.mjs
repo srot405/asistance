@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import * as calculo from "../lib/tiempoCalculo.mjs";
+import * as roles from "../lib/rolesCalculo.mjs";
 import * as demo from "../lib/tiempo-demo.mjs";
 import * as visitasCalculo from "../lib/visitasCalculo.mjs";
 import { construirCsvTiempo } from "../lib/exportarNominal.mjs";
@@ -39,6 +40,7 @@ function cargar(datos, fallos = {}) {
     if (name.endsWith("/demo.js")) return { MODO_DEMO: modoDemo };
     if (name.endsWith("/tiempo-demo.mjs")) return demo;
     if (name.endsWith("/tiempoCalculo.mjs")) return calculo;
+    if (name.endsWith("/rolesCalculo.mjs")) return roles;
     if (name.endsWith("/visitasCalculo.mjs")) return visitasCalculo;
     if (name.endsWith("/supabase")) return supabase;
     if (name === "./leerTiempo") return modulos.tiempo;

@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import { TIEMPO_DEMO } from "../lib/tiempo-demo.mjs";
 import { armarVisitas } from "../lib/visitasCalculo.mjs";
+import * as roles from "../lib/rolesCalculo.mjs";
 
 class NextResponse extends Response {
   static json(body, init = {}) { return new NextResponse(JSON.stringify(body), { ...init,
@@ -20,7 +21,7 @@ const require = (name) => {
   if (name === "next/server") return { NextResponse };
   if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => request.headers.get("authorization") === "Bearer fixture-token"
-    ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
+    ? { email: "test-only@ejemplo.test", acceso: { modo: "compatibilidad", rol: null, ciudad: null, nominal: "todo" } } : NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (name.endsWith("/leerDetalleSemana")) return { semanaTieneDetalle: async (s) => {
     if (s === "2026-01-01") throw new Error("red caida: secreto-interno");
     return ["2026-09-14", "2026-09-21", "2026-09-28"].includes(s); } };
@@ -29,6 +30,8 @@ const require = (name) => {
     if (semana === "2026-09-21") return { disponible: false, motivo: "sin_tablas" };
     if (semana === "2026-09-28") throw new Error("postgres: relacion secreta xyz");
     return respuesta; } };
+  if (name.endsWith("/rolesCalculo.mjs")) return roles;
+  if (name.endsWith("/auditoria")) return { registrarDescarga: async () => true };
   throw new Error(`Import no previsto: ${name}`);
 };
 vm.runInNewContext(compiled, { exports, require, Response, URL, Request, console });

@@ -5,6 +5,7 @@ import ts from "typescript";
 import { construirCsvNominal, construirCsvPresencia, construirCsvTiempo } from "../lib/exportarNominal.mjs";
 import { construirCsvReporte, construirReporteSemana } from "../lib/reporteSemana.mjs";
 import { construirBase } from "../lib/detalleCalculo.mjs";
+import * as roles from "../lib/rolesCalculo.mjs";
 
 class NextResponse extends Response {
   static json(body, init = {}) { return new NextResponse(JSON.stringify(body), { ...init,
@@ -28,7 +29,7 @@ const require = (name) => {
   if (name === "next/server") return { NextResponse };
   if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => { const token = request.headers.get("authorization");
-    return token === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
+    return token === "Bearer fixture-token" ? { email: "test-only@ejemplo.test", acceso: { modo: "compatibilidad", rol: null, ciudad: null, nominal: "todo" } } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
   if (name.endsWith("/leerDetalleSemana")) return {
     semanaTieneDetalle: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno");
       return ["2026-09-14", "2026-09-21", "2026-09-28"].includes(s); },
@@ -53,6 +54,8 @@ const require = (name) => {
   if (name.endsWith("/leerTiempo")) return { listarTiempoNominal: async (semana, filtro) => { llamadasTiempo.push({ semana, filtro }); return filasTiempoFixture; } };
   if (name.endsWith("/reporteSemana.mjs")) return { construirCsvReporte };
   if (name.endsWith("/exportarNominal.mjs")) return { construirCsvNominal, construirCsvPresencia, construirCsvTiempo };
+  if (name.endsWith("/rolesCalculo.mjs")) return roles;
+  if (name.endsWith("/auditoria")) return { registrarDescarga: async () => true };
   throw new Error(`Import no previsto: ${name}`);
 };
 vm.runInNewContext(compiled, { exports, require, Response, URL, Request, console });

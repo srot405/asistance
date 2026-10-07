@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { construirCsvNominal, construirCsvPresencia, construirCsvTiempo } from "../../../lib/exportarNominal.mjs";
 import { construirCsvReporte } from "../../../lib/reporteSemana.mjs";
+import { accesoDemo, autorizarNominal, filtrarPorCiudad } from "../../../lib/rolesCalculo.mjs";
+import type { Acceso } from "../../../lib/rolesCalculo.d.mts";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
+import { registrarDescarga } from "../../../lib/servidor/auditoria";
 import { leerReporteSemana, listarAusentesNominal, nivelSemana, semanaTieneDetalle } from "../../../lib/servidor/leerDetalleSemana";
 import { listarPresenciaNominal } from "../../../lib/servidor/leerPresenciaClase";
 import { listarTiempoNominal } from "../../../lib/servidor/leerTiempo";
@@ -25,10 +28,25 @@ export async function GET(request: Request) {
   const alcance = q.get("alcance") ?? "semana";
   const fecha = q.get("fecha") || undefined;
   const demoAllowed = MODO_DEMO && q.get("demo") === "1";
+  // TOC-148 (V2): el nominal depende del rol. Admin y compatibilidad ven todo; el monitor SOLO su ciudad (filtrada aqui, en el
+  // servidor: un ?ciudad= ajeno es 403 y ademas ninguna fila de otra ciudad sale); sin rol -> 403; RPC de roles caida -> 503.
+  let acceso: Acceso = accesoDemo(q);
+  let correo: string | null = null;
   if (!demoAllowed) {
     const access = await exigirAcceso(request);
     if (access instanceof NextResponse) return access;
+    acceso = access.acceso;
+    correo = access.email ?? null;
   }
+  const permiso = autorizarNominal(acceso, q.get("ciudad"));
+  if (!permiso.ok) return NextResponse.json({ error: permiso.mensaje }, { status: permiso.status, headers });
+  const ciudadRol = permiso.ciudad;
+  // Auditoria (D3): una fila por descarga, sin contenido. En estricto, sin registro no hay descarga (503); en compatibilidad solo se loguea.
+  const auditar = async (vistaCsv: string, filas: number): Promise<NextResponse | null> => {
+    if (demoAllowed) return null;
+    const ok = await registrarDescarga(acceso, { correo, vista: vistaCsv, semana, ciudad: ciudadRol ?? (q.get("ciudad") || null), filas });
+    return ok ? null : NextResponse.json({ error: "No disponible" }, { status: 503, headers });
+  };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(semana))
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
   // vista=reporte: se decide por la EXISTENCIA del roster congelado, no por asist_semana_resumen
@@ -43,7 +61,10 @@ export async function GET(request: Request) {
       const reporte = await leerReporteSemana(semana);
       if (!reporte)
         return NextResponse.json({ error: "Esta semana no tiene roster congelado todavía" }, { status: 404, headers });
-      const csv = construirCsvReporte(reporte);
+      const visible = { ...reporte, filas: filtrarPorCiudad(reporte.filas, ciudadRol) };
+      const csv = construirCsvReporte(visible);
+      const bloqueo = await auditar("reporte", visible.filas.length);
+      if (bloqueo) return bloqueo;
       return new NextResponse(csv.contenido, { headers: {
         ...headers, "Content-Disposition": `attachment; filename="asistencia_${semana}_${csv.archivo}.csv"`,
       } });
@@ -66,9 +87,11 @@ export async function GET(request: Request) {
   // Sin tablas de tiempo: 200 con estado_tiempo=no_calculado (no es un error). Siempre tras exigirAcceso (arriba).
   if (vista === "tiempo") {
     try {
-      const filas = await listarTiempoNominal(semana, {
-        ciudad: q.get("ciudad") || null, franja: q.get("franja") || null, cuenta: q.get("cuenta") || null });
+      const filas = filtrarPorCiudad(await listarTiempoNominal(semana, {
+        ciudad: ciudadRol ?? (q.get("ciudad") || null), franja: q.get("franja") || null, cuenta: q.get("cuenta") || null }), ciudadRol);
       const csv = construirCsvTiempo(filas);
+      const bloqueo = await auditar("tiempo", filas.length);
+      if (bloqueo) return bloqueo;
       return new NextResponse(csv.contenido, { headers: {
         ...headers, "Content-Disposition": `attachment; filename="asistencia_${semana}_${csv.archivo}.csv"`,
       } });
@@ -84,8 +107,10 @@ export async function GET(request: Request) {
     // llevan tildes: backend-sábado-08-uno, por eso se admite Latin-1 ademas de \w). Comillas/saltos de linea -> 400.
     if (!/^[\wÀ-ÿ-]+$/.test(franja)) return NextResponse.json({ error: "Franja inválida" }, { status: 400, headers });
     try {
-      const filas = await listarPresenciaNominal(semana, franja);
+      const filas = filtrarPorCiudad(await listarPresenciaNominal(semana, franja), ciudadRol);
       const csv = construirCsvPresencia(filas);
+      const bloqueo = await auditar("presencia", filas.length);
+      if (bloqueo) return bloqueo;
       const nombre = `asistencia_${semana}_${franja}_${csv.archivo}.csv`;
       return new NextResponse(csv.contenido, { headers: {
         ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,
@@ -100,14 +125,16 @@ export async function GET(request: Request) {
   if (alcance === "dia" && !fecha)
     return NextResponse.json({ error: "Falta la fecha del día" }, { status: 400, headers });
   const filtro = {
-    ciudad: q.get("ciudad") || undefined,
+    ciudad: ciudadRol ?? (q.get("ciudad") || undefined),
     franja: q.get("franja") || undefined,
     cuenta: q.get("cuenta") || undefined,
     fecha: alcance === "dia" ? fecha : undefined,
   };
   try {
-    const filas = await listarAusentesNominal(semana, filtro);
+    const filas = filtrarPorCiudad(await listarAusentesNominal(semana, filtro), ciudadRol);
     const csv = construirCsvNominal(filas, alcance);
+    const bloqueo = await auditar(alcance === "dia" ? "ausentes_dia" : "ausentes_semana", filas.length);
+    if (bloqueo) return bloqueo;
     const nombre = `asistencia_${semana}_${csv.archivo}.csv`;
     return new NextResponse(csv.contenido, { headers: {
       ...headers, "Content-Disposition": `attachment; filename="${nombre}"`,

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import * as calculo from "../lib/tiempoCalculo.mjs";
+import * as roles from "../lib/rolesCalculo.mjs";
 import * as demo from "../lib/tiempo-demo.mjs";
 
 // Carga leerTiempo.ts con un Supabase simulado que registra consultas. `datos[tabla]` = filas; `fallos[tabla]` = error a devolver.
@@ -15,6 +16,7 @@ export async function cargarLector(datos, fallos = {}) {
     if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
     if (name.endsWith("/tiempo-demo.mjs")) return demo;
     if (name.endsWith("/tiempoCalculo.mjs")) return calculo;
+    if (name.endsWith("/rolesCalculo.mjs")) return roles;
     if (name.endsWith("/supabase")) return { supabaseServidor: () => ({ from: (tabla) => {
       const q = { tabla, columnas: "", ordenes: [], filtros: [], rangos: [] };
       consultas.push(q);

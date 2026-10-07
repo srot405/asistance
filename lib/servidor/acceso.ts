@@ -1,6 +1,8 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { usuarioAutorizado } from "../auth.config.js";
+import type { Acceso } from "../rolesCalculo.d.mts";
+import { rolDe } from "./rol";
 import { supabaseServidor } from "./supabase";
 type UsuarioSupabase = {
   email?: string | null;
@@ -30,7 +32,11 @@ export async function usuarioDesdeRequest(
     return null;
   }
 }
+// TOC-148: ademas del usuario devuelve `acceso` (rol/ciudad/permiso nominal). Los agregados no lo consultan; las rutas con
+// nombres lo pasan por autorizarNominal. Si la RPC de roles cae, `acceso.nominal` es "error" y solo el nominal se niega.
 export async function exigirAcceso(request: Request) {
   const user = await usuarioDesdeRequest(request);
-  return user ? user : noAutorizado();
+  if (!user) return noAutorizado();
+  const acceso: Acceso = await rolDe(user.email);
+  return { ...user, acceso };
 }

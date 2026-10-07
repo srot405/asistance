@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { sesionActual } from "./auth";
 import { estadoVistaTiempo } from "./tiempoVista.mjs";
+import { aplicarRolDemo, rolDemoActual, type RolUi } from "./rolUi";
 import type { FiltroTiempo, TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "./tiempoContrato.d.mts";
 import type { VisitasRespuesta } from "./visitasCalculo.d.mts";
 import type { ConfianzaSemanaResponse } from "./confianzaClase.d.mts";
@@ -32,7 +33,7 @@ class ErrorHttp extends Error {
 
 async function pedir<T>(ruta: string, params: URLSearchParams, modo: Modo): Promise<T> {
   const headers: Record<string, string> = {};
-  if (modo === "demo") params.set("demo", "1");
+  if (modo === "demo") { params.set("demo", "1"); aplicarRolDemo(params); }
   else {
     const sesion = await sesionActual();
     if (!sesion?.access_token) throw new ErrorHttp(401);
@@ -83,7 +84,7 @@ export function useConfianzaSemana(semana: string, modo: Modo, activa = true): R
 
 // Visitas nominales (TOC-147): mismos filtros que Tiempo; se pide solo cuando la pestaña ya tiene tiempos (activa).
 export function useVisitasSemana(semana: string, filtro: FiltroTiempo, modo: Modo, activa = true): Respuesta<VisitasRespuesta> {
-  const clave = activa && semana ? `v|${modo}|${semana}|${filtro.ciudad ?? ""}|${filtro.franja ?? ""}|${filtro.cuenta ?? ""}` : null;
+  const clave = activa && semana ? `v|${modo}|${modo === "demo" ? rolDemoActual() : ""}|${semana}|${filtro.ciudad ?? ""}|${filtro.franja ?? ""}|${filtro.cuenta ?? ""}` : null;
   return usarPeticion(clave, () => {
     const params = new URLSearchParams({ semana });
     for (const k of ["ciudad", "franja", "cuenta"] as const) if (filtro[k]) params.set(k, String(filtro[k]));
@@ -93,4 +94,9 @@ export function useVisitasSemana(semana: string, filtro: FiltroTiempo, modo: Mod
 
 export function useTiempoSerie(modo: Modo, activa = true): Respuesta<TiempoSerieResponse> {
   return usarPeticion(activa ? `s|${modo}` : null, () => pedir<TiempoSerieResponse>("/api/tiempo-semanas", new URLSearchParams(), modo));
+}
+
+// Rol del usuario para la interfaz (TOC-148). Una lectura por sesion y rol de practica; si falla, la UI no ofrece el nominal.
+export function useRolAcceso(modo: Modo, activa = true): Respuesta<RolUi> {
+  return usarPeticion(activa ? `r|${modo}|${modo === "demo" ? rolDemoActual() : ""}` : null, () => pedir<RolUi>("/api/rol", new URLSearchParams(), modo));
 }

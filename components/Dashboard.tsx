@@ -12,7 +12,8 @@ import TendenciaTiempo from "./TendenciaTiempo";
 import TendenciaHistorica from "./TendenciaHistorica";
 import { authConfigurada, clienteAuth, iniciarSesionGoogle, sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
-import { alCambiarSesionTiempo, useTiempoSemana } from "../lib/useTiempo";
+import { alCambiarSesionTiempo, useRolAcceso, useTiempoSemana } from "../lib/useTiempo";
+import { RolContext, ROL_CARGANDO, fijarRolDemo, type RolUi } from "../lib/rolUi";
 import { alCambiarSesionVivo } from "../lib/useVivo";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
@@ -28,6 +29,8 @@ export default function Dashboard() {
   const [fallo, setFallo] = useState("");
   const [falloExport, setFalloExport] = useState("");
   const [pestana, setPestana] = useState<Pestana>("Semana");
+  const [rolDemo, setRolDemo] = useState("");
+  fijarRolDemo(rolDemo);   // antes de los hijos: sus claves de cache y peticiones leen el rol de practica
 
   useEffect(() => {
     let cancelado = false;
@@ -83,6 +86,11 @@ export default function Dashboard() {
   const tiempoSemana = useTiempoSemana(actual?.semana ?? "", {}, modo === "demo" ? "demo" : "real",
     pestana === "Semana" && Boolean(actual) && actual?.nivel === "Detalle" && (modo === "demo" || modo === "real"), true);
 
+  // TOC-148: permiso nominal para la interfaz (oculta CSV/tablas con nombres). Si la lectura falla, no se ofrece el nominal.
+  const lecturaRol = useRolAcceso(modo === "demo" ? "demo" : "real", modo === "demo" || modo === "real");
+  const rolUi: RolUi = lecturaRol.estado === "ok" && lecturaRol.datos ? lecturaRol.datos
+    : lecturaRol.estado === "cargando" ? ROL_CARGANDO : { nominal: "error", rol: null, ciudad: null, modo: "error" };
+
   async function exportar() {
     if (!actual) return;
     setFalloExport("");
@@ -103,7 +111,7 @@ export default function Dashboard() {
   </div></main>;
   if (!data || !actual) return <main className="main"><div className="empty">Cargando panel…</div></main>;
 
-  return <div className={dark ? "shell dark" : "shell"}>
+  return <RolContext.Provider value={rolUi}><div className={dark ? "shell dark" : "shell"}>
     <Encabezado dark={dark} setDark={setDark} demo={modo === "demo"} />
     <main className="main historical-main">
       <section className="historical-toolbar" aria-label="Controles del histórico">
@@ -119,6 +127,9 @@ export default function Dashboard() {
           })}
         </select></label>
         <button className="control" onClick={exportar}>Exportar resumen CSV</button>
+        {modo === "demo" && <label>Rol de práctica <select className="control" value={rolDemo} onChange={(e) => setRolDemo(e.target.value)}>
+          <option value="">Compatibilidad (todos ven todo)</option><option value="admin">Admin</option>
+          <option value="monitor">Monitor (solo Cali)</option><option value="sin_rol">Sin rol (solo agregados)</option></select></label>}
       </section>
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
 
@@ -142,5 +153,5 @@ export default function Dashboard() {
         <TendenciaTiempo resultados={data.resultados} modo={modo === "demo" ? "demo" : "real"} />
       </>}
     </main>
-  </div>;
+  </div></RolContext.Provider>;
 }

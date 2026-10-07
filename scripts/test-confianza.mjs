@@ -72,6 +72,7 @@ async function cargarLector(datos, fallos = {}, modoDemo = false) {
     if (name.endsWith("/demo.js")) return { MODO_DEMO: modoDemo };
     if (name.endsWith("/tiempo-demo.mjs")) return { TIEMPO_DEMO: {}, TIEMPO_DEMO_SERIE: [] };
     if (name.endsWith("/tiempoCalculo.mjs")) return {};
+    if (name.endsWith("/rolesCalculo.mjs")) return { mismaCiudad: () => true };
     if (name.endsWith("/confianzaClase.mjs")) return confianzaLib;
     if (name.endsWith("/detalle-demo.mjs")) return { DETALLE_DEMO_BASE };
     if (name.endsWith("/supabase")) return supabase;

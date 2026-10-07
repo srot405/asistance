@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { useConfianzaSemana } from "../lib/useTiempo";
 import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
 import type { DetalleSemanaResponse, PresenciaClaseResponse, ResumenHistorico } from "../lib/types";
@@ -22,6 +23,7 @@ async function headersAuth(modo: "demo" | "real", params: URLSearchParams): Prom
 // consulta a mano.
 export default function Presencia({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const esDetalle = actual.nivel === "Detalle";
+  const { puede: puedeNominal, rol } = usePuedeNominal();   // TOC-148
   const [franjas, setFranjas] = useState<DetalleSemanaResponse["franjas"]>([]);
   const [franjaId, setFranjaId] = useState("");
   const [datos, setDatos] = useState<PresenciaClaseResponse | null>(null);
@@ -139,9 +141,10 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       </p>}
       {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
-      <button className="control" onClick={descargar}>
+      {puedeNominal ? <button className="control" onClick={descargar}>
         Descargar CSV: presencia de esta clase{modo === "demo" && " (práctica)"}
       </button>
+        : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
 

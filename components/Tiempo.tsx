@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { descargarCsv } from "../lib/descargas";
+import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import type { FiltroTiempo, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
 import { TEXTO_NO_DISPONIBLE, ICONOS, TEXTO_ROJO_SEMANAL, UMBRAL_PORCENTAJE_ROJO, ETIQUETAS } from "../lib/tiempoVista.mjs";
 import type { ResumenHistorico } from "../lib/types";
@@ -18,6 +19,7 @@ import TiempoVisitas from "./TiempoVisitas";
 // Si el backend aun no tiene las tablas, muestra "Tiempo aun no disponible" y el resto del panel sigue igual.
 export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const esDetalle = actual.nivel === "Detalle";
+  const { puede: puedeNominal, rol } = usePuedeNominal();   // TOC-148: CSV y tabla de visitas llevan nombres
   const [filtro, setFiltro] = useState<FiltroTiempo>({});
   const [falloExport, setFalloExport] = useState("");
   useEffect(() => { setFiltro({}); setFalloExport(""); }, [actual.semana]);
@@ -72,7 +74,8 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <section aria-label="Visitas" className="tiempo-visitas">
         <p><b>Visitas</b> (clase que no es la suya): {d.visitas.sesiones} sesiones — cumplen {d.visitas.cumplen} · rojo {d.visitas.rojo} · sin dato {d.visitas.sin_dato}.
           No suman a los conteos de arriba.</p></section>
-      <TiempoVisitas semana={actual.semana} filtro={filtro} modo={modo} />
+      {puedeNominal ? <TiempoVisitas semana={actual.semana} filtro={filtro} modo={modo} />
+        : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
 
       <h3>Distribución del % del tiempo de clase</h3>
       <HistogramaTiempo histograma={d.histograma} />
@@ -92,7 +95,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       {!d.cuadre.ok && <p className="historical-notice missing-notice" role="alert">Aviso: los conteos de tiempo no cuadran ({d.cuadre.errores.length} diferencias). No uses esta pantalla para decidir hasta revisarla.</p>}
       {d.cuadre_backend.estado === "DISCREPA" && <p className="historical-notice missing-notice" role="alert">Aviso: el detalle por persona no coincide con el agregado por clase ({d.cuadre_backend.detalle.length} diferencias).</p>}
 
-      <button className="control" type="button" onClick={descargar}>Descargar CSV nominal de tiempo{modo === "demo" && " (práctica)"}</button>
+      {puedeNominal && <button className="control" type="button" onClick={descargar}>Descargar CSV nominal de tiempo{modo === "demo" && " (práctica)"}</button>}
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
 

@@ -4,6 +4,7 @@ import { TIEMPO_DEMO, TIEMPO_DEMO_SERIE } from "../tiempo-demo.mjs";
 import { armarSerieTiempo, armarTiempoSemana, normalizarResumenPersonas } from "../tiempoCalculo.mjs";
 import type { FilaClaseBackend, FilaCsvTiempo, FilaTiempoPersona, FiltroTiempo, FranjaTiempo, ResumenPersonasTiempo,
   TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "../tiempoContrato.d.mts";
+import { mismaCiudad } from "../rolesCalculo.mjs";
 import { supabaseServidor } from "./supabase";
 
 // UNICO punto de acople con el backend de tiempo (objetos 082/083). Lee SOLO asist_tiempo_clase,
@@ -145,7 +146,7 @@ type SemanaPersonaDb = { persona_id: string; estado_tiempo: string; motivo: stri
 
 const sinFiltrar = (f: RosterDb | { ciudad: string; franja: string }, filtro: FiltroTiempo, cuentaDe: Map<string, string>) => {
   const franja = "slot_id" in f ? f.slot_id ?? "" : f.franja;
-  return (!filtro.ciudad || f.ciudad === filtro.ciudad) && (!filtro.franja || franja === filtro.franja)
+  return (!filtro.ciudad || mismaCiudad(f.ciudad, filtro.ciudad)) && (!filtro.franja || franja === filtro.franja)
     && (!filtro.cuenta || cuentaDe.get(franja) === filtro.cuenta);
 };
 

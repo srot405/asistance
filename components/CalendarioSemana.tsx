@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
+import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import { useConfianzaSemana } from "../lib/useTiempo";
 import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
@@ -46,6 +47,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   // esta semana puntual ya está confirmada como "sin sábado".
   sinSabado?: boolean;
 }) {
+  const { puede: puedeNominal, rol } = usePuedeNominal();   // TOC-148: sin permiso nominal no se ofrecen los CSV con nombres
   const [filtro, setFiltro] = useState<FiltroDetalle>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<DetalleSemanaResponse | null>(null);
@@ -180,9 +182,9 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
                 <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
               </tr>)}</tbody>
             </table></div>}
-            <button className="control" onClick={() => descargarNominal("dia")}>
+            {puedeNominal && <button className="control" onClick={() => descargarNominal("dia")}>
               Descargar CSV: no ingresaron este día{modo === "demo" && " (práctica)"}
-            </button>
+            </button>}
           </> : <p className="nota">Sin datos para este día.</p>}
         </> : <>
           <h3>Semana completa</h3>
@@ -212,6 +214,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     </div>
 
     <div className="calendar-actions">
+      {puedeNominal ? <>
       <button className="control" disabled={!esDetalle} onClick={() => descargarNominal("semana")}>
         Descargar CSV: no ingresaron esta semana{modo === "demo" && " (práctica)"}
       </button>
@@ -222,6 +225,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
       <button className="control" disabled title={PENDIENTE_NUNCA_PERIODO}>
         CSV: nunca ingresaron en el período (pendiente)
       </button>
+      </> : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </div>
   </section>;
