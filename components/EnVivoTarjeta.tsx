@@ -1,7 +1,7 @@
 import type { ClaseVivo } from "../lib/vivoContrato.d.mts";
 import {
-  AYUDA_DESCONOCIDOS, AYUDA_PERSONAL, ESTADOS, TEXTO_CIFRA_FINAL, TEXTO_COBERTURA_BAJA,
-  horaCorta, porcentajeRoster, tituloClase,
+  AYUDA_DESCONOCIDOS, AYUDA_OTRA_FRANJA, AYUDA_PERSONAL, ESTADOS, TEXTO_CIFRA_FINAL, TEXTO_COBERTURA_BAJA,
+  cifraNoDisponible, horaCorta, porcentajeRoster, textoRoster, tituloClase,
 } from "../lib/vivoVista.mjs";
 
 // Una tarjeta por clase (TOC-142). Solo conteos: sin nombres ni correos. El color nunca va solo: cada burbuja lleva texto
@@ -10,7 +10,10 @@ export default function EnVivoTarjeta({ clase: c }: { clase: ClaseVivo }) {
   const est = ESTADOS[c.estado] ?? ESTADOS.sin_sala;
   const titulo = tituloClase(c);
   const idAyuda = `vivo-ayuda-${c.slot_id}`;
-  const empezo = c.estado === "abierta" || c.estado === "terminada";
+  const sinCifra = cifraNoDisponible(c); // terminada y el servidor no tiene la cifra: ni burbujas ni "cifra final"
+  const empezo = (c.estado === "abierta" || c.estado === "terminada") && !sinCifra;
+  const otra = c.otra_franja_maximo ?? 0;
+  const roster = textoRoster(c);
   const abierta = c.estado === "abierta";
   const pct = porcentajeRoster(c);
   return <article className={`vivo-tarjeta vivo-${c.estado}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}>
@@ -33,9 +36,9 @@ export default function EnVivoTarjeta({ clase: c }: { clase: ClaseVivo }) {
       <div className="vivo-burbuja vivo-b-roster">
         <span className="vivo-circulo" aria-hidden="true">{c.roster_maximo}</span>
         <div className="vivo-b-texto">
-          <p className="vivo-b-etq"><span>Del roster:</span> <strong>{c.roster_maximo} de {c.roster_total}</strong></p>
-          <div className="vivo-barra" role="progressbar" aria-valuemin={0} aria-valuemax={c.roster_total} aria-valuenow={c.roster_maximo}
-            aria-label={`Del roster: ${c.roster_maximo} de ${c.roster_total}`}><span style={{ width: `${pct}%` }} /></div>
+          <p className="vivo-b-etq"><span>Del roster:</span> <strong>{roster.texto}</strong></p>
+          <div className="vivo-barra" role="progressbar" aria-valuemin={0} aria-valuemax={roster.totalBarra} aria-valuenow={roster.valorBarra}
+            aria-valuetext={roster.texto} aria-label={`Del roster: ${roster.texto}`}><span style={{ width: `${pct}%` }} /></div>
           {abierta
             ? <small>ahora en sala (aprox.): {c.roster_ahora_aprox}</small>
             : <small>máximo que llegó a estar en la sala</small>}
@@ -61,6 +64,10 @@ export default function EnVivoTarjeta({ clase: c }: { clase: ClaseVivo }) {
       </div>
     </div>}
 
-    {c.estado === "terminada" && <p className="vivo-final">{TEXTO_CIFRA_FINAL}.</p>}
+    {empezo && otra > 0 && <p className="vivo-otra" data-testid="vivo-otra-franja" title={AYUDA_OTRA_FRANJA}>
+      <span aria-hidden="true">⇄</span> De otra franja: <strong>{otra}</strong>
+      <span className="vivo-ayuda" tabIndex={0} role="note" title={AYUDA_OTRA_FRANJA} aria-label={`Qué significa: ${AYUDA_OTRA_FRANJA}`}>ⓘ</span></p>}
+
+    {c.estado === "terminada" && !sinCifra && <p className="vivo-final">{TEXTO_CIFRA_FINAL}.</p>}
   </article>;
 }

@@ -1009,6 +1009,8 @@ select {
 .vivo-b-desconocidos .vivo-circulo { border: 4px dashed var(--v-naranja); color: var(--v-naranja-fg); }
 .vivo-b-personal { background: var(--v-azul-bg); color: var(--v-azul-fg); border: 3px double var(--v-azul); }
 .vivo-b-personal .vivo-circulo { border: 4px double var(--v-azul); color: var(--v-azul-fg); }
+.vivo-otra { margin: 0; font-size: 13px; color: var(--muted); }
+.vivo-otra strong { color: var(--fg); }
 .vivo-barra { height: 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--t-cumple); overflow: hidden; }
 .vivo-barra > span { display: block; height: 100%; background: var(--t-cumple); }
 .vivo-ayuda { margin-left: 6px; cursor: help; font-size: 14px; border-radius: 4px; }

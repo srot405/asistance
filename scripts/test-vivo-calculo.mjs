@@ -155,7 +155,11 @@ const porSlot = (r, slot) => r.clases.find((c) => c.slot_id === slot);
   assert.deepEqual([c.estado, c.roster_maximo, c.roster_ahora_aprox, c.sala_activa], ["terminada", 2, 1, false]);
   // sin lectura de eventos y sin memoria: terminada con cero y aviso explicito
   const sin = porSlot(arma([], COTISO(SAB, "11:00"), { lecturaEventos: false }), "backend-sábado-08-uno");
-  assert.match(sin.aviso, /no cargado/);
+  assert.match(sin.aviso, /Cifra final no disponible aquí; ver pestaña Presencia/);
+  assert.deepEqual([sin.roster_maximo, sin.desconocidos_maximo, sin.personal_maximo, sin.eventos, sin.sala_activa], [0, 0, 0, 0, false]);
+  // con memoria del dia y sin eventos: es un cero legitimo (nadie entro), sin aviso de cifra
+  const cero = porSlot(arma([], COTISO(SAB, "11:00"), { lecturaEventos: true }), "backend-sábado-08-uno");
+  assert.equal(cero.aviso, null);
 }
 { // sin clase: dia sin franjas -> clases vacias, sin error
   const r = arma([], COTISO("2026-10-04", "10:00"));
@@ -172,7 +176,72 @@ const porSlot = (r, slot) => r.clases.find((c) => c.slot_id === slot);
   const r = arma(salas, COTISO(SAB, "08:10"));
   assert.deepEqual(Object.keys(r).sort(), ["actualizado_en", "aviso_general", "clases", "disponible", "hora_servidor", "semana"]);
   assert.deepEqual(Object.keys(r.clases[0]).sort(), ["aviso", "cobertura_baja", "cuenta_zoom", "desconocidos_ahora_aprox", "desconocidos_maximo", "estado", "etiqueta", "eventos",
-    "fin", "inicio", "personal_ahora_aprox", "personal_maximo", "roster_ahora_aprox", "roster_maximo", "roster_total", "sala_activa", "slot_id", "ultima_actividad"]);
+    "fin", "inicio", "otra_franja_ahora_aprox", "otra_franja_maximo", "personal_ahora_aprox", "personal_maximo", "roster_ahora_aprox", "roster_maximo", "roster_total", "sala_activa", "slot_id", "ultima_actividad"]);
   assert.ok(!/ejemplo.test|Estudiante 0|@|persona_id/.test(JSON.stringify(r)));
+}
+
+// ---------- (1) roster por franja: «de ESTA clase» frente a «de otra franja»
+const hashA = v.hashCorreo;
+const rosterSlots = new Map(); // hash -> Set(slot_id)
+const poner = (correo, ...slots) => rosterSlots.set(hashA(correo), new Set(slots));
+rosterCorreos.slice(0, 5).forEach((c) => poner(c, "backend-sábado-08-uno"));        // 0..4 -> uno
+rosterCorreos.slice(5, 9).forEach((c) => poner(c, "backend-sábado-08-dos"));        // 5..8 -> dos
+poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");               // en dos franjas, una es uno
+{ const slotUno = "backend-sábado-08-uno";
+  const e = [ev("joined", rosterCorreos[0], "08:01"), ev("joined", rosterCorreos[5], "08:02"), ev("joined", rosterCorreos[6], "08:03"),
+    ev("left", rosterCorreos[6], "08:30"), ev("joined", rosterCorreos[9], "08:04"), ev("joined", "ext@ejemplo.test", "08:05")];
+  const r = v.clasificarEventos(e, rosterSlots, COTISO(SAB, "09:00"), slotUno);
+  assert.deepEqual([r.roster.maximo, r.roster.ahora], [2, 2], "uno: 0 y 9 (9 tambien esta en uno)");
+  assert.deepEqual([r.otra.maximo, r.otra.ahora], [2, 1], "5 y 6 son de dos: visitan; 6 ya salio");
+  assert.deepEqual([r.desconocidos.maximo], [1], "el externo es desconocido; los de otra franja NO se suman a desconocidos");
+  const dos = v.clasificarEventos(e, rosterSlots, COTISO(SAB, "09:00"), "backend-sábado-08-dos");
+  assert.deepEqual([dos.roster.maximo, dos.otra.maximo], [2, 2], "la misma lista vista desde dos: 5 y 6 propios; 0 y 9 visitan");
+  // contrato legado: un Set (sin franjas) = todo el roster cuenta como de esta clase
+  const legado = v.clasificarEventos(e, roster, COTISO(SAB, "09:00"), slotUno);
+  assert.deepEqual([legado.roster.maximo, legado.otra.maximo], [4, 0]);
+}
+{ // sabado 08:00 uno y dos con roster por slot (salas distintas): cada una cuenta su roster; el alumno de dos que entra a la sala uno es otra_franja
+  const salas = [
+    sala("u1", "comunicaciones", "Backend: APIs y Base de Datos", [ev("joined", rosterCorreos[0], "07:55"), ev("joined", rosterCorreos[1], "07:56"), ev("joined", rosterCorreos[5], "07:57")]),
+    sala("u2", "jovenescreativos", "Backend: APIs y Base de Datos - Sala 2", [ev("joined", rosterCorreos[5], "07:58"), ev("joined", rosterCorreos[6], "07:59"), ev("joined", rosterCorreos[0], "08:01")]),
+  ];
+  const r = v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: rosterSlots, ahoraMs: COTISO(SAB, "08:10") });
+  const uno = porSlot(r, "backend-sábado-08-uno"), dos = porSlot(r, "backend-sábado-08-dos");
+  assert.deepEqual([uno.roster_maximo, uno.otra_franja_maximo, uno.otra_franja_ahora_aprox, uno.desconocidos_maximo], [2, 1, 1, 0]);
+  assert.deepEqual([dos.roster_maximo, dos.otra_franja_maximo, dos.desconocidos_maximo], [2, 1, 0]);
+  assert.ok(uno.roster_maximo <= uno.roster_total && dos.roster_maximo <= dos.roster_total, "roster_maximo <= roster_total");
+}
+{ // sala terminada: sala_activa false aunque la memoria la marque activa
+  const salas = [sala("a", "comunicaciones", "Backend: APIs y Base de Datos", [ev("joined", rosterCorreos[0], "08:01")], true)];
+  assert.equal(porSlot(arma(salas, COTISO(SAB, "11:00")), "backend-sábado-08-uno").sala_activa, false);
+}
+
+// ---------- (5) reloj: actualizado_en es el de la lectura, hora_servidor el de la respuesta
+{ const r = arma([], COTISO(SAB, "08:10"), { actualizadoMs: COTISO(SAB, "08:09", "10") });
+  assert.equal(r.actualizado_en, new Date(COTISO(SAB, "08:09", "10")).toISOString());
+  assert.equal(r.hora_servidor, new Date(COTISO(SAB, "08:10")).toISOString());
+}
+
+// ---------- (7) nombres genericos sin correo: no colapsan; el mismo nombre normal sigue siendo una persona
+{
+  const claves = ["iPhone", "iphone", "Invitado", "Usuario", "Zoom User", "  ", null].map((nombre, i) => v.compactarEvento({ id: i + 1, evento: "joined", hora_ms: 1, nombre }).clave);
+  assert.ok(claves.every((c) => c === null), "genericos y vacios: sin clave por nombre");
+  assert.notEqual(v.compactarEvento({ id: 9, evento: "joined", hora_ms: 1, nombre: "Maria Perez" }).clave, null);
+  const e = [ev("joined", null, "08:01", { nombre: "iPhone" }), ev("joined", null, "08:02", { nombre: "iPhone" }), ev("joined", null, "08:03", { nombre: "Invitado" }),
+    ev("left", null, "08:20", { nombre: "iPhone" })];
+  const r = cl(e);
+  assert.deepEqual([r.desconocidos.maximo, r.desconocidos.ahora, r.lefts, r.huerfanos], [3, 2, 1, 0], "3 personas distintas; la salida descuenta al anonimo mas antiguo");
+  const solo = cl([ev("left", null, "08:20", { nombre: "iPhone" })]);
+  assert.deepEqual([solo.desconocidos.maximo, solo.huerfanos], [0, 1], "una salida anonima sin entrada es huerfana y NO crea persona");
+  const dosNombres = cl([ev("joined", null, "08:01", { nombre: "Maria Perez" }), ev("joined", null, "08:02", { nombre: "maría  pérez" })]);
+  assert.equal(dosNombres.desconocidos.maximo, 1, "dos personas con el MISMO nombre normal se cuentan como una (limite documentado)");
+}
+
+// ---------- (8) hash HMAC con secreto en memoria: estable dentro del proceso, distinto de un sha256 simple, nunca el texto
+{ const { createHash } = await import("node:crypto");
+  const h = v.hashClave("estudiante001@ejemplo.test");
+  assert.equal(h, v.hashClave("estudiante001@ejemplo.test"));
+  assert.notEqual(h, createHash("sha256").update("estudiante001@ejemplo.test").digest("hex").slice(0, 16), "no es un sha256 sin llave (no se puede reconstruir desde un diccionario de correos)");
+  assert.match(h, /^[0-9a-f]{16}$/);
 }
 console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes estado=verde`);

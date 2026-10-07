@@ -1,5 +1,5 @@
 import "server-only";
-import { armarRespuestaVivo, compactarEvento, esClase, fechaCOT, hashCorreo, ventanaAbiertaAhora, COT_MS } from "../vivoCalculo.mjs";
+import { armarRespuestaVivo, compactarEvento, esClase, fechaCOT, hashCorreo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
 import type { EventoVivo, FranjaVivo, SalaVivo, VivoResponse } from "../vivoCalculo.d.mts";
 import { supabaseServidor } from "./supabase";
 
@@ -8,25 +8,35 @@ import { supabaseServidor } from "./supabase";
 //  - Sin clase en ventana: 0 lecturas de zoom_live_log (solo la franja del dia, cache largo).
 //  - En ventana de clase: lectura INCREMENTAL (id > ultimo leido, con un pequeno solape y dedupe por id) + zoom_reuniones_activas
 //    (activo=true, pocas filas). Resultado cacheado TTL_CACHE_VIVO_MS compartido por todos los visitantes.
+//  - Al cerrar la ultima ventana del dia se hace UN ultimo refresco (los eventos entre el ultimo sondeo y el cierre).
+//  - Instancia en frio fuera de ventana: NO se lee el dia completo (en un sabado serian ~1.300 eventos de clase por dia, ~0,3 MB o mas por
+//    arranque en frio: ver ESTADO.md); las clases terminadas salen con aviso "cifra no disponible" y sin burbujas.
 //  - El estado en memoria guarda hashes de correo/nombre, nunca el texto. Un fallo no se cachea (el llamador responde 503).
 const PAGINA = 1000;
 const MAX_PAGINAS = 6;           // tope de filas por lectura incremental (6.000)
 const MAX_SALAS = 24;            // tope de salas de clase rastreadas por dia
 const SOLAPE_IDS = 25;           // el webhook puede confirmar ids fuera de orden: se relee un poco hacia atras
-export const TTL_CACHE_VIVO_MS = 20_000;
+const MAX_INTENTOS_META = 3;     // por sala: un intento por refresco; tras 3 se deja con host null y el cursor sigue
+export const TTL_CACHE_VIVO_MS = 30_000; // egress: el cliente sondea cada 45 s (lib/vivoVista.mjs INTERVALO_MS)
 export const TTL_BASE_MS = 10 * 60_000; // franjas del dia y roster: cambian una vez por semana
 
 type FilaFranja = FranjaVivo;
-type SalaEstado = { uuid: string; host: string | null; topic: string | null; activo: boolean; actualizado: number | null; eventos: Map<number, EventoVivo> };
-type Base = { lunes: string; cargadoMs: number; franjas: FilaFranja[] | null; roster: Set<string> | null; rosterMs: number };
-type Vivo = { dia: string; cursor: number; salas: Map<string, SalaEstado> };
+type SalaEstado = { uuid: string; host: string | null; topic: string | null; activo: boolean; actualizado: number | null; eventos: Map<number, EventoVivo>;
+  metaOk: boolean; intentosMeta: number };
+type Roster = Map<string, Set<string>>; // hash(correo) -> slot_id de las franjas de la semana donde esta en el roster
+type Base = { lunes: string; cargadoMs: number; franjas: FilaFranja[] | null; roster: Roster | null; rosterMs: number };
+// cargado: ya hubo al menos un refresco completo del dia (hay cifras en memoria). ultimoRefrescoMs: hora del ultimo refresco.
+// cerrado: ya se hizo el ULTIMO refresco tras terminar la ultima ventana del dia.
+type Vivo = { dia: string; cursor: number; salas: Map<string, SalaEstado>; cargado: boolean; ultimoRefrescoMs: number; cerrado: boolean };
 
 let base: Base | null = null;
 let vivo: Vivo | null = null;
 let cache: { ms: number; data: VivoResponse } | null = null;
 let enCurso: Promise<VivoResponse> | null = null;
+let ultimaLecturaMs = 0; // hora REAL de la ultima consulta a Supabase (alimenta actualizado_en)
 
-export function vaciarCacheVivo() { base = null; vivo = null; cache = null; enCurso = null; }
+export function vaciarCacheVivo() { base = null; vivo = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
+export function estadoVivoParaPruebas() { return vivo ? { cursor: vivo.cursor, cerrado: vivo.cerrado, cargado: vivo.cargado } : null; }
 
 const lunesDe = (fecha: string) => {
   const d = new Date(`${fecha}T00:00:00Z`);
@@ -55,20 +65,29 @@ async function cargarFranjas(lunes: string): Promise<FilaFranja[] | null> {
     .select("slot_id,dia,fecha,hora_inicio,hora_fin,tipo,cuenta_zoom,roster_n").eq("semana", lunes).order("slot_id", { ascending: true }));
 }
 
-async function cargarRoster(lunes: string): Promise<Set<string>> {
+// El roster se carga CON slot_id: asi se separa "roster de ESTA clase" de "alumno de otra franja que visita". Mismas filas que antes.
+async function cargarRoster(lunes: string): Promise<Roster> {
   const sb = supabaseServidor();
-  const filas = await leerPaginado<{ correo_norm: string | null }>(() => sb.from("asist_roster")
-    .select("correo_norm").eq("semana", lunes).order("persona_id", { ascending: true }));
-  const set = new Set<string>();
-  for (const f of filas) { const h = hashCorreo(f.correo_norm); if (h) set.add(h); }
-  return set;
+  const filas = await leerPaginado<{ correo_norm: string | null; slot_id: string | null }>(() => sb.from("asist_roster")
+    .select("correo_norm,slot_id").eq("semana", lunes).order("persona_id", { ascending: true }).order("slot_id", { ascending: true }));
+  const roster: Roster = new Map();
+  for (const f of filas) {
+    const h = hashCorreo(f.correo_norm);
+    if (!h) continue;
+    let slots = roster.get(h);
+    if (!slots) { slots = new Set<string>(); roster.set(h, slots); }
+    if (f.slot_id) slots.add(f.slot_id);
+  }
+  return roster;
 }
 
-function salaVacia(uuid: string): SalaEstado { return { uuid, host: null, topic: null, activo: false, actualizado: null, eventos: new Map() }; }
+function salaVacia(uuid: string): SalaEstado {
+  return { uuid, host: null, topic: null, activo: false, actualizado: null, eventos: new Map(), metaOk: false, intentosMeta: 0 };
+}
 
-async function refrescarVivo(dia: string): Promise<{ truncado: boolean }> {
+async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: boolean }> {
   const sb = supabaseServidor();
-  if (!vivo || vivo.dia !== dia) vivo = { dia, cursor: 0, salas: new Map() };
+  if (!vivo || vivo.dia !== dia) vivo = { dia, cursor: 0, salas: new Map(), cargado: false, ultimoRefrescoMs: 0, cerrado: false };
   const inicioDia = Date.parse(`${dia}T00:00:00Z`) + COT_MS;
   // 1) salas activas ahora (tabla pequena)
   const activas = await leerPaginado<{ uuid: string; host: string | null; topic: string | null; actualizado_en: string | null }>(() =>
@@ -80,32 +99,41 @@ async function refrescarVivo(dia: string): Promise<{ truncado: boolean }> {
       .in("evento", ["joined", "left"]).gt("id", desdeId).gte("hora_ms", inicioDia)
       .or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").order("id", { ascending: true }));
   let truncado = filas.length >= MAX_PAGINAS * PAGINA;
-  const nuevos = new Set<string>();
+  let cursorNuevo = vivo.cursor; // el cursor SOLO se aplica al final, cuando la meta de las salas quedo resuelta o agotada
   const tope = (uuid: string) => vivo!.salas.has(uuid) || vivo!.salas.size < MAX_SALAS;
   for (const f of filas) {
     if (!f.uuid || !esClase(f.curso)) continue;
     if (!tope(f.uuid)) { truncado = true; continue; }
     let s = vivo.salas.get(f.uuid);
-    if (!s) { s = salaVacia(f.uuid); s.topic = f.curso; vivo.salas.set(f.uuid, s); nuevos.add(f.uuid); }
+    if (!s) { s = salaVacia(f.uuid); s.topic = f.curso; vivo.salas.set(f.uuid, s); }
     s.eventos.set(Number(f.id), compactarEvento(f));
-    if (Number(f.id) > vivo.cursor) vivo.cursor = Number(f.id);
+    if (Number(f.id) > cursorNuevo) cursorNuevo = Number(f.id);
   }
-  // 3) metadatos (host/topic) de salas nuevas que no estan entre las activas
+  // 3) metadatos (host/topic): primero de las activas
   for (const a of activas) {
     if (!esClase(a.topic)) continue;
     if (!tope(a.uuid)) { truncado = true; continue; }
     const s = vivo.salas.get(a.uuid) ?? salaVacia(a.uuid);
-    s.host = a.host; s.topic = a.topic ?? s.topic; s.actualizado = a.actualizado_en ? Date.parse(a.actualizado_en) : null;
+    s.host = a.host; s.topic = a.topic ?? s.topic; s.actualizado = a.actualizado_en ? Date.parse(a.actualizado_en) : null; s.metaOk = true;
     vivo.salas.set(a.uuid, s);
   }
   const activasSet = new Set(activas.map((a) => a.uuid));
   for (const s of vivo.salas.values()) s.activo = activasSet.has(s.uuid) && (s.eventos.size > 0 || (s.actualizado != null && s.actualizado >= inicioDia));
-  const sinMeta = [...nuevos].filter((u) => !activasSet.has(u));
+  // 4) salas sin meta (no estan entre las activas): UN reintento por sala y por refresco, en una sola consulta acotada a MAX_SALAS.
+  //    Si la consulta falla no se pierde nada: el cursor no avanza (los eventos se releen, el dedupe por id los absorbe) y la sala se
+  //    reintenta en el siguiente refresco, hasta MAX_INTENTOS_META.
+  const sinMeta = [...vivo.salas.values()].filter((s) => !s.metaOk && s.intentosMeta < MAX_INTENTOS_META).slice(0, MAX_SALAS);
   if (sinMeta.length) {
-    const filasMeta = await leerPaginado<{ uuid: string; host: string | null; topic: string | null }>(() =>
-      sb.from("zoom_reuniones_activas").select("uuid,host,topic").in("uuid", sinMeta).order("uuid", { ascending: true }));
-    for (const m of filasMeta) { const s = vivo.salas.get(m.uuid); if (s) { s.host = m.host; s.topic = m.topic ?? s.topic; } }
+    for (const s of sinMeta) s.intentosMeta += 1;
+    try {
+      const filasMeta = await leerPaginado<{ uuid: string; host: string | null; topic: string | null }>(() =>
+        sb.from("zoom_reuniones_activas").select("uuid,host,topic").in("uuid", sinMeta.map((s) => s.uuid)).order("uuid", { ascending: true }));
+      for (const m of filasMeta) { const s = vivo.salas.get(m.uuid); if (s) { s.host = m.host; s.topic = m.topic ?? s.topic; s.metaOk = true; } }
+    } catch { /* fallo parcial: no se aborta el refresco; se reintenta en el siguiente */ }
   }
+  const pendiente = [...vivo.salas.values()].some((s) => !s.metaOk && s.intentosMeta < MAX_INTENTOS_META);
+  if (!pendiente) vivo.cursor = cursorNuevo;
+  vivo.cargado = true; vivo.ultimoRefrescoMs = ahoraMs;
   return { truncado };
 }
 
@@ -120,26 +148,34 @@ async function calcular(ahoraMs: number): Promise<VivoResponse> {
   const lunes = lunesDe(dia);
   if (!base || base.lunes !== lunes || ahoraMs - base.cargadoMs > TTL_BASE_MS) {
     base = { lunes, cargadoMs: ahoraMs, franjas: await cargarFranjas(lunes), roster: null, rosterMs: 0 };
+    ultimaLecturaMs = ahoraMs;
   }
-  const vacio = (aviso: string): VivoResponse => ({ disponible: false, actualizado_en: new Date(ahoraMs).toISOString(), semana: lunes,
+  const vacio = (aviso: string): VivoResponse => ({ disponible: false, actualizado_en: new Date(ultimaLecturaMs || ahoraMs).toISOString(), semana: lunes,
     hora_servidor: new Date(ahoraMs).toISOString(), clases: [], aviso_general: aviso });
   if (!base.franjas) return vacio("La semana actual todavía no está congelada: no hay clases para mostrar.");
   const franjas = base.franjas;
   const hoy = franjas.filter((f) => f.fecha === dia);
   const hayVentana = hoy.some((f) => ventanaAbiertaAhora(f, ahoraMs));
+  // ULTIMO refresco: la primera vez que se pasa el cierre de una ventana se leen los eventos que llegaron entre el ultimo refresco y el
+  // cierre (hasta ahi llegaba el sondeo). Solo si ya habia memoria del dia; despues de la ultima ventana del dia queda "cerrado".
+  const cerroVentana = vivo?.dia === dia && vivo.cargado && hoy.some((f) => ahoraMs > ventanaClase(f).hastaMs && vivo!.ultimoRefrescoMs <= ventanaClase(f).hastaMs);
   let avisoGeneral: string | null = null;
-  if (hayVentana) {
+  if (hayVentana || cerroVentana) {
     if (!base.roster || ahoraMs - base.rosterMs > TTL_BASE_MS) { base.roster = await cargarRoster(lunes); base.rosterMs = ahoraMs; }
-    const { truncado } = await refrescarVivo(dia);
+    const { truncado } = await refrescarVivo(dia, ahoraMs);
+    ultimaLecturaMs = ahoraMs;
     if (truncado) avisoGeneral = "Hay más salas o eventos de los que se leen; las cifras pueden estar incompletas.";
+    if (vivo && !hayVentana && hoy.every((f) => ahoraMs > ventanaClase(f).hastaMs)) vivo.cerrado = true;
   }
-  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: base.roster ?? new Set<string>(),
-    ahoraMs, actualizadoMs: ahoraMs, lecturaEventos: hayVentana, avisoGeneral });
+  const memoriaDelDia = vivo?.dia === dia && vivo.cargado;
+  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: base.roster ?? new Map<string, Set<string>>(),
+    ahoraMs, actualizadoMs: ultimaLecturaMs || ahoraMs, lecturaEventos: memoriaDelDia, avisoGeneral });
 }
 
 // El llamador (ruta) ya paso exigirAcceso. Un fallo lanza (no se cachea).
 export async function leerVivo(ahoraMs: number = Date.now()): Promise<VivoResponse> {
-  if (cache && ahoraMs - cache.ms < TTL_CACHE_VIVO_MS && ahoraMs >= cache.ms) return cache.data;
+  // Desde cache: cifras y actualizado_en son los de la lectura real; hora_servidor es AHORA (la pantalla suma la diferencia a la edad).
+  if (cache && ahoraMs - cache.ms < TTL_CACHE_VIVO_MS && ahoraMs >= cache.ms) return { ...cache.data, hora_servidor: new Date(ahoraMs).toISOString() };
   if (enCurso) return enCurso;
   const p = calcular(ahoraMs).then((data) => { cache = { ms: ahoraMs, data }; return data; }).finally(() => { enCurso = null; });
   enCurso = p;

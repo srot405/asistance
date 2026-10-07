@@ -1,6 +1,6 @@
 import type { VivoResponse } from "./vivoContrato.d.mts";
 export type FaseVivo = "cargando" | "ok" | "no_disponible" | "error" | "pausado";
-export type EstadoVivo = { fase: FaseVivo; datos: VivoResponse | null; leidoEn: number; errores: number; fallo?: boolean };
+export type EstadoVivo = { fase: FaseVivo; datos: VivoResponse | null; leidoEn: number; errores: number; fallo?: boolean; aviso?: string | null };
 export type RespuestaVivo = { status: number; body: unknown };
 export function crearControlador(o: {
   pedir: (signal: AbortSignal) => Promise<RespuestaVivo>; alCambiar: (e: EstadoVivo) => void; visible?: () => boolean;

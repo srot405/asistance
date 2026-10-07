@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { sesionActual } from "./auth";
 import { crearControlador, type EstadoVivo, type RespuestaVivo } from "./vivoControlador.mjs";
 
-// Pestana "En vivo" (TOC-142): lectura de /api/vivo cada 30 s SOLO con la pestana En vivo abierta Y el navegador visible.
+// Pestana "En vivo" (TOC-142): lectura de /api/vivo cada 45 s SOLO con la pestana En vivo abierta Y el navegador visible.
 // Sin sondeo en segundo plano; 3 errores seguidos = pausa con "Reintentar". El ultimo dato se guarda en memoria para que
 // volver a la pestana no deje la pantalla vacia; se borra al cerrar sesion o al entrar otro usuario (mismo navegador).
 type Modo = "demo" | "real";
@@ -39,7 +39,7 @@ export function useVivo(modo: Modo, activa: boolean) {
     if (!activa) return;
     const c = crearControlador({
       pedir: (signal) => pedirVivo(modo, signal),
-      alCambiar: (e) => { guardarCacheVivo({ datos: e.datos, leidoEn: e.leidoEn, fase: e.fase === "ok" ? "ok" : "cargando" }); setEstado(e); },
+      alCambiar: (e) => { guardarCacheVivo({ datos: e.datos, aviso: e.aviso ?? null, leidoEn: e.leidoEn, fase: e.fase === "ok" ? "ok" : "cargando" }); setEstado(e); },
       visible: () => document.visibilityState === "visible",
       estadoInicial: ultimo,
     });

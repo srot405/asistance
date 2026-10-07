@@ -6,9 +6,9 @@ import EnVivoPantalla from "./EnVivoPantalla";
 
 // Pestana "En vivo" (TOC-142). Solo se monta cuando esta pestana esta activa (Dashboard), asi que nada de En vivo se carga
 // ni se sondea en las otras pestanas. El contador "Actualizado hace N s" corre con un reloj local de 1 s que se detiene
-// cuando la pestana del navegador esta oculta; la lectura a la API es aparte (cada 30 s, ver useVivo).
+// cuando la pestana del navegador esta oculta; la lectura a la API es aparte (cada 45 s, ver useVivo).
 export default function EnVivo({ modo }: { modo: "demo" | "real" }) {
-  const { fase, datos, leidoEn, fallo, reintentar } = useVivo(modo, true);
+  const { fase, datos, leidoEn, fallo, aviso, reintentar } = useVivo(modo, true);
   const [ahora, setAhora] = useState(() => Date.now());
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | null = null;
@@ -20,5 +20,5 @@ export default function EnVivo({ modo }: { modo: "demo" | "real" }) {
     return () => { parar(); document.removeEventListener("visibilitychange", alVisibilidad); };
   }, []);
   const edadSeg = datos && leidoEn ? edadSegundos(datos, leidoEn, ahora) : 0;
-  return <EnVivoPantalla fase={fase} datos={datos} edadSeg={edadSeg} fallo={fallo} reintentar={reintentar} />;
+  return <EnVivoPantalla fase={fase} datos={datos} edadSeg={edadSeg} fallo={fallo} aviso={aviso} reintentar={reintentar} />;
 }

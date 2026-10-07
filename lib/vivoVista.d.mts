@@ -1,6 +1,7 @@
 import type { ClaseVivo, VivoResponse } from "./vivoContrato.d.mts";
 export const INTERVALO_MS: number; export const MAX_ERRORES: number;
 export const TEXTO_NO_DISPONIBLE: string; export const TEXTO_SIN_CLASE: string; export const TEXTO_COBERTURA_BAJA: string;
+export const AYUDA_OTRA_FRANJA: string; export const AVISO_CIFRA_NO_DISPONIBLE: string; export const TEXTO_SUPERA_ROSTER: string;
 export const TEXTO_CIFRA_FINAL: string; export const AYUDA_DESCONOCIDOS: string; export const AYUDA_PERSONAL: string;
 export const ESTADOS: Record<string, { icono: string; texto: string }>;
 export function horaCorta(iso: string): string;
@@ -8,6 +9,8 @@ export function tituloClase(c: ClaseVivo): string;
 export function ordenarClases(c: ClaseVivo[]): ClaseVivo[];
 export function hayEnCurso(c: ClaseVivo[]): boolean;
 export function proximaClase(c: ClaseVivo[]): ClaseVivo | null;
+export function textoRoster(c: Pick<ClaseVivo, "roster_maximo" | "roster_total">): { excede: boolean; texto: string; valorBarra: number; totalBarra: number };
+export function cifraNoDisponible(c: ClaseVivo): boolean;
 export function porcentajeRoster(c: ClaseVivo): number;
 export function edadSegundos(d: VivoResponse, leidoEnMs: number, ahoraMs: number): number;
 export function textoEdad(seg: number): string;

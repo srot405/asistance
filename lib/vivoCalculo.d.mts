@@ -4,14 +4,16 @@ export type FranjaVivo = { slot_id: string; dia: string; fecha: string; hora_ini
 export type EventoVivo = { id: number; evento: "joined" | "left"; ms: number; clave: string | null; correoHash: string | null; personal: boolean };
 export type SalaVivo = { uuid: string; host: string | null; topic: string | null; activo: boolean; eventos: EventoVivo[] };
 export type ConteosEventos = {
-  roster: { maximo: number; ahora: number }; desconocidos: { maximo: number; ahora: number }; personal: { maximo: number; ahora: number };
+  roster: { maximo: number; ahora: number }; otra: { maximo: number; ahora: number }; desconocidos: { maximo: number; ahora: number }; personal: { maximo: number; ahora: number };
   eventos: number; lefts: number; huerfanos: number; ratio_huerfanos: number; ultima_actividad_ms: number | null; cobertura_baja_eventos: boolean;
 };
-type ConHas = { has(h: string): boolean };
+// Map hash->Set(slot_id) (roster por franja) o Set de hashes (legado: todo el roster cuenta como de esta clase).
+type ConHas = { has(h: string): boolean; get?(h: string): { has(slot: string): boolean } | undefined };
 export const COT_MS: number; export const MIN: number; export const MARGEN_VENTANA_MIN: number; export const PROXIMA_MIN: number;
 export const UMBRAL_HUERFANOS: number; export const MIN_EVENTOS_COBERTURA: number; export const DOMINIO_PERSONAL: string;
 export function normalizarCorreo(c: unknown): string;
 export function hashClave(texto: string): string;
+export function esNombreGenerico(nombreNormalizado: string): boolean;
 export function hashCorreo(correo: unknown): string | null;
 export function esClase(curso: unknown): boolean;
 export function normalizarCuenta(valor: unknown): string;
@@ -26,7 +28,7 @@ export function ventanaClase(franja: FranjaVivo): { inicioMs: number; finMs: num
 export function estadoClase(franja: FranjaVivo, ahoraMs: number, opts?: { salaActiva?: boolean; eventosEnVentana?: number }): EstadoClaseVivo | null;
 export function ventanaAbiertaAhora(franja: FranjaVivo, ahoraMs: number): boolean;
 export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null }): EventoVivo;
-export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: ConHas, ahora: number | Date): ConteosEventos;
+export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: ConHas, ahora: number | Date, slotId?: string | null): ConteosEventos;
 export function etiquetaClase(f: FranjaVivo): string;
 export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: ConHas;
   ahoraMs: number; actualizadoMs?: number; lecturaEventos?: boolean; avisoGeneral?: string | null }): VivoResponse;

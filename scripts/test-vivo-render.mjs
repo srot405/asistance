@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { renderizar } from "./render-componente.mjs";
-import { VIVO_DEMO } from "../lib/vivo-demo.mjs";
+import { VIVO_DEMO, VIVO_DEMO_NO_DISPONIBLE } from "../lib/vivo-demo.mjs";
 
 const P = "components/EnVivoPantalla.tsx";
 const ver = (datos, extra = {}) => renderizar(P, { fase: "ok", datos, edadSeg: 12, reintentar() {}, ...extra });
@@ -18,7 +18,7 @@ const capturas = {};
   assert.match(h, /role="progressbar"[^>]*aria-valuenow="31"[^>]*aria-valuemax="40"|aria-valuemax="40"[^>]*aria-valuenow="31"/, "barra de progreso accesible");
   assert.match(h, /aria-label="Del roster: 31 de 40"/);
   assert.match(h, /style="width:78%"/, "barra al 78 %");
-  assert.match(h, /title="Personas que entraron a Zoom[^"]*correos mal escritos: se corrigen al cerrar la clase\."/, "tooltip de No sabemos quién es");
+  assert.match(h, /title="Personas que entraron a Zoom[^"]*correos mal escritos: se corrigen al cerrar la clase\. Si dos personas sin correo se llaman igual, se cuentan como una[^"]*"/, "tooltip de No sabemos quién es");
 }
 
 // 2) Cobertura baja (Soporte)
@@ -79,7 +79,7 @@ const capturas = {};
   const p = await renderizar(P, { fase: "pausado", datos: VIVO_DEMO.en_curso, edadSeg: 95, fallo: true, reintentar() {} }); capturas.pausado = p;
   assert.ok(p.includes("falló tres veces seguidas") && p.includes("Reintentar"));
   assert.ok(p.includes("Actualizado hace 1 min"), "conserva la ultima cifra con su antiguedad");
-  assert.ok(!p.includes("se actualiza cada 30 s"), "pausado no promete actualizar");
+  assert.ok(!p.includes("se actualiza cada 45 s"), "pausado no promete actualizar");
   const h = await renderizar(P, { fase: "pausado", datos: null, edadSeg: 0, reintentar() {} }, { html: true });
   assert.match(h, /<button type="button" class="control">Reintentar<\/button>/, "boton nativo: Enter y espacio lo activan");
   assert.match(h, /role="alert"/);
@@ -119,5 +119,38 @@ for (const [k, v] of Object.entries(capturas)) assert.doesNotMatch(v, /@|ejemplo
   assert.match(ev, /visibilityState === "visible"/);
 }
 
+// 12) (1) «De otra franja: N» solo si N>0, con icono y tooltip; nunca «X de Y» con X>Y
+{ const t = await ver(VIVO_DEMO.en_curso);
+  assert.ok(t.includes("De otra franja: 2"), "visible cuando hay visitantes de otra franja");
+  const h = await verHtml(VIVO_DEMO.en_curso);
+  assert.match(h, /class="vivo-otra"[^>]*title="Estudiantes del roster que entraron a esta sala pero pertenecen a otra clase"/);
+  assert.match(h, /<span aria-hidden="true">⇄<\/span> De otra franja:/, "icono + texto");
+  const sin = await verHtml(VIVO_DEMO.cobertura_baja);
+  assert.ok(!sin.includes("vivo-otra"), "N=0: no aparece");
+  assert.ok(!(await verHtml({ ...VIVO_DEMO.en_curso, clases: [(({ otra_franja_maximo, otra_franja_ahora_aprox, ...r }) => r)(VIVO_DEMO.en_curso.clases[0])] })).includes("vivo-otra"), "campo opcional ausente: no aparece (compatible con el contrato anterior)");
+  const exc = { ...VIVO_DEMO.en_curso, clases: [{ ...VIVO_DEMO.en_curso.clases[0], roster_maximo: 46 }] };
+  const te = await ver(exc), he = await verHtml(exc);
+  assert.ok(te.includes("Del roster: 46 (supera el roster esperado)"), te);
+  assert.ok(!/46 de 40/.test(te) && !/46 de 40/.test(he), "nunca X de Y con X>Y");
+  const now = Number(he.match(/aria-valuenow="(\d+)"/)[1]), max = Number(he.match(/aria-valuemax="(\d+)"/)[1]);
+  assert.ok(now <= max, `aria-valuenow ${now} <= aria-valuemax ${max}`);
+  const r0 = { ...VIVO_DEMO.en_curso, clases: [{ ...VIVO_DEMO.en_curso.clases[0], roster_total: 0, roster_maximo: 2 }] };
+  const h0 = await verHtml(r0);
+  assert.ok(Number(h0.match(/aria-valuenow="(\d+)"/)[1]) <= Number(h0.match(/aria-valuemax="(\d+)"/)[1]), "roster_total 0: tambien acotado");
+}
+// 13) (2) terminada sin cifra en memoria: ni burbujas ni cifra final, solo el aviso
+{ const t = await ver(VIVO_DEMO.terminada_sin_cifra), h = await verHtml(VIVO_DEMO.terminada_sin_cifra);
+  assert.ok(t.includes("Cifra final no disponible aquí; ver pestaña Presencia"));
+  for (const k of ["Del roster:", "No sabemos quién es:", "Personal:", "Cifra final del webhook"]) assert.ok(!t.includes(k), `sin «${k}»`);
+  assert.ok(!h.includes('class="vivo-burbujas"') && !h.includes("progressbar"));
+}
+// 14) (6) pantalla «no disponible» muestra el motivo del servidor (sin detalles tecnicos)
+{ const aviso = VIVO_DEMO_NO_DISPONIBLE.body.aviso_general;
+  const t = await renderizar(P, { fase: "no_disponible", datos: null, aviso, edadSeg: 0, reintentar() {} });
+  assert.ok(t.includes("En vivo no disponible") && t.includes(aviso), t);
+  assert.doesNotMatch(t, /HTTP|503|supabase|stack/i);
+  const sinMotivo = await renderizar(P, { fase: "no_disponible", datos: null, aviso: null, edadSeg: 0, reintentar() {} });
+  assert.ok(sinMotivo.includes("En vivo no disponible") && !sinMotivo.includes("congelada"));
+}
 console.log("RESUMEN: vivo_render=ok estados=9 aria_live=ok sin_pii=ok pestana=ok estado=verde");
 if (process.argv.includes("--capturas")) for (const [k, v] of Object.entries(capturas)) console.log(`\n[${k}]\n${v}`);

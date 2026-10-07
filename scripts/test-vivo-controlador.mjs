@@ -26,14 +26,14 @@ function entorno({ respuestas, visible = true }) {
 const ok = { status: 200, body: VIVO_DEMO.en_curso };
 const falla = { status: 500, body: null };
 
-// 1) Lee al iniciar y luego cada 30 s, no antes.
+// 1) Lee al iniciar y luego cada 45 s, no antes.
 { const e = entorno({ respuestas: [ok] }); const c = crearControlador(e.cfg);
   c.iniciar(); await e.asentar();
   assert.equal(e.llamadas.length, 1, "lee al abrir la pestana");
   assert.equal(c.estado().fase, "ok");
-  await e.avanzar(29_000); assert.equal(e.llamadas.length, 1, "a los 29 s todavia no");
-  await e.avanzar(1_000); assert.equal(e.llamadas.length, 2, "a los 30 s lee");
-  await e.avanzar(60_000); assert.equal(e.llamadas.length, 4);
+  await e.avanzar(44_000); assert.equal(e.llamadas.length, 1, "a los 44 s todavia no");
+  await e.avanzar(1_000); assert.equal(e.llamadas.length, 2, "a los 45 s lee");
+  await e.avanzar(90_000); assert.equal(e.llamadas.length, 4);
   c.detener(); await e.avanzar(120_000); assert.equal(e.llamadas.length, 4, "al salir de la pestana no sondea mas");
   assert.equal(e.timers.size, 0, "sin temporizadores colgados");
 }
@@ -48,7 +48,7 @@ const falla = { status: 500, body: null };
   const antes = e.llamadas.length; await e.avanzar(300_000);
   assert.equal(e.llamadas.length, antes, "oculta: sin sondeo en segundo plano");
   e.mostrar(); c.visibilidad(); await e.asentar();
-  assert.equal(e.llamadas.length, antes + 1, "dato viejo (>30 s): lee al volver");
+  assert.equal(e.llamadas.length, antes + 1, "dato viejo (>45 s): lee al volver");
   c.visibilidad(); await e.asentar(); // visible otra vez sin cambio
   assert.equal(e.llamadas.length, antes + 1, "dato fresco: no repite");
   c.detener();
@@ -87,20 +87,20 @@ const falla = { status: 500, body: null };
 { const e = entorno({ respuestas: [falla, ok, falla, falla, ok] }); const c = crearControlador(e.cfg);
   c.iniciar(); await e.asentar(); await e.avanzar(5_000);
   assert.equal(c.estado().errores, 0, "exito reinicia");
-  await e.avanzar(30_000); assert.equal(c.estado().errores, 1);
+  await e.avanzar(45_000); assert.equal(c.estado().errores, 1);
   assert.equal(c.estado().fase, "ok", "con datos previos sigue mostrando la ultima cifra");
   assert.ok(c.estado().datos, "datos conservados"); assert.equal(c.estado().fallo, true);
   c.detener();
 }
 
-// 6) 503 y {disponible:false} son un estado, no un error: no cuentan para la pausa y se vuelve a intentar a los 30 s.
+// 6) 503 y {disponible:false} son un estado, no un error: no cuentan para la pausa y se vuelve a intentar a los 45 s.
 { const e = entorno({ respuestas: [{ status: 503, body: { disponible: false } }, { status: 200, body: { ...VIVO_DEMO.en_curso, disponible: false } },
     { status: 503, body: null }, { status: 503, body: null }, ok] });
   const c = crearControlador(e.cfg); c.iniciar(); await e.asentar();
   assert.equal(c.estado().fase, "no_disponible"); assert.equal(c.estado().errores, 0); assert.equal(c.estado().datos, null);
-  await e.avanzar(30_000); await e.avanzar(30_000); await e.avanzar(30_000);
+  await e.avanzar(45_000); await e.avanzar(45_000); await e.avanzar(45_000);
   assert.notEqual(c.estado().fase, "pausado");
-  await e.avanzar(30_000); assert.equal(c.estado().fase, "ok", "se recupera solo");
+  await e.avanzar(45_000); assert.equal(c.estado().fase, "ok", "se recupera solo");
   c.detener();
 }
 
@@ -108,7 +108,7 @@ const falla = { status: 500, body: null };
 { const e = entorno({ respuestas: [ok] });
   const c = crearControlador({ ...e.cfg, estadoInicial: { fase: "ok", datos: VIVO_DEMO.en_curso, leidoEn: e.hora() - 5_000 } });
   c.iniciar(); await e.asentar(); assert.equal(e.llamadas.length, 0, "cache fresco: sin peticion");
-  await e.avanzar(25_000); assert.equal(e.llamadas.length, 1, "lee cuando se cumplen 30 s");
+  await e.avanzar(40_000); assert.equal(e.llamadas.length, 1, "lee cuando se cumplen 45 s");
   c.detener();
   const e2 = entorno({ respuestas: [ok] });
   const c2 = crearControlador({ ...e2.cfg, estadoInicial: { fase: "ok", datos: VIVO_DEMO.en_curso, leidoEn: e2.hora() - 90_000 } });
@@ -131,5 +131,14 @@ const falla = { status: 500, body: null };
   assert.match(src, /visibilitychange/);
   assert.equal((src.match(/fetch\(/g) ?? []).length, 1, "un solo fetch, a /api/vivo");
   assert.match(src, /fetch\("\/api\/vivo"/);
+}
+// 9) disponible:false con motivo: el controlador lo conserva (sin detalles tecnicos); un 503 no trae motivo; al recuperarse se limpia.
+{ const motivo = "La semana actual todavía no está congelada: no hay clases para mostrar.";
+  const e = entorno({ respuestas: [{ status: 200, body: { disponible: false, clases: [], aviso_general: motivo } }, { status: 503, body: null }, ok] });
+  const c = crearControlador(e.cfg); c.iniciar(); await e.asentar();
+  assert.equal(c.estado().fase, "no_disponible"); assert.equal(c.estado().aviso, motivo);
+  await e.avanzar(45_000); assert.equal(c.estado().fase, "no_disponible"); assert.equal(c.estado().aviso, null, "503: sin motivo");
+  await e.avanzar(45_000); assert.equal(c.estado().fase, "ok"); assert.equal(c.estado().aviso, null);
+  c.detener();
 }
 console.log("RESUMEN: vivo_controlador=ok backoff=ok pausa_3_errores=ok visibilidad=ok reintentar=ok cache_sesion=ok estado=verde");

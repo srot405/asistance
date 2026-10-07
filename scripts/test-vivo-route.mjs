@@ -26,22 +26,26 @@ const correos = Array.from({ length: 10 }, (_, i) => `estudiante${i + 1}@ejemplo
 let nextId = 100;
 function fila(evento, correo, hhmm, uuid = "u1") { return { id: nextId++, evento, correo, nombre: null, hora_ms: COT(hhmm), uuid, curso: "Backend: APIs y Base de Datos" }; }
 
-function montar({ eventos, falla = null }) {
-  const tablas = {
-    asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: franjas, asist_roster: correos.map((c) => ({ correo_norm: c })),
-    zoom_reuniones_activas: [{ uuid: "u1", host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
-    zoom_live_log: eventos,
-  };
+function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
+  activas = [{ uuid: "u1", activo: true, host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
+  fallaMeta = 0 }) {
+  const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, zoom_live_log: eventos };
   const log = [];
+  let metaFallos = fallaMeta;
   const sb = { from: (t) => {
-    const q = { t, filtros: [], rango: null };
+    const q = { t, filtros: [], rango: null, cols: "" };
     const api = {
-      select: () => api, eq: (c, v) => (q.filtros.push([c, v]), api), in: (c, v) => (q.filtros.push([c, v]), api), gt: (c, v) => (q.filtros.push([c, v]), api),
-      gte: (c, v) => (q.filtros.push([c, v]), api), or: () => api, order: () => api, limit: () => api,
+      select: (c) => { q.cols = c; return api; }, eq: (c, v) => (q.filtros.push([c, v]), api), in: (c, v) => (q.filtros.push([c, v]), api), gt: (c, v) => (q.filtros.push([c, v]), api),
+      gte: () => api, or: () => api, order: () => api, limit: () => api,
       range: async (a, b) => {
-        log.push({ t, gt: q.filtros.find((f) => f[0] === "id" && typeof f[1] === "number")?.[1] });
+        const porUuid = q.filtros.find((f) => f[0] === "uuid" && Array.isArray(f[1]));
+        log.push({ t, cols: q.cols, meta: Boolean(porUuid), gt: q.filtros.find((f) => f[0] === "id" && typeof f[1] === "number")?.[1] });
         if (falla === t) return { data: null, error: { message: "secreto-interno: boom" } };
+        if (porUuid && metaFallos > 0) { metaFallos -= 1; log.at(-1).fallo = true; return { data: null, error: { message: "secreto-interno: meta" } }; }
         let rows = tablas[t] ?? [];
+        for (const [c, val] of q.filtros) { // eq/in solo sobre columnas que las filas tienen (activo, uuid)
+          if (rows.length && c in rows[0] && c !== "id") rows = rows.filter((r) => (Array.isArray(val) ? val.includes(r[c]) : r[c] === val));
+        }
         const gt = q.filtros.find((f) => f[0] === "id")?.[1];
         if (t === "zoom_live_log" && gt != null) rows = rows.filter((r) => r.id > gt);
         if (t === "asist_semanas") rows = rows;
@@ -105,6 +109,7 @@ async function cargarLector(sim) {
   assert.equal(ult.gt, evs[2].id - 25, "pide id > ultimo leido menos el solape (25)");
   // tablas de base (roster, franjas) se leen una vez dentro del TTL de base
   assert.equal(sim.log.filter((x) => x.t === "asist_roster").length, 1);
+  assert.match(sim.log.find((x) => x.t === "asist_roster").cols, /slot_id/, "el roster se carga con slot_id");
   assert.equal(sim.log.filter((x) => x.t === "asist_franjas").length, 1);
   assert.ok(!/ejemplo|@/.test(JSON.stringify(b)), "sin PII en la respuesta");
 }
@@ -116,6 +121,93 @@ async function cargarLector(sim) {
   const n = sim.log.filter((x) => x.t === "zoom_live_log").length;
   await assert.rejects(() => l.leerVivo(COT("08:10") + 1000));
   assert.ok(sim.log.filter((x) => x.t === "zoom_live_log").length > n, "el fallo no se cachea");
+}
+
+// ---- (1) roster por franja a traves del lector: visitante de otra franja
+{
+  const roster = [...correos.slice(0, 4).map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
+    ...correos.slice(4, 8).map((c) => ({ correo_norm: c, slot_id: "backend-sábado-10" }))];
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01"), fila("joined", correos[5], "08:02"), fila("joined", correos[6], "08:03"), fila("joined", "ext@ejemplo.test", "08:04")], roster });
+  const l = await cargarLector(sim);
+  const c = (await l.leerVivo(COT("08:10"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.otra_franja_ahora_aprox, c.desconocidos_maximo], [1, 2, 2, 1]);
+  assert.ok(c.roster_maximo <= c.roster_total);
+}
+// ---- (5)+(8) reloj y TTL de 30 s: actualizado_en = lectura real; hora_servidor = ahora; 20 s sigue cacheado, 31 s relee
+{
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01")] });
+  const l = await cargarLector(sim);
+  assert.equal(l.TTL_CACHE_VIVO_MS, 30_000);
+  const t0 = COT("08:10");
+  const a = await l.leerVivo(t0);
+  assert.equal(a.actualizado_en, new Date(t0).toISOString());
+  const n = sim.log.length;
+  const b = await l.leerVivo(t0 + 20_000);
+  assert.equal(sim.log.length, n, "a los 20 s sigue el cache (TTL 30 s)");
+  assert.equal(b.actualizado_en, new Date(t0).toISOString(), "actualizado_en = ultima lectura real, no la hora de la respuesta");
+  assert.equal(b.hora_servidor, new Date(t0 + 20_000).toISOString(), "hora_servidor = ahora");
+  await l.leerVivo(t0 + 29_000); assert.equal(sim.log.length, n);
+  const c = await l.leerVivo(t0 + 31_000);
+  assert.ok(sim.log.length > n, "a los 31 s relee"); assert.equal(c.actualizado_en, new Date(t0 + 31_000).toISOString());
+}
+// ---- (2) instancia en frio despues de terminar: sin burbujas y sin leer zoom_live_log
+{
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01")] });
+  const l = await cargarLector(sim);
+  const r = await l.leerVivo(COT("13:00"));
+  const c = r.clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.equal(c.estado, "terminada"); assert.equal(c.aviso, "Cifra final no disponible aquí; ver pestaña Presencia");
+  assert.equal(c.roster_maximo, 0); assert.equal(c.sala_activa, false);
+  assert.equal(sim.log.filter((x) => x.t === "zoom_live_log").length, 0, "frio fuera de ventana: 0 lecturas de eventos");
+}
+// ---- (3) ULTIMO refresco al cerrar la ventana: recoge lo llegado entre el ultimo sondeo y el cierre, una sola vez
+{
+  const una = [franjas[0]]; // 08:00-10:00, ventana 07:30-10:30
+  const evs = [fila("joined", correos[0], "08:01")];
+  const sim = montar({ eventos: evs, franjas: una });
+  const l = await cargarLector(sim);
+  const lecturas = () => sim.log.filter((x) => x.t === "zoom_live_log").length;
+  await l.leerVivo(COT("08:10"));
+  const ult = await l.leerVivo(COT("10:20")); // ultimo sondeo dentro de la ventana
+  assert.equal(ult.clases[0].roster_maximo, 1);
+  evs.push(fila("joined", correos[1], "10:25"), fila("left", correos[0], "10:29"));
+  const antes = lecturas();
+  assert.equal(l.estadoVivoParaPruebas().cerrado, false);
+  const cierre = await l.leerVivo(COT("10:31")); // primera vez fuera de la ventana
+  assert.equal(lecturas(), antes + 1, "un ultimo refresco");
+  assert.deepEqual([cierre.clases[0].estado, cierre.clases[0].roster_maximo, cierre.clases[0].roster_ahora_aprox], ["terminada", 2, 1]);
+  assert.equal(l.estadoVivoParaPruebas().cerrado, true, "estado cerrado");
+  await l.leerVivo(COT("10:45")); await l.leerVivo(COT("11:30")); await l.leerVivo(COT("15:00"));
+  assert.equal(lecturas(), antes + 1, "despues del cierre no se vuelve a leer");
+}
+// ---- (4) meta de salas perdida tras un fallo parcial: se reintenta y el cursor no avanza hasta resolverla
+{
+  const dosFr = [franjas[0], { ...franjas[0], slot_id: "backend-sábado-08-dos", cuenta_zoom: "jovenescreativos", roster_n: 52 }];
+  const evs = [fila("joined", correos[0], "08:01", "u9"), fila("joined", correos[1], "08:02", "u9")];
+  const activas = [{ uuid: "u9", activo: false, host: "jovenescreativos", topic: "Backend: APIs y Base de Datos", actualizado_en: null }];
+  const roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-dos" }));
+  const sim = montar({ eventos: evs, franjas: dosFr, activas, roster, fallaMeta: 1 });
+  const l = await cargarLector(sim);
+  const gts = () => sim.log.filter((x) => x.t === "zoom_live_log").map((x) => x.gt);
+  const r1 = await l.leerVivo(COT("08:10")); // la consulta de meta falla UNA vez: no tumba la respuesta
+  assert.equal(r1.disponible, true); assert.match(r1.aviso_general, /sin franja/, "sin host: ambigua entre uno y dos");
+  assert.equal(l.estadoVivoParaPruebas().cursor, 0, "el cursor NO avanza mientras la meta esta pendiente");
+  const r2 = await l.leerVivo(COT("08:12")); // reintenta: ahora resuelve
+  assert.equal(r2.clases.find((x) => x.slot_id === "backend-sábado-08-dos").roster_maximo, 2, "la meta se recupero: host jovenescreativos -> franja dos");
+  assert.equal(r2.aviso_general, null);
+  assert.equal(l.estadoVivoParaPruebas().cursor, evs[1].id, "resuelta la meta, el cursor avanza");
+  assert.equal(sim.log.filter((x) => x.meta).length, 2, "un reintento por refresco");
+  await l.leerVivo(COT("08:14"));
+  assert.equal(gts().at(-1), evs[1].id - 25, "y el siguiente refresco ya es incremental");
+  assert.equal(sim.log.filter((x) => x.meta).length, 2, "con la meta resuelta no se vuelve a pedir");
+}
+{ // meta que nunca llega: maximo 3 intentos por sala, luego el cursor sigue (no se queda releyendo para siempre)
+  const evs = [fila("joined", correos[0], "08:01", "u8")];
+  const sim = montar({ eventos: evs, activas: [], fallaMeta: 99 });
+  const l = await cargarLector(sim);
+  for (const t of ["08:10", "08:12", "08:14", "08:16", "08:18"]) await l.leerVivo(COT(t));
+  assert.equal(sim.log.filter((x) => x.meta).length, 3, "tope de 3 reintentos por sala");
+  assert.equal(l.estadoVivoParaPruebas().cursor, evs[0].id, "agotados los reintentos el cursor avanza");
 }
 
 // ---- ruta: 401 sin lecturas, 200 solo conteos, 503 sin detalles
