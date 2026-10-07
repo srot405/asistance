@@ -860,7 +860,7 @@ select {
    Presente/Entró y salió/Nunca entró, mismos emojis y colores semánticos que
    la leyenda del reporte en vivo (--green/--orange/--red, no se tocan). */
 .presencia-selector { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); max-width: 340px; margin-bottom: 16px; }
-.presencia-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 10px; }
+.presencia-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 10px; }
 .presencia-card { border-radius: 16px; padding: 20px; border: 1px solid var(--line); box-shadow: var(--glass-shadow); display: grid; gap: 4px; }
 .presencia-card span { font-weight: 600; font-size: 13px; }
 .presencia-card strong { font-size: clamp(30px, 5vw, 46px); line-height: 1; }
@@ -868,12 +868,25 @@ select {
 .presencia-card.presente { background: linear-gradient(145deg, #e4f6e9, #f8fcf9); color: #145f31; }
 .presencia-card.entro-salio { background: linear-gradient(145deg, #fff2e1, #fffaf5); color: #8a4a10; }
 .presencia-card.nunca-entro { background: linear-gradient(145deg, #fbe6e6, #fdf7f7); color: #8c2222; }
+.presencia-card.sin-dato { background: var(--t-sindato-bg); color: var(--t-sindato-fg); border: 2px dotted var(--t-sindato); }
 .dark .presencia-card.presente { background: #173c29; color: #c6f1d3; }
 .dark .presencia-card.entro-salio { background: #4e3413; color: #ffdfab; }
 .dark .presencia-card.nunca-entro { background: #4a1f1f; color: #ffc9c9; }
 @media (max-width: 720px) {
+  .presencia-grid { grid-template-columns: 1fr 1fr; }
+  .presencia-selector { max-width: none; }
+}
+@media (max-width: 420px) {
   .presencia-grid { grid-template-columns: 1fr; }
 }
+/* Leyenda global de codigos (TOC-146): fila completa bajo el encabezado; legible sobre el degradado en claro y oscuro. */
+.leyenda-codigos { flex: 1 0 100%; font-size: 13px; }
+.leyenda-codigos summary { cursor: pointer; font-weight: 600; width: fit-content; }
+.leyenda-codigos dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 16px; margin: 10px 0 0; padding: 12px;
+  border-radius: 12px; background: var(--card); color: var(--fg); border: 1px solid var(--line); }
+.leyenda-codigos dl > div { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.leyenda-codigos dt { font-weight: 700; min-width: 2.2em; }
+.leyenda-codigos dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 
 /* Pestaña Cobertura: roster semanal vs. captura real de Zoom */
 .cob-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }

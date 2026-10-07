@@ -49,11 +49,11 @@ assert.deepEqual(nombres.filter((n) => n.startsWith("\"Estudiante")), [...nombre
 
 // ---- CSV de presencia: 3 columnas al final ----
 const pres = construirCsvPresencia([{ nombre: "Estudiante 001", ciudad: "X", estado: "presente", minutos: 90, pct_tiempo: 75, estado_tiempo: "cumple", cumple_50: true },
-  { nombre: "Estudiante 002", ciudad: "X", estado: "entro_y_salio", minutos: null }]);
+  { nombre: "Estudiante 002", ciudad: "X", estado: "sin_dato", minutos: null }]);
 const lp = pres.contenido.slice(1).split("\r\n");
 assert.equal(lp[0], '"nombre","ciudad","estado","minutos","pct_tiempo","estado_tiempo","cumple_50"');
 assert.equal(lp[1], '"Estudiante 001","X","presente","90","75","cumple","SI"');
-assert.equal(lp[2], '"Estudiante 002","X","entro_y_salio","","","no_calculado",""');
+assert.equal(lp[2], '"Estudiante 002","X","sin_dato","","","no_calculado",""');
 
 // ---- Reporte: columnas nuevas al final y RESUMEN con "N de M con tiempo medido" ----
 const franjas = [{ slot_id: "backend-a", fecha: "2099-01-05", cuenta_zoom: "x" }];

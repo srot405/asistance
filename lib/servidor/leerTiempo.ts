@@ -238,21 +238,27 @@ export async function leerTiempoReporte(semana: string): Promise<TiempoReporte> 
   }
 }
 
-export type TiempoPresencia = { estado_tiempo: string; pct_tiempo: number | null; cumple_50: boolean | null };
+export type TiempoPresencia = { estado_tiempo: string; pct_tiempo: number | null; cumple_50: boolean | null; minutos: number | null };
 
-// CSV de presencia: tiempo de las personas PROPIAS de una clase. Cualquier fallo -> mapa vacio (la presencia no depende del tiempo).
+// Presencia (pantalla y CSV): tiempo de las personas PROPIAS de una clase. Cualquier fallo -> mapa vacio y la presencia
+// declara "sin dato de tiempo" (nunca inventa Parcial ni Presente).
 export async function leerTiempoPersonasClase(semana: string, slotId: string): Promise<Map<string, TiempoPresencia>> {
-  if (MODO_DEMO) return new Map();
+  if (MODO_DEMO) {
+    const d = (TIEMPO_DEMO as Record<string, any>)[semana];
+    return new Map<string, TiempoPresencia>((d?.personas ?? []).filter((p: any) => p.slot_id === slotId && !p.es_visita)
+      .map((p: any) => [p.persona_id, { estado_tiempo: p.estado_tiempo, pct_tiempo: p.pct_tiempo, cumple_50: p.cumple_50,
+        minutos: p.segundos == null ? null : Math.round(p.segundos / 6) / 10 }]));
+  }
   try {
     const salida = new Map<string, TiempoPresencia>();
     for (let desde = 0; ; desde += PAGINA) {
       const { data, error } = await supabaseServidor().from("v_asist_tiempo_persona")
-        .select("persona_id,estado_tiempo,pct_tiempo,cumple_50").eq("semana", semana).eq("franja_tiempo", slotId).eq("es_visita", false)
+        .select("persona_id,estado_tiempo,pct_tiempo,cumple_50,minutos").eq("semana", semana).eq("franja_tiempo", slotId).eq("es_visita", false)
         .order("persona_id", { ascending: true }).range(desde, desde + PAGINA - 1);
       if (error) throw error;
       const lote = (data ?? []) as unknown as (TiempoPresencia & { persona_id: string })[];
       for (const f of lote) salida.set(f.persona_id, { estado_tiempo: f.estado_tiempo, cumple_50: f.cumple_50,
-        pct_tiempo: f.pct_tiempo == null ? null : Number(f.pct_tiempo) });
+        pct_tiempo: f.pct_tiempo == null ? null : Number(f.pct_tiempo), minutos: f.minutos == null ? null : Number(f.minutos) });
       if (lote.length < PAGINA) return salida;
     }
   } catch {

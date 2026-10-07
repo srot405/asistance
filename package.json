@@ -37,6 +37,7 @@
     "test:presencia-demo": "node scripts/test-presencia-demo.mjs",
     "test:presencia-route": "node scripts/test-presencia-route.mjs",
     "test:presencia-clase": "node scripts/test-presencia-clase.mjs",
+    "test:presencia-tiempo": "node scripts/test-presencia-tiempo.mjs",
     "test:tendencia-grafico": "node scripts/test-tendencia-grafico.mjs",
     "test:tiempo-vista": "node scripts/test-tiempo-vista.mjs",
     "test:histograma": "node scripts/test-histograma-tiempo.mjs",

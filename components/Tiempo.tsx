@@ -92,7 +92,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <p><b>{ETIQUETAS.rojo_tiempo}:</b> estuvo conectado menos de la mitad de la duración de SU clase (la sala abre ~15 min antes y ese rato no cuenta). Exactamente 50 % cumple.</p>
       <p><b>{ETIQUETAS.sin_dato_tiempo}:</b> no se pudo medir; nunca cuenta como rojo ni como 0.</p>
       <p><b>Cobertura:</b> «N de M con tiempo medido»; con menos de 70 % se avisa y con menos de 5 medidos no se publica mediana ni distribución.</p>
-      <p><b>Presencia (70 %)</b> es la vista en vivo de una clase; el criterio oficial de tiempo es el de esta pestaña.</p>
+      <p><b>Presencia</b> usa este mismo criterio: Presente = 50 % o más, Parcial = menos del 50 %.</p>
     </details>
   </section>;
 }

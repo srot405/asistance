@@ -9,7 +9,7 @@ class NextResponse extends Response {
 }
 const lecturas = [];
 const fixture = { semana: "2026-09-14", slot_id: "backend-martes-18", fecha: "2026-09-15", horario_texto: "Martes 18:00",
-  medible: 50, conteos: { presente: 30, entro_y_salio: 12, nunca_entro: 8 }, sin_evidencia: 0 };
+  medible: 50, conteos: { presente: 30, parcial: 10, nunca_entro: 8, sin_dato: 2 } };
 const source = await readFile(new URL("../app/api/presencia/route.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
   target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;

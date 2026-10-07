@@ -213,10 +213,10 @@ export type AusenteNominal = {
   fecha: string;
 };
 
-// ── Pestaña "Presencia" (TOC-91, 2026-09-29): Presente/Entró y salió/Nunca
-// entró, mismo vocabulario que el reporte en vivo por correo. Solo existe para
-// semanas nivel "Detalle" — ver lib/servidor/leerPresenciaClase.ts.
-export type EstadoPresencia = "presente" | "entro_y_salio" | "nunca_entro";
+// ── Pestaña "Presencia" (TOC-91; criterio unico del 50 % desde TOC-146): Presente (cumple 50 %) / Parcial (menos del 50 %)
+// / Nunca entró / Sin dato de tiempo (entró pero no se pudo medir; nunca es Parcial). Solo para semanas nivel "Detalle"
+// — ver lib/servidor/leerPresenciaClase.ts y lib/presenciaTiempo.mjs.
+export type EstadoPresencia = "presente" | "parcial" | "nunca_entro" | "sin_dato";
 export type ConteosPresencia = Record<EstadoPresencia, number>;
 export type PresenciaClaseResponse = {
   semana: string;
@@ -225,11 +225,6 @@ export type PresenciaClaseResponse = {
   horario_texto: string;
   medible: number;
   conteos: ConteosPresencia;
-  // Personas que sí ingresaron (asist_entradas) pero sin evento crudo
-  // joined/left localizable en zoom_live_log dentro de la franja: se cuentan
-  // como "entro_y_salio" (conservador: sabemos que entraron, no cuánto se
-  // quedaron) y se avisan aparte para no esconder el hueco de datos.
-  sin_evidencia: number;
 };
 // Fila nominal con la clasificación de presencia (PII): mismo criterio que
 // AusenteNominal, solo sale por el CSV autenticado de /api/exportar-nominal.

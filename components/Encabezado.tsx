@@ -1,3 +1,5 @@
+import LeyendaCodigos from "./LeyendaCodigos";
+
 type Props = {
   dark: boolean;
   setDark: (value: boolean) => void;
@@ -19,6 +21,7 @@ export default function Encabezado({ dark, setDark, demo }: Props) {
           {dark ? "☀ Claro" : "◐ Oscuro"}
         </button>
       </div>
+      <LeyendaCodigos />
     </header>
   );
 }
