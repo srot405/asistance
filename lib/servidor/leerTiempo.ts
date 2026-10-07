@@ -22,11 +22,14 @@ export function esTablaAusente(error: unknown): boolean {
 }
 
 // Pagina de a 1000 con orden estable (un lote < 1000 corta). Mismo patron que leerDetalleSemana.ts::tabla.
-export async function tablaTiempo<T>(nombre: string, columnas: string, semana: string | null, orden: string[]): Promise<T[]> {
+// `igual` (opcional): filtros de igualdad extra, para no traer filas que luego se descartan (p. ej. solo es_visita).
+export async function tablaTiempo<T>(nombre: string, columnas: string, semana: string | null, orden: string[],
+  igual: Record<string, string | boolean> = {}): Promise<T[]> {
   const salida: T[] = [];
   for (let desde = 0; ; desde += PAGINA) {
     let consulta = supabaseServidor().from(nombre).select(columnas);
     if (semana) consulta = consulta.eq("semana", semana);
+    for (const [col, valor] of Object.entries(igual)) consulta = consulta.eq(col, valor);
     for (const col of orden) consulta = consulta.order(col, { ascending: true });
     const { data, error } = await consulta.range(desde, desde + PAGINA - 1);
     if (error) throw error;

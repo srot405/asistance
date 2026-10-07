@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { sesionActual } from "./auth";
 import { estadoVistaTiempo } from "./tiempoVista.mjs";
 import type { FiltroTiempo, TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "./tiempoContrato.d.mts";
+import type { VisitasRespuesta } from "./visitasCalculo.d.mts";
 
 type Modo = "demo" | "real";
 export type EstadoTiempo = "cargando" | "ok" | "no_disponible" | "vacio" | "no_detalle" | "error";
@@ -70,6 +71,16 @@ export function useTiempoSemana(semana: string, filtro: FiltroTiempo, modo: Modo
     if (ligero) params.set("ligero", "1");
     else for (const k of ["ciudad", "franja", "cuenta"] as const) if (filtro[k]) params.set(k, String(filtro[k]));
     return pedir<TiempoSemanaResponse | TiempoNoDisponible>("/api/tiempo", params, modo);
+  });
+}
+
+// Visitas nominales (TOC-147): mismos filtros que Tiempo; se pide solo cuando la pestaña ya tiene tiempos (activa).
+export function useVisitasSemana(semana: string, filtro: FiltroTiempo, modo: Modo, activa = true): Respuesta<VisitasRespuesta> {
+  const clave = activa && semana ? `v|${modo}|${semana}|${filtro.ciudad ?? ""}|${filtro.franja ?? ""}|${filtro.cuenta ?? ""}` : null;
+  return usarPeticion(clave, () => {
+    const params = new URLSearchParams({ semana });
+    for (const k of ["ciudad", "franja", "cuenta"] as const) if (filtro[k]) params.set(k, String(filtro[k]));
+    return pedir<VisitasRespuesta>("/api/visitas", params, modo);
   });
 }
 

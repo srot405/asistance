@@ -60,4 +60,9 @@ for (const archivo of ["lib/tiempoVista.mjs", "lib/tiempoCalculo.mjs", "lib/hist
   assert.doesNotMatch(src, /3600|60 min|minutos\s*[<>]=?\s*60/, `${archivo}: sin umbral absoluto de 60 min`);
 }
 assert.equal((vista.match(/UMBRAL_PORCENTAJE_ROJO = 50;/g) ?? []).length, 1, "el 50 vive en UNA constante");
+// 12) TOC-147: la pestaña monta «Entró a clase ajena»; el componente suprime con «<5», no toca el servidor y no inventa nombres
+assert.match(await leer("components/Tiempo.tsx"), /<TiempoVisitas semana=\{actual\.semana\} filtro=\{filtro\} modo=\{modo\} \/>/);
+const visitasSrc = await leer("components/TiempoVisitas.tsx");
+assert.match(visitasSrc, /TEXTO_SUPRIMIDO/); assert.match(visitasSrc, /Sin identificar/); assert.match(visitasSrc, /data-testid="visitas-vacio"/);
+assert.doesNotMatch(visitasSrc, /lib\/servidor|supabase/);
 console.log("RESUMEN: tiempo_ui=ok sin_pii=ok icono_mas_texto=ok aria=ok leyenda_fija=ok trama_rojo=ok degradado=ok presencia_aviso=ok estado=verde");

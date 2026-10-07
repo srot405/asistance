@@ -10,9 +10,10 @@ import HistogramaTiempo from "./HistogramaTiempo";
 import LeyendaTiempo from "./LeyendaTiempo";
 import TiempoTablaClases from "./TiempoTablaClases";
 import TiempoTarjetas from "./TiempoTarjetas";
+import TiempoVisitas from "./TiempoVisitas";
 
 // Pestana "Tiempo" (TOC-140): cuanto tiempo estuvo cada persona en SU clase y quien estuvo menos del 50 %.
-// Por defecto SOLO agregados (sin nombres); el nominal sale unicamente por el CSV autenticado.
+// Por defecto SOLO agregados (sin nombres); el nominal sale por el CSV autenticado y por la tabla «Entro a clase ajena» (TOC-147).
 // Si el backend aun no tiene las tablas, muestra "Tiempo aun no disponible" y el resto del panel sigue igual.
 export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const esDetalle = actual.nivel === "Detalle";
@@ -37,7 +38,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
 
   return <section className="panel tiempo-panel" aria-label="Tiempo en clase" aria-busy={estado === "cargando"}>
     <div className="section-heading"><div><h2>Tiempo en clase</h2>
-      <p>Regla: menos del {UMBRAL_PORCENTAJE_ROJO} % del tiempo de su clase = {ICONOS.rojo_tiempo} rojo por tiempo. Solo agregados, sin nombres.</p></div>
+      <p>Regla: menos del {UMBRAL_PORCENTAJE_ROJO} % del tiempo de su clase = {ICONOS.rojo_tiempo} rojo por tiempo. Solo agregados, sin nombres; la tabla «Entró a clase ajena» es nominal.</p></div>
       {d?.provisional && <span className="badge-provisional" title="Las cifras pueden cambiar hasta que cierre la semana.">⏳ PROVISIONAL: semana abierta</span>}
     </div>
 
@@ -66,6 +67,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <section aria-label="Visitas" className="tiempo-visitas">
         <p><b>Visitas</b> (clase que no es la suya): {d.visitas.sesiones} sesiones — cumplen {d.visitas.cumplen} · rojo {d.visitas.rojo} · sin dato {d.visitas.sin_dato}.
           No suman a los conteos de arriba.</p></section>
+      <TiempoVisitas semana={actual.semana} filtro={filtro} modo={modo} />
 
       <h3>Distribución del % del tiempo de clase</h3>
       <HistogramaTiempo histograma={d.histograma} />

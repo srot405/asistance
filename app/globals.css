@@ -945,6 +945,10 @@ select {
 .tiempo-card.t-sindato { background: var(--t-sindato-bg); color: var(--t-sindato-fg); border: 2px dotted var(--t-sindato); }
 .tiempo-card.t-mediana { background: var(--card); }
 .tiempo-visitas { margin: 6px 0; }
+.visitas-matriz thead th { white-space: normal; min-width: 84px; font-size: 11px; text-align: center; }
+.visitas-matriz th[scope="row"], .visitas-tabla th[scope="row"] { text-align: left; font-weight: 600; }
+.visitas-matriz td { text-align: center; }
+.visitas-tabla td, .visitas-tabla th { text-align: left; }
 .leyenda-tiempo ul { display: flex; flex-wrap: wrap; gap: 8px 18px; list-style: none; padding: 0; margin: 14px 0 4px; }
 .leyenda-tiempo li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .t-muestra { display: inline-block; width: 22px; height: 14px; border-radius: 3px; border: 1px solid var(--line); }
