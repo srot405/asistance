@@ -1094,9 +1094,3 @@ select {
 .lista-vivo .check { display: flex; align-items: center; gap: 6px; align-self: end; }
 .lista-vivo-tabla td small { opacity: .75; }
 .lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--orange); }
-/* Calendario: ingresos nominales del dia (en su horario / se colaron / ambos). */
-.ingresos-dia { display: grid; gap: 6px; margin-top: 6px; }
-.ingresos-dia-botones { display: flex; flex-wrap: wrap; gap: 6px; }
-.ingresos-dia-botones .tab.ingreso-otras.active { box-shadow: inset 0 -3px 0 var(--orange); }
-.ingresos-dia .class-table-wrap { max-height: 420px; overflow: auto; }
-.ingresos-dia .visitas-tabla td, .ingresos-dia .visitas-tabla th { white-space: nowrap; }
