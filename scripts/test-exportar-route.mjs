@@ -22,7 +22,7 @@ const require = (name) => {
   if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => { const token = request.headers.get("authorization"); calls.push(token);
     return token === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }); } };
-  if (name.endsWith("/leerHistorico")) return { leerHistorico: async () => sample };
+  if (name.endsWith("/leerHistorico")) return { leerHistorico: async () => sample, aplicarResumenVivo: async (d) => d };
   if (name.endsWith("/exportar.mjs")) return { construirCsv };
   throw new Error(`Import no previsto: ${name}`);
 };

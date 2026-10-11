@@ -7,7 +7,7 @@ const fila = { semana: "2026-09-14", materia: "Backend", nivel: "Detalle", pobla
 const summary = construirCsv(fila, "Resumen");
 assert.equal(summary.contenido.charCodeAt(0), 0xFEFF, "CSV con BOM UTF-8 para Excel");
 assert.equal(summary.contenido.slice(1).split("\r\n")[0],
-  '"semana","materia","nivel","poblacion","asistieron","nunca","porcentaje_retencion","porcentaje_nunca","clases_capturadas","clases_programadas","porcentaje_cobertura","captura_completa","aviso"');
+  '"semana","materia","nivel","poblacion","asistieron","nunca","porcentaje_retencion","porcentaje_nunca","clases_capturadas","clases_programadas","porcentaje_cobertura","captura_completa","aviso","fuente_cifras"');
 assert.match(summary.contenido, /"2026-09-14","Backend","Detalle"/);
 assert.match(summary.contenido, /"captura completa",""/);
 const incompleta = construirCsv({ ...fila, captura_completa: false, aviso: "4 franjas ZL" }, "Resumen");

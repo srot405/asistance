@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { leerHistorico } from "../../../lib/servidor/leerHistorico";
+import { aplicarResumenVivo, leerHistorico } from "../../../lib/servidor/leerHistorico";
 import { construirCsv } from "../../../lib/exportar.mjs";
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "text/csv; charset=utf-8" };
@@ -20,7 +20,10 @@ export async function GET(request: Request) {
   if (vista !== "Resumen")
     return NextResponse.json({ error: "Vista de exportación no válida" }, { status: 400, headers });
   try {
-    const data = await leerHistorico();
+    let data = await leerHistorico();
+    // TOC-91 (fase 1, 2026-10-09): mismas cifras que el resumen de la pestana Semana (recalculadas en vivo para semanas
+    // Detalle); si el recalculo falla, sale la foto del ETL como antes.
+    try { data = await aplicarResumenVivo(data); } catch { console.error("aplicarResumenVivo fallo: el CSV usa el resumen del ETL"); }
     const materia = q.get("materia");
     const fila = data.resultados.find((item) => item.semana === semana &&
       (!materia || item.materia === materia));
