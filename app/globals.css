@@ -1138,3 +1138,10 @@ select {
 .tabla-modo .tabla-dia { text-transform: capitalize; white-space: nowrap; }
 .calendar-csv { display: flex; flex-wrap: wrap; gap: 6px; }
 .tabla-modo td, .tabla-modo th { white-space: nowrap; }
+.tabla-modo td.col-clase { white-space: normal; max-width: 96px; font-size: 12px; line-height: 1.3; }
+.tabla-modo td.col-conf { white-space: normal; }
+/* En la tabla del dia los chips de confianza van solo con icono (el texto sigue en title y aria-label). */
+.tabla-modo td.col-conf .chips-conf { flex-wrap: nowrap; gap: 3px; }
+.tabla-modo td.col-conf .chip-conf { font-size: 0; padding: 2px 6px; }
+.tabla-modo td.col-conf .chip-conf b { font-size: 12px; margin: 0; }
+.calendar-clases .tabla-modo th, .calendar-clases .tabla-modo td { padding: 7px 6px; }

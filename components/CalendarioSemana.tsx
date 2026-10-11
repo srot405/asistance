@@ -53,6 +53,16 @@ function vista(d: Cifras | null | undefined, m: Modo): { pct: string; n: number 
   return { pct: porcentaje(pctDe(d, m)), n, xy: `${n} de ${d.poblacion ?? "—"}` };
 }
 
+// Nombre corto de la clase para la tabla del día (el día ya se sabe): "Backend - Sábado 8:00 A.M. COL/ECU/PAN | 10:00 A.M. UY - Uno"
+// -> "8:00 A.M. · Uno". El texto completo queda en el title.
+const DIA = /\b(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\b\s*/i;
+function claseCorta(texto: string): string {
+  const [antes, despues = ""] = texto.split("|");
+  const hora = antes.replace(/^.*?\s-\s/, "").replace(DIA, "").replace(/\s+[A-Z]{2,3}(\/[A-Z]{2,3})+\s*$/, "").trim();
+  const extra = /\s-\s([^-]+)$/.exec(despues)?.[1]?.trim();
+  return extra ? `${hora} · ${extra}` : hora || texto;
+}
+
 // Calendario + detalle por día + filtros + CSV nominal (TOC-91, pedido de Samuel
 // 2026-09-29). Solo pide /api/detalle y /api/exportar-nominal cuando la semana
 // elegida es nivel "Detalle" (roster congelado real): para el resto, la grilla
@@ -229,12 +239,13 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
             <strong className="cifra-modo">{vista(diaSeleccionado, vistaModo).pct}</strong>
             <p className="cifra-sub">{vista(diaSeleccionado, vistaModo).xy} · {modoInfo.texto.toLowerCase()}</p>
             {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
-              <thead><tr><th>Clase</th><th>Roster</th><th>Cantidad</th><th>%</th><th>Confianza</th></tr></thead>
+              <thead><tr><th>Clase</th><th>Roster</th><th>Cantidad</th><th>%</th><th title="Confianza de la captura y cuadre de la clase">Conf.</th></tr></thead>
               <tbody>{clasesDelDia.map((clase) => {
                 const v = vista(clase, vistaModo);
                 return <tr key={`${clase.fecha}-${clase.slot_id}`}>
-                  <td>{horarioDe(clase.slot_id)}</td><td>{clase.poblacion}</td><td className="col-cantidad">{v.n}</td><td>{v.pct}</td>
-                  <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
+                  <td className="col-clase" title={horarioDe(clase.slot_id)}>{claseCorta(horarioDe(clase.slot_id))}</td>
+                  <td>{clase.poblacion}</td><td className="col-cantidad">{v.n}</td><td>{v.pct}</td>
+                  <td className="col-conf">{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
                 </tr>;
               })}</tbody>
             </table></div>}

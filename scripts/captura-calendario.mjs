@@ -34,7 +34,7 @@ try {
     await cal.screenshot({ path: `${salida}/0-ambos-${sufijo}.png` });
     await page.locator('.seg-btn[data-tipo="colados"]').click();
     await cal.screenshot({ path: `${salida}/1-colados-semana-${sufijo}.png` });
-    await page.locator(".calendar-day.con-datos").nth(1).click();
+    await page.locator(".calendar-day.con-datos").last().click();
     await page.waitForTimeout(400);
     await cal.screenshot({ path: `${salida}/2-colados-dia-${sufijo}.png` });
     await page.locator('.seg-btn[data-tipo="horario"]').click();
