@@ -34,48 +34,23 @@ const PENDIENTE_NUNCA_PERIODO = "Pendiente: el histórico solo expone el conteo 
   "no la lista de personas. Para nominarlo sin inventar datos falta que el ETL exponga los persona_id " +
   "identificados en cada semana, incluidas las de nivel \"Solo semanal\".";
 
-// Selector de vista del calendario (TOC-91, Samuel 2026-10-09; revisado por 3 agentes de UX/UI/datos). Cuatro opciones
-// excluyentes, siempre una marcada. Cambia la cifra de TODOS los días, del resumen y la columna resaltada de las tablas.
-// En pantalla solo cifras; los nombres salen únicamente en el CSV (nominal, con permiso). Denominadores:
-//  - ingreso: % oficial (entró a alguna clase ese día / roster medible). No se toca.
-//  - propias: entró a SU clase / el mismo roster medible -> siempre <= % de ingreso.
-//  - otras:   colados / todos los que entraron a esas clases (nunca sobre el roster: los colados no están en él).
-//  - ambos:   solo conteo de entradas (persona x clase; una persona puede sumar en dos clases).
-type Modo = "ingreso" | "propias" | "otras" | "ambos";
-const MODOS: { modo: Modo; ico: string; texto: string; ayuda: string }[] = [
-  { modo: "ingreso", ico: "%", texto: "% de ingreso", ayuda: "Del roster de cada día, cuántos entraron a alguna clase (la suya u otra)." },
-  { modo: "propias", ico: "✓", texto: "Entraron en su horario", ayuda: "Del roster de cada día, cuántos entraron a SU clase, la de su horario." },
-  { modo: "otras", ico: "↪", texto: "Se colaron a otra clase", ayuda: "Personas que entraron a una clase que no es la suya. El % es sobre todos los que entraron a esas clases." },
-  { modo: "ambos", ico: "+", texto: "Todos los ingresos", ayuda: "Cada entrada a una clase, de su horario o colada. Una misma persona puede sumar en dos clases." },
+// Filtros del calendario (TOC-91, Samuel 2026-10-09). Uno a la vez. Cambian la cifra de TODOS los días, del resumen y la
+// columna «Cantidad» de su tabla. Todo se cuenta en el día de la clase de la persona (si alguien del martes entra el
+// miércoles, cuenta el martes) sobre el roster medible de ese día/clase. Nombres solo en el CSV.
+type Modo = "ambos" | "horario" | "colados";
+const MODOS: { modo: Modo; texto: string; ayuda: string }[] = [
+  { modo: "ambos", texto: "Horario correcto + colados", ayuda: "Entraron a su clase o, si no, a otra clase de la semana." },
+  { modo: "horario", texto: "Horario correcto", ayuda: "Entraron a la clase de su horario." },
+  { modo: "colados", texto: "Solo colados", ayuda: "No entraron a su clase, pero sí a otra de la semana." },
 ];
-const NOMBRE_CSV: Record<Exclude<Modo, "ingreso">, string> = { propias: "entraron en su horario", otras: "colados", ambos: "todos los ingresos" };
 
 type Cifras = ResumenPlano | DetalleHistorico;
-// Cifra grande + subtítulo de un recorte (día, clase o semana) según el modo.
-function vista(d: Cifras | null | undefined, modo: Modo): { grande: string; sub: string } {
-  if (!d) return { grande: "—", sub: "" };
-  if (modo === "propias") return { grande: porcentaje(d.porcentaje_su_horario), sub: `${d.en_su_horario ?? "—"} de ${d.poblacion ?? "—"}` };
-  if (modo === "otras") return { grande: porcentaje(d.porcentaje_colados), sub: `${d.colados ?? "—"} de ${d.ingresos ?? "—"} entradas` };
-  if (modo === "ambos") return { grande: String(d.ingresos ?? "—"), sub: "entradas" };
-  return { grande: porcentaje(d.porcentaje_retencion), sub: `${d.asistieron ?? "—"} de ${d.poblacion ?? "—"}` };
-}
-
-// Celda de tabla: número + % pequeño debajo.
-function Num({ n, pct }: { n: number | null | undefined; pct?: number | null }) {
-  return <>{n ?? "—"}{pct !== undefined && <small className="tabla-pct">{porcentaje(pct)}</small>}</>;
-}
-
-const ENCABEZADOS = <>
-  <th className="col-ingreso" title="Entró a alguna clase ese día (la suya u otra)">Ingresaron</th>
-  <th className="col-propias" title="Entró a la clase de su horario">En su horario</th>
-  <th className="col-otras" title="Personas de otro horario que entraron a esta clase; % sobre todos los que entraron a ella">De otra clase</th>
-</>;
-function CeldasCifras({ d }: { d: Cifras }) {
-  return <>
-    <td className="col-ingreso"><Num n={d.asistieron} pct={d.porcentaje_retencion} /></td>
-    <td className="col-propias"><Num n={d.en_su_horario} pct={d.porcentaje_su_horario} /></td>
-    <td className="col-otras"><Num n={d.colados} pct={d.porcentaje_colados} /></td>
-  </>;
+const pctDe = (d: Cifras, m: Modo) => (m === "horario" ? d.porcentaje_horario : m === "colados" ? d.porcentaje_colados : d.porcentaje_ambos);
+// % + "x de y" (y = roster medible) de un recorte (día, clase o semana).
+function vista(d: Cifras | null | undefined, m: Modo): { pct: string; n: number | string; xy: string } {
+  if (!d) return { pct: "—", n: "—", xy: "" };
+  const n = d[m] ?? "—";
+  return { pct: porcentaje(pctDe(d, m)), n, xy: `${n} de ${d.poblacion ?? "—"}` };
 }
 
 // Calendario + detalle por día + filtros + CSV nominal (TOC-91, pedido de Samuel
@@ -98,7 +73,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   const [cargando, setCargando] = useState(false);
   const [errorDetalle, setErrorDetalle] = useState("");
   const [falloExport, setFalloExport] = useState("");
-  const [vistaModo, setVistaModo] = useState<Modo>("ingreso");
+  const [vistaModo, setVistaModo] = useState<Modo>("ambos");
   const esDetalle = actual.nivel === "Detalle";
   const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
 
@@ -178,9 +153,8 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     if (error) setFalloExport(error);
   }
 
-  // CSV con nombres del modo activo (en su horario / colados / todos), de la semana o del día elegido.
+  // CSV con nombres del filtro activo, de la semana o del día elegido.
   async function descargarIngresos(alcance: "semana" | "dia") {
-    if (vistaModo === "ingreso") return;
     setFalloExport("");
     const params = new URLSearchParams({ semana: actual.semana, tipo: vistaModo });
     if (alcance === "dia") { if (!selectedDate) return; params.set("fecha", selectedDate); }
@@ -192,11 +166,11 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     if (error) setFalloExport(error);
   }
 
-  const botonNombres = (alcance: "semana" | "dia") => vistaModo !== "ingreso" && puedeNominal
-    ? <button className="control" onClick={() => descargarIngresos(alcance)}>
-      ⬇ Descargar nombres: {NOMBRE_CSV[vistaModo]} {alcance === "dia" ? "este día" : "esta semana"}{modo === "demo" && " (práctica)"}
+  const botonNombres = (alcance: "semana" | "dia") => puedeNominal
+    ? <button className="control" onClick={() => descargarIngresos(alcance)} title={`${modoInfo.texto}: nombres en CSV`}>
+      Nombres (CSV){alcance === "semana" ? " de la semana" : ""}{modo === "demo" && " · práctica"}
     </button> : null;
-  const cifraSemana = vista(resumenSemana, vistaModo);
+  const semana = vista(resumenSemana, vistaModo);
 
   return <section className="panel calendar-panel" aria-label="Calendario de la semana">
     <div className="section-heading">
@@ -210,19 +184,16 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     </p>}
     {esDetalle && errorDetalle && <p className="historical-notice missing-notice">{errorDetalle}</p>}
 
-    {esDetalle && <div className="modo-vista">
-      <div className="seg-grupo" role="group" aria-label="Qué mostrar en cada día de la semana">
-        {MODOS.map((m) => {
-          const semana = vista(resumenSemana, m.modo).grande;
-          return <button key={m.modo} type="button" className="seg-btn" data-tipo={m.modo} aria-pressed={vistaModo === m.modo}
-            onClick={() => setVistaModo(m.modo)} title={m.ayuda} aria-label={`${m.texto}. Semana: ${semana}`}>
-            <span className="seg-ico" aria-hidden="true">{m.ico}</span>
-            <span className="seg-texto">{m.texto}</span>
-            {detalle && <span className="seg-badge" aria-hidden="true">{semana}</span>}
-          </button>;
-        })}
-      </div>
-      <p className="seg-ayuda" aria-live="polite">{modoInfo.ayuda}</p>
+    {esDetalle && <div className="seg-grupo" role="radiogroup" aria-label="Qué contar en cada día">
+      {MODOS.map((m) => {
+        const v = vista(resumenSemana, m.modo);
+        return <button key={m.modo} type="button" role="radio" className="seg-btn" data-tipo={m.modo} aria-checked={vistaModo === m.modo}
+          onClick={() => setVistaModo(m.modo)} title={m.ayuda} aria-label={`${m.texto}: ${v.pct}, ${v.xy} en la semana`}>
+          <span className="seg-pct">{detalle ? v.pct : "…"}</span>
+          <span className="seg-texto">{m.texto}</span>
+          <span className="seg-xy">{detalle ? v.xy : ""}</span>
+        </button>;
+      })}
     </div>}
 
     <div className="calendar-layout">
@@ -238,14 +209,14 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
           const v = vista(dia, vistaModo);
           return <button key={fecha} type="button" disabled={!tieneDatos}
             aria-pressed={activo} data-modo={tieneDatos ? vistaModo : undefined}
-            aria-label={tieneDatos ? `${fechaLarga(fecha)}: ${modoInfo.texto} ${v.grande}, ${v.sub}` : undefined}
+            aria-label={tieneDatos ? `${fechaLarga(fecha)}: ${modoInfo.texto} ${v.pct}, ${v.xy}` : undefined}
             className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}${esElSabadoResponsable ? " sabado-responsable" : ""}`}
             title={esElSabadoResponsable ? "Este sábado no tuvo clase regular esta semana" : undefined}
             onClick={() => tieneDatos && setSelectedDate(activo ? null : fecha)}>
             {esElSabadoResponsable && <span className="calendar-day-estrella" aria-hidden="true">{ICONO_SIN_SABADO}</span>}
             <span className="calendar-day-nombre">{fechaCorta(fecha)}</span>
             <span className="calendar-day-numero">{fecha.slice(8, 10)}</span>
-            {tieneDatos ? <><span className="cd-pct">{v.grande}</span><span className="cd-sub">{v.sub}</span></>
+            {tieneDatos ? <><span className="cd-pct">{v.pct}</span><span className="cd-sub">{v.xy}</span></>
               : <span className="calendar-day-pct calendar-day-sin">{cargando && esDetalle ? "…" : "sin dato"}</span>}
           </button>;
         })}
@@ -255,35 +226,36 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
         {selectedDate ? <>
           <h3>{fechaLarga(selectedDate)}</h3>
           {diaSeleccionado ? <>
-            <strong className={`cifra-modo cifra-${vistaModo}`}>{vista(diaSeleccionado, vistaModo).grande}</strong>
-            <p className="cifra-sub">{modoInfo.texto} · {vista(diaSeleccionado, vistaModo).sub}</p>
-            {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo" data-modo={vistaModo}>
-              <thead><tr><th>Clase</th>{ENCABEZADOS}<th>Confianza</th></tr></thead>
-              <tbody>{clasesDelDia.map((clase) => <tr key={`${clase.fecha}-${clase.slot_id}`}>
-                <td>{horarioDe(clase.slot_id)}<small className="tabla-roster">roster {clase.poblacion}</small></td>
-                <CeldasCifras d={clase} />
-                <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
-              </tr>)}</tbody>
-              {clasesDelDia.length > 1 && <tfoot><tr><td>Total del día<small className="tabla-roster">roster {diaSeleccionado.poblacion}</small></td>
-                <CeldasCifras d={diaSeleccionado} /><td /></tr></tfoot>}
+            <strong className="cifra-modo">{vista(diaSeleccionado, vistaModo).pct}</strong>
+            <p className="cifra-sub">{vista(diaSeleccionado, vistaModo).xy} · {modoInfo.texto.toLowerCase()}</p>
+            {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
+              <thead><tr><th>Clase</th><th>Roster</th><th>Cantidad</th><th>%</th><th>Confianza</th></tr></thead>
+              <tbody>{clasesDelDia.map((clase) => {
+                const v = vista(clase, vistaModo);
+                return <tr key={`${clase.fecha}-${clase.slot_id}`}>
+                  <td>{horarioDe(clase.slot_id)}</td><td>{clase.poblacion}</td><td className="col-cantidad">{v.n}</td><td>{v.pct}</td>
+                  <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
+                </tr>;
+              })}</tbody>
             </table></div>}
             <div className="calendar-csv">
               {botonNombres("dia")}
               {puedeNominal && <button className="control" onClick={() => descargarNominal("dia")}>
-                Descargar CSV: no ingresaron este día{modo === "demo" && " (práctica)"}
+                No ingresaron (CSV){modo === "demo" && " · práctica"}
               </button>}
             </div>
           </> : <p className="nota">Sin datos para este día.</p>}
         </> : <>
           <h3>Semana completa</h3>
-          <strong className={`cifra-modo cifra-${vistaModo}`}>{cifraSemana.grande}</strong>
-          <p className="cifra-sub">{modoInfo.texto} · {cifraSemana.sub}{conFiltro ? " (con filtro aplicado)" : ""}</p>
-          {esDetalle && detalle && detalle.porDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo" data-modo={vistaModo}>
-            <thead><tr><th>Día</th>{ENCABEZADOS}</tr></thead>
-            <tbody>{detalle.porDia.map((d) => <tr key={d.fecha}>
-              <td><span className="tabla-dia">{fechaCorta(d.fecha)} {d.fecha.slice(8, 10)}</span><small className="tabla-roster">roster {d.poblacion}</small></td><CeldasCifras d={d} />
-            </tr>)}</tbody>
-            <tfoot><tr><td>Semana<small className="tabla-roster">roster {resumenSemana.poblacion ?? "—"}</small></td><CeldasCifras d={resumenSemana as Cifras} /></tr></tfoot>
+          <strong className="cifra-modo">{semana.pct}</strong>
+          <p className="cifra-sub">{semana.xy} · {modoInfo.texto.toLowerCase()}{conFiltro ? " (con filtro)" : ""}</p>
+          {esDetalle && detalle && detalle.porDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
+            <thead><tr><th>Día</th><th>Roster</th><th>Cantidad</th><th>%</th></tr></thead>
+            <tbody>{detalle.porDia.map((d) => {
+              const v = vista(d, vistaModo);
+              return <tr key={d.fecha}><td className="tabla-dia">{fechaCorta(d.fecha)} {d.fecha.slice(8, 10)}</td>
+                <td>{d.poblacion}</td><td className="col-cantidad">{v.n}</td><td>{v.pct}</td></tr>;
+            })}</tbody>
           </table></div>}
         </>}
       </aside>
@@ -309,7 +281,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
 
     <div className="calendar-actions">
       {puedeNominal ? <>
-      {botonNombres("semana")}
+      {esDetalle && botonNombres("semana")}
       <button className="control" disabled={!esDetalle} onClick={() => descargarNominal("semana")}>
         Descargar CSV: no ingresaron esta semana{modo === "demo" && " (práctica)"}
       </button>

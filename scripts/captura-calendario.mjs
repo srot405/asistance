@@ -31,14 +31,14 @@ try {
     await page.locator(".seg-btn").first().waitFor({ timeout: 30000 });
     const cal = page.locator(".calendar-panel");
     const sufijo = `${ancho}${oscuro ? "-oscuro" : ""}`;
-    await cal.screenshot({ path: `${salida}/0-ingreso-${sufijo}.png` });
-    await page.locator('.seg-btn[data-tipo="otras"]').click();
+    await cal.screenshot({ path: `${salida}/0-ambos-${sufijo}.png` });
+    await page.locator('.seg-btn[data-tipo="colados"]').click();
     await cal.screenshot({ path: `${salida}/1-colados-semana-${sufijo}.png` });
     await page.locator(".calendar-day.con-datos").nth(1).click();
     await page.waitForTimeout(400);
     await cal.screenshot({ path: `${salida}/2-colados-dia-${sufijo}.png` });
-    await page.locator('.seg-btn[data-tipo="propias"]').click();
-    await cal.screenshot({ path: `${salida}/3-su-horario-dia-${sufijo}.png` });
+    await page.locator('.seg-btn[data-tipo="horario"]').click();
+    await cal.screenshot({ path: `${salida}/3-horario-dia-${sufijo}.png` });
     if (errores.length) console.log("ERRORES", sufijo, errores);
     await page.close();
   }

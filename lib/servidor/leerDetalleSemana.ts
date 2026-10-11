@@ -1,8 +1,6 @@
 import "server-only";
-import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../detalleCalculo.mjs";
-import type { CeldaRow, EntradaRow, FranjaRow, RosterRow, SesionRow } from "../detalleCalculo.d.mts";
-import { armarIngresosDia } from "../ingresosDia.mjs";
-import type { IngresosDia } from "../ingresosDia.d.mts";
+import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase, listarIngresosDesdeBase } from "../detalleCalculo.mjs";
+import type { CeldaRow, EntradaRow, FranjaRow, IngresoNominal, RosterRow, SesionRow, TipoIngreso } from "../detalleCalculo.d.mts";
 import { construirReporteSemana } from "../reporteSemana.mjs";
 import type { ReporteSemana, ResumenSemana } from "../reporteSemana.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
@@ -111,19 +109,8 @@ export async function leerReporteSemana(semana: string): Promise<ReporteSemana |
   return construirReporteSemana(semana, base, resumen, congelacion, tiempos);
 }
 
-// Botones generales del calendario (TOC-91): ingresos en su horario / a otra clase / ambos, de la semana o de UN dia (fecha).
-// Devuelve filas con nombre: la ruta solo las manda en el CSV (nominal); a la pantalla van conteos.
-export async function leerIngresos(semana: string, fecha: string | null, filtro: FiltroDetalle = {}): Promise<IngresosDia> {
-  if (MODO_DEMO) {
-    const f = DETALLE_DEMO_BASE[semana];
-    if (!f) throw new Error(`Sin datos demo para ${semana}`);
-    return armarIngresosDia({ fecha, roster: f.roster, franjas: f.franjas, sesiones: f.sesiones, entradas: f.entradas, filtro });
-  }
-  const [roster, franjas, sesiones, entradas] = await Promise.all([
-    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id", semana, ["persona_id", "slot_id"]),
-    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana, ["slot_id"]),
-    tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha", semana, ["sesion_id"]),
-    tabla<{ persona_id: string; sesion_id: string; primera_entrada: string | null }>("asist_entradas", "persona_id,sesion_id,primera_entrada", semana, ["persona_id", "sesion_id"]),
-  ]);
-  return armarIngresosDia({ fecha, roster, franjas, sesiones, entradas, filtro });
+// Filtros del calendario (TOC-91): nominal de horario / colados / ambos para el CSV. Misma base que el resto del detalle.
+export async function listarIngresosNominal(semana: string, opts: FiltroDetalle & { fecha?: string; tipo: TipoIngreso }): Promise<IngresoNominal[]> {
+  const base = await cargarBase(semana);
+  return listarIngresosDesdeBase(base, opts);
 }
