@@ -6,6 +6,7 @@ import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import { useConfianzaSemana } from "../lib/useTiempo";
 import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
+import IngresosDia from "./IngresosDia";
 import type { DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -182,6 +183,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
                 <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
               </tr>)}</tbody>
             </table></div>}
+            {puedeNominal && <IngresosDia semana={actual.semana} fecha={selectedDate} filtro={filtro} modo={modo} />}
             {puedeNominal && <button className="control" onClick={() => descargarNominal("dia")}>
               Descargar CSV: no ingresaron este día{modo === "demo" && " (práctica)"}
             </button>}

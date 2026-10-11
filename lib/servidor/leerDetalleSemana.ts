@@ -1,6 +1,8 @@
 import "server-only";
 import { calcularDetalleSemana, construirBase, listarAusentesDesdeBase } from "../detalleCalculo.mjs";
 import type { CeldaRow, EntradaRow, FranjaRow, RosterRow, SesionRow } from "../detalleCalculo.d.mts";
+import { armarIngresosDia } from "../ingresosDia.mjs";
+import type { IngresosDia } from "../ingresosDia.d.mts";
 import { construirReporteSemana } from "../reporteSemana.mjs";
 import type { ReporteSemana, ResumenSemana } from "../reporteSemana.d.mts";
 import { DETALLE_DEMO_BASE } from "../detalle-demo.mjs";
@@ -107,4 +109,30 @@ export async function leerReporteSemana(semana: string): Promise<ReporteSemana |
   // TOC-140: veredicto de tiempo por persona (MEJOR sesion). Sin tablas -> no_calculado; el reporte nunca falla por el tiempo.
   const tiempos = await leerTiempoReporte(semana).catch(() => null);
   return construirReporteSemana(semana, base, resumen, congelacion, tiempos);
+}
+
+// Ingresos nominales de UN dia (TOC-91, botones del calendario: en su horario / se colo a otra clase / ambos). Lee solo las
+// sesiones de esa fecha y sus entradas (con primera_entrada), no la semana entera. Con nombre: la ruta ya paso autorizarNominal.
+export async function leerIngresosDia(semana: string, fecha: string, filtro: FiltroDetalle = {}): Promise<IngresosDia> {
+  if (MODO_DEMO) {
+    const f = DETALLE_DEMO_BASE[semana];
+    if (!f) throw new Error(`Sin datos demo para ${semana}`);
+    return armarIngresosDia({ fecha, roster: f.roster, franjas: f.franjas, sesiones: f.sesiones, entradas: f.entradas, filtro });
+  }
+  const [roster, franjas, sesiones] = await Promise.all([
+    tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id", semana, ["persona_id", "slot_id"]),
+    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana, ["slot_id"]),
+    tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha", semana, ["sesion_id"]),
+  ]);
+  const ids = sesiones.filter((s) => s.fecha === fecha).map((s) => s.sesion_id);
+  const entradas: { persona_id: string; sesion_id: string; primera_entrada: string | null }[] = [];
+  for (let desde = 0; ids.length; desde += PAGINA) {
+    const { data, error } = await supabaseServidor().from("asist_entradas").select("persona_id,sesion_id,primera_entrada")
+      .eq("semana", semana).in("sesion_id", ids).order("persona_id", { ascending: true }).order("sesion_id", { ascending: true })
+      .range(desde, desde + PAGINA - 1);
+    if (error) throw error;
+    entradas.push(...((data ?? []) as typeof entradas));
+    if ((data ?? []).length < PAGINA) break;
+  }
+  return armarIngresosDia({ fecha, roster, franjas, sesiones, entradas, filtro });
 }
