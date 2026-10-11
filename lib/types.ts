@@ -120,7 +120,10 @@ export type DetalleHistorico = {
   nunca: number;
   porcentaje_retencion: number | null;
   porcentaje_nunca: number | null;
-};
+} & Partial<CamposIngreso>;
+// Botones del calendario (TOC-91): ver camposIngreso en lib/detalleCalculo.mjs.
+export type CamposIngreso = { en_su_horario: number; porcentaje_su_horario: number | null; ingresos: number; colados: number;
+  porcentaje_colados: number | null };
 export type ResumenHistorico = {
   semana: string;
   materia: string;
@@ -192,7 +195,7 @@ export type ResumenFiltrado = {
   nunca: number;
   porcentaje_retencion: number | null;
   porcentaje_nunca: number | null;
-};
+} & Partial<CamposIngreso>;
 export type DetalleSemanaResponse = {
   semana: string;
   nivel: "Detalle";

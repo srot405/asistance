@@ -21,7 +21,7 @@ assert.equal(filtrarTipo(r, "propias")[0].nombre, "Uno Demo");
 // filtros: ciudad = de la persona; franja/cuenta = clase a la que entro
 assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { ciudad: "cali" } }).conteo.ambos, 2);
 assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { franja: "s10" } }).conteo.otras, 1);
-assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { cuenta: "Soporte" } }).conteo.ambos, 1);
+assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { cuenta: "soporte" } }).conteo.ambos, 1);
 const csv = filasCsvIngresos(r.filas);
 assert.equal(csv.length, 4); assert.equal(csv[1][0], F);
 // semana completa: el miercoles entra; conteo por dia

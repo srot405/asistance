@@ -15,6 +15,7 @@ export type BaseDetalle = {
   slotsSinClase: Set<string>;
   celdaPorPersona: Map<string, string>;
   entradaFechaPorPersona: Map<string, Set<string>>;
+  entradaSlotPorPersona: Map<string, Set<string>>;
   sesiones: SesionRow[];
 };
 
@@ -24,6 +25,8 @@ export type Poblacion = "medible" | "pendiente" | "sin_dato" | "sin_clase";
 export function clasificar(persona: RosterRow, base: BaseDetalle): Poblacion;
 export function entroEnFecha(base: BaseDetalle, personaId: string, fecha: string): boolean;
 export function entroAlgunaVez(base: BaseDetalle, personaId: string): boolean;
+export function entroEnSlot(base: BaseDetalle, personaId: string, slotId: string | null | undefined): boolean;
+export function ingresosPorSlot(base: BaseDetalle, filtro?: FiltroDetalle): Map<string, { fecha: string; propios: number; colados: number }>;
 export function calcularResumen(rosterFiltrado: RosterRow[], base: BaseDetalle): ResumenFiltrado;
 export function calcularPorDia(rosterFiltrado: RosterRow[], base: BaseDetalle): DetalleHistorico[];
 export function calcularPorClase(rosterFiltrado: RosterRow[], base: BaseDetalle): DetalleHistorico[];

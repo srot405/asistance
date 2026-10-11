@@ -1094,10 +1094,87 @@ select {
 .lista-vivo .check { display: flex; align-items: center; gap: 6px; align-self: end; }
 .lista-vivo-tabla td small { opacity: .75; }
 .lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--orange); }
-/* Calendario: botones generales «En su horario / Se colaron / Ambos» (cifras por dia; nombres solo en CSV). */
-.ingresos-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 4px 0 10px; }
-.ingresos-botones .tab.ingreso-otras.active { box-shadow: inset 0 -3px 0 var(--orange); }
-.calendar-day-ingresos small { font-size: 10px; font-weight: 500; opacity: .8; }
-.calendar-day-ingresos.ingreso-otras { color: var(--orange); }
-.calendar-ingresos-resumen { margin: 2px 0; }
-.calendar-ingresos-resumen b { font-size: 20px; }
+/* Calendario: selector de vista (TOC-91, Samuel 2026-10-09; revisado por agentes de UX/UI/datos).
+   Control segmentado propio (no .tab: su brillo animado distrae aqui). Cada modo con icono + texto, nunca solo color.
+   Naranja de texto oscurecido (#b35a00 ~4,9:1 sobre blanco): --orange puro (#f08a24) no pasa AA. */
+.modo-vista { margin: 4px 0 12px; display: grid; gap: 6px; }
+.seg-grupo { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; width: fit-content; max-width: 100%;
+  background: var(--brand-2); border: 1px solid var(--line); border-radius: 14px; }
+.seg-btn { --seg: var(--brand); --seg-fg: #fff;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px;
+  border: 1px solid transparent; border-radius: 10px; background: transparent;
+  color: var(--fg); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.seg-btn[data-tipo="ingreso"] { --seg: #2b4a6f; }
+.seg-btn[data-tipo="propias"] { --seg: #1f7a45; }
+.seg-btn[data-tipo="otras"] { --seg: #b35a00; }
+.seg-btn[data-tipo="ambos"] { --seg: #5b4a9e; }
+.seg-ico { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; flex: none;
+  font-size: 13px; font-weight: 800; border: 1.5px solid var(--seg); color: var(--seg); }
+.seg-badge { min-width: 28px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-align: center;
+  font-variant-numeric: tabular-nums; background: var(--card); color: var(--fg); border: 1px solid var(--line); }
+.seg-btn:hover { background: var(--card); border-color: var(--line); }
+.seg-btn[aria-pressed="true"] { background: var(--seg); color: var(--seg-fg); font-weight: 700; box-shadow: 0 6px 14px -8px var(--seg); }
+.seg-btn[aria-pressed="true"] .seg-ico { background: #fff; color: var(--seg); border-color: #fff; }
+.seg-btn[aria-pressed="true"] .seg-badge { background: rgba(255, 255, 255, .22); color: #fff; border-color: transparent; }
+.seg-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.seg-ayuda { margin: 0; font-size: 13px; color: var(--muted); }
+.shell.dark .seg-btn[data-tipo="ingreso"] { --seg: #8fc4ec; --seg-fg: #0e161f; }
+.shell.dark .seg-btn[data-tipo="propias"] { --seg: #9fe0b4; --seg-fg: #0e161f; }
+.shell.dark .seg-btn[data-tipo="otras"] { --seg: #ffcf9e; --seg-fg: #0e161f; }
+.shell.dark .seg-btn[data-tipo="ambos"] { --seg: #cdbdf5; --seg-fg: #0e161f; }
+.shell.dark .seg-btn[aria-pressed="true"] .seg-ico { background: #0e161f; border-color: #0e161f; }
+.shell.dark .seg-btn[aria-pressed="true"] .seg-badge { background: rgba(0, 0, 0, .25); color: var(--seg-fg); }
+@media (max-width: 560px) {
+  .seg-grupo { display: grid; width: 100%; }
+  .seg-btn { justify-content: flex-start; }
+  .seg-badge { margin-left: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .seg-btn { transition: none; } }
+
+/* Celda del dia: % grande + "N de M" pequeno; raya inferior del color del modo (el color no es el unico rasgo). */
+.calendar-day[data-modo] { padding-bottom: 12px; }
+.calendar-day[data-modo]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; border-radius: 3px; background: #2b4a6f; }
+.calendar-day[data-modo="propias"]::after { background: var(--green); }
+.calendar-day[data-modo="otras"]::after { background: var(--orange); }
+.calendar-day[data-modo="ambos"]::after { background: #7a64c9; }
+.calendar-day.activo[data-modo]::after { background: #fff; }
+.cd-pct { font-size: clamp(15px, 2vw, 19px); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cd-sub { font-size: 10px; font-weight: 500; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.calendar-day.activo .cd-sub { color: rgba(255, 255, 255, .85); }
+@media (max-width: 420px) { .cd-pct { font-size: 15px; } .cd-sub { font-size: 9.5px; } }
+
+/* Cuadro de resumen: cifra del modo + tabla con columnas fijas y la del modo activo resaltada. */
+.calendar-detail .cifra-modo.cifra-ingreso { color: var(--brand); }
+.calendar-detail .cifra-modo.cifra-propias { color: var(--green); }
+.calendar-detail .cifra-modo.cifra-otras { color: #b35a00; }
+.calendar-detail .cifra-modo.cifra-ambos { color: #5b4a9e; }
+.shell.dark .calendar-detail .cifra-modo.cifra-otras { color: #ffcf9e; }
+.shell.dark .calendar-detail .cifra-modo.cifra-ambos { color: #cdbdf5; }
+.cifra-sub { margin: 0; font-size: 13px; color: var(--muted); }
+.tabla-modo td small, .tabla-modo th small { display: block; font-size: 10.5px; font-weight: 500; opacity: .8; }
+.tabla-modo .tabla-roster { color: var(--muted); }
+.tabla-modo .col-ingreso, .tabla-modo .col-propias, .tabla-modo .col-otras { font-variant-numeric: tabular-nums; }
+.tabla-modo th.col-ingreso, .tabla-modo th.col-propias, .tabla-modo th.col-otras { white-space: normal; min-width: 70px; }
+.tabla-modo[data-modo="ingreso"] .col-ingreso,
+.tabla-modo[data-modo="propias"] .col-propias,
+.tabla-modo[data-modo="otras"] .col-otras,
+.tabla-modo[data-modo="ambos"] .col-propias,
+.tabla-modo[data-modo="ambos"] .col-otras { font-weight: 700; }
+.tabla-modo[data-modo="ingreso"] td.col-ingreso { background: #e3eef7; color: #1d3550; }
+.tabla-modo[data-modo="propias"] td.col-propias { background: #e4f6e9; color: #145f31; }
+.tabla-modo[data-modo="otras"] td.col-otras { background: #ffe3c7; color: #7a3d00; }
+.tabla-modo[data-modo="ambos"] td.col-propias, .tabla-modo[data-modo="ambos"] td.col-otras { background: #ece6fa; color: #3d2c78; }
+.tabla-modo[data-modo="ingreso"] th.col-ingreso { box-shadow: inset 0 -3px 0 #2b4a6f; }
+.tabla-modo[data-modo="propias"] th.col-propias { box-shadow: inset 0 -3px 0 var(--green); }
+.tabla-modo[data-modo="otras"] th.col-otras { box-shadow: inset 0 -3px 0 var(--orange); }
+.tabla-modo[data-modo="ambos"] th.col-propias, .tabla-modo[data-modo="ambos"] th.col-otras { box-shadow: inset 0 -3px 0 #7a64c9; }
+.tabla-modo tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
+.shell.dark .tabla-modo[data-modo="ingreso"] td.col-ingreso { background: #1c3450; color: #cfe5f7; }
+.shell.dark .tabla-modo[data-modo="propias"] td.col-propias { background: #17402a; color: #9fe0b4; }
+.shell.dark .tabla-modo[data-modo="otras"] td.col-otras { background: #4d2e10; color: #ffcf9e; }
+.shell.dark .tabla-modo[data-modo="ambos"] td.col-propias, .shell.dark .tabla-modo[data-modo="ambos"] td.col-otras { background: #2f2650; color: #cdbdf5; }
+.calendar-csv { display: flex; flex-wrap: wrap; gap: 6px; }
+.calendar-csv .control { margin-top: 2px; }
+.tabla-modo .tabla-dia { text-transform: capitalize; white-space: nowrap; }
+.tabla-modo .tabla-roster { white-space: nowrap; }

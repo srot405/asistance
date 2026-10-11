@@ -23,6 +23,7 @@ const require = (name) => {
   if (name === "server-only") return {};
   if (name.endsWith("/detalleCalculo.mjs")) return calculo;
   if (name.endsWith("/reporteSemana.mjs")) return reporte;
+  if (name.endsWith("/ingresosDia.mjs")) return { armarIngresosDia: () => ({ fecha: null, conteo: {}, filas: [] }) };
   if (name.endsWith("/detalle-demo.mjs")) return { DETALLE_DEMO_BASE: {} };
   if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
   if (name.endsWith("/leerTiempo")) return { leerTiempoReporte: async () => ({ disponible: false, personas: new Map(), resumen: null }) };
