@@ -54,7 +54,7 @@ async function calcular(): Promise<Poblacion> {
   type Fila = Record<string, string>;
   const [rosterPeriodo, franjas, entradas, sesiones, registrantes, celdas] = await Promise.all([
     periodo<Fila>("asist_roster", "semana,persona_id,nombre,ciudad,correo_norm,slot_id", ["semana", "persona_id", "slot_id"]),
-    periodo<Fila>("asist_franjas", "semana,slot_id,horario_texto", ["semana", "slot_id"]),
+    periodo<Fila>("asist_franjas", "semana,slot_id,horario_texto,fecha,hora_inicio,tipo", ["semana", "slot_id"]),
     periodo<Fila>("asist_entradas", "semana,persona_id,sesion_id", ["persona_id", "sesion_id"]),
     periodo<Fila>("asist_sesiones", "semana,sesion_id,slot_id", ["sesion_id"]),
     paginado<Fila>(() => sb.from("zoom_registrantes").select("registrant_id,correo_norm,cedula_digitos").order("registrant_id", { ascending: true })),

@@ -200,15 +200,17 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   const legado = v.clasificarEventos(e, roster, COTISO(SAB, "09:00"), slotUno);
   assert.deepEqual([legado.roster.maximo, legado.otra.maximo], [4, 0]);
 }
-{ // sabado 08:00 uno y dos con roster por slot (salas distintas): cada una cuenta su roster; el alumno de dos que entra a la sala uno es otra_franja
+{ // sabado 08:00 uno y dos (franjas HERMANAS: mismo dia, hora y tipo). Desde 2026-10-10 (Samuel: los grupos se mudaron a una
+  // sola sala) quien entra a la sala de su grupo hermano esta en su horario correcto: cuenta como roster, no como otra franja.
   const salas = [
     sala("u1", "comunicaciones", "Backend: APIs y Base de Datos", [ev("joined", rosterCorreos[0], "07:55"), ev("joined", rosterCorreos[1], "07:56"), ev("joined", rosterCorreos[5], "07:57")]),
     sala("u2", "jovenescreativos", "Backend: APIs y Base de Datos - Sala 2", [ev("joined", rosterCorreos[5], "07:58"), ev("joined", rosterCorreos[6], "07:59"), ev("joined", rosterCorreos[0], "08:01")]),
   ];
   const r = v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: rosterSlots, ahoraMs: COTISO(SAB, "08:10") });
   const uno = porSlot(r, "backend-sábado-08-uno"), dos = porSlot(r, "backend-sábado-08-dos");
-  assert.deepEqual([uno.roster_maximo, uno.otra_franja_maximo, uno.otra_franja_ahora_aprox, uno.desconocidos_maximo], [2, 1, 1, 0]);
-  assert.deepEqual([dos.roster_maximo, dos.otra_franja_maximo, dos.desconocidos_maximo], [2, 1, 0]);
+  // Cada uno cuenta en SU clase sin importar la sala: uno = 0 y 1 (0 tambien entro a la sala 2); dos = 5 (entro a ambas) y 6.
+  assert.deepEqual([uno.roster_maximo, uno.otra_franja_maximo, uno.otra_franja_ahora_aprox, uno.desconocidos_maximo], [2, 0, 0, 0]);
+  assert.deepEqual([dos.roster_maximo, dos.otra_franja_maximo, dos.desconocidos_maximo], [2, 0, 0]);
   assert.ok(uno.roster_maximo <= uno.roster_total && dos.roster_maximo <= dos.roster_total, "roster_maximo <= roster_total");
 }
 { // sala terminada: sala_activa false aunque la memoria la marque activa
@@ -285,6 +287,7 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   // via armarRespuestaVivo
   const salas = [sala("u1", "comunicaciones", "Backend: APIs y Base de Datos", e)];
   const c = porSlot(v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: ident, ahoraMs: COTISO(SAB, "08:10") }), slot);
-  assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.desconocidos_maximo], [3, 1, 2]);
+  // armarRespuestaVivo aplica franjas hermanas (2026-10-10): la "visita" 003 es de 08-dos (hermana): cuenta en SU clase, no aqui.
+  assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.desconocidos_maximo], [3, 0, 2]);
 }
 console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes identidad_cedula=ok estado=verde`);
