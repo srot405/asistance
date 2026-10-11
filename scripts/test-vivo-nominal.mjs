@@ -56,6 +56,9 @@ assert.deepEqual(cali.clases[0].cifras, d.clases[0].cifras);
 assert.equal(recortarPorPermiso(d, { ciudad: null }, mismaCiudad), d);
 
 assert.ok(esPersonal("", "Otter.ai")); assert.ok(!esPersonal("persona1@ejemplo.test", "Persona"));
+// robots reales vistos en zoom_live_log, y nombres reales que NO deben caer
+for (const [c, n] of [["", "Read.ai Meeting Notes"], ["fred@fireflies.ai", "Fireflies.ai Notetaker Val"], ["", "Elvira's meeting notes - tldv"]]) assert.ok(esPersonal(c, n), n);
+for (const n of ["Yaira Botero", "Ana Potter", "Luis Otterbein", "Abbot Ruiz"]) assert.ok(!esPersonal("x@ejemplo.test", n), n);
 const csv = filasCsv(d);
 assert.equal(csv[0][1], "senal");
 assert.equal(csv.length, 1 + d.clases.reduce((n, c) => n + c.personas.length, 0));

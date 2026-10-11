@@ -14,6 +14,8 @@ export const UMBRAL_HUERFANOS: number; export const MIN_EVENTOS_COBERTURA: numbe
 export function normalizarCorreo(c: unknown): string;
 export function hashClave(texto: string): string;
 export function esNombreGenerico(nombreNormalizado: string): boolean;
+export function esBot(correo: unknown, nombre: unknown): boolean;
+export function esPersonal(correo: unknown, nombre: unknown): boolean;
 export function hashCorreo(correo: unknown): string | null;
 export function esClase(curso: unknown): boolean;
 export function normalizarCuenta(valor: unknown): string;
