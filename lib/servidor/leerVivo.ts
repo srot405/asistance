@@ -1,6 +1,6 @@
 import "server-only";
-import { armarRespuestaVivo, compactarEvento, esClase, fechaCOT, hashCorreo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
-import type { EventoVivo, FranjaVivo, SalaVivo, VivoResponse } from "../vivoCalculo.d.mts";
+import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, fechaCOT, indexarRegistroVivo, indexarRosterVivo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
+import type { EventoVivo, FranjaVivo, IdentidadRosterVivo, SalaVivo, VivoResponse } from "../vivoCalculo.d.mts";
 import { supabaseServidor } from "./supabase";
 
 // TOC-142, pestana "En vivo": UNICO punto de acople con Supabase. Devuelve solo CONTEOS (ver lib/vivoCalculo.mjs).
@@ -11,7 +11,10 @@ import { supabaseServidor } from "./supabase";
 //  - Al cerrar la ultima ventana del dia se hace UN ultimo refresco (los eventos entre el ultimo sondeo y el cierre).
 //  - Instancia en frio fuera de ventana: NO se lee el dia completo (en un sabado serian ~1.300 eventos de clase por dia, ~0,3 MB o mas por
 //    arranque en frio: ver ESTADO.md); las clases terminadas salen con aviso "cifra no disponible" y sin burbujas.
-//  - El estado en memoria guarda hashes de correo/nombre, nunca el texto. Un fallo no se cachea (el llamador responde 503).
+//  - Identidad igual que "Lista en vivo" (fase 1.4): correo del roster y, si no, cedula del registro de Zoom del dia. zoom_registrantes
+//    se lee SOLO en ventana de clase (o en el ultimo refresco), solo correo_norm,cedula_digitos de fecha_sesion = hoy, con cache de
+//    TTL_REGISTRO_MS (el sync corre cada hora a las :40); si esa lectura falla se sigue con el registro anterior (o solo correo) y aviso.
+//  - El estado en memoria guarda hashes de correo/nombre/cedula, nunca el texto. Un fallo no se cachea (el llamador responde 503).
 const PAGINA = 1000;
 const MAX_PAGINAS = 6;           // tope de filas por lectura incremental (6.000)
 const MAX_SALAS = 24;            // tope de salas de clase rastreadas por dia
@@ -19,11 +22,13 @@ const SOLAPE_IDS = 25;           // el webhook puede confirmar ids fuera de orde
 const MAX_INTENTOS_META = 3;     // por sala: un intento por refresco; tras 3 se deja con host null y el cursor sigue
 export const TTL_CACHE_VIVO_MS = 30_000; // egress: el cliente sondea cada 45 s (lib/vivoVista.mjs INTERVALO_MS)
 export const TTL_BASE_MS = 10 * 60_000; // franjas del dia y roster: cambian una vez por semana
+export const TTL_REGISTRO_MS = 5 * 60_000; // zoom_registrantes del dia (igual que Lista en vivo)
 
 type FilaFranja = FranjaVivo;
 type SalaEstado = { uuid: string; host: string | null; topic: string | null; activo: boolean; actualizado: number | null; eventos: Map<number, EventoVivo>;
   metaOk: boolean; intentosMeta: number };
-type Roster = Map<string, Set<string>>; // hash(correo) -> slot_id de las franjas de la semana donde esta en el roster
+type Roster = IdentidadRosterVivo; // hashes: correo -> persona, cedula -> persona, persona -> slot_id de sus franjas de la semana
+type Registro = { dia: string; ms: number; idx: Map<string, string | null> }; // hash(correo) -> hash(cedula) del registro de Zoom
 type Base = { lunes: string; cargadoMs: number; franjas: FilaFranja[] | null; roster: Roster | null; rosterMs: number };
 // cargado: ya hubo al menos un refresco completo del dia (hay cifras en memoria). ultimoRefrescoMs: hora del ultimo refresco.
 // cerrado: ya se hizo el ULTIMO refresco tras terminar la ultima ventana del dia.
@@ -31,11 +36,12 @@ type Vivo = { dia: string; cursor: number; salas: Map<string, SalaEstado>; carga
 
 let base: Base | null = null;
 let vivo: Vivo | null = null;
+let registro: Registro | null = null;
 let cache: { ms: number; data: VivoResponse } | null = null;
 let enCurso: Promise<VivoResponse> | null = null;
 let ultimaLecturaMs = 0; // hora REAL de la ultima consulta a Supabase (alimenta actualizado_en)
 
-export function vaciarCacheVivo() { base = null; vivo = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
+export function vaciarCacheVivo() { base = null; vivo = null; registro = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
 export function estadoVivoParaPruebas() { return vivo ? { cursor: vivo.cursor, cerrado: vivo.cerrado, cargado: vivo.cargado } : null; }
 
 const lunesDe = (fecha: string) => {
@@ -65,20 +71,20 @@ async function cargarFranjas(lunes: string): Promise<FilaFranja[] | null> {
     .select("slot_id,dia,fecha,hora_inicio,hora_fin,tipo,cuenta_zoom,roster_n").eq("semana", lunes).order("slot_id", { ascending: true }));
 }
 
-// El roster se carga CON slot_id: asi se separa "roster de ESTA clase" de "alumno de otra franja que visita". Mismas filas que antes.
+// El roster se carga CON slot_id (roster de ESTA clase frente a "otra franja") y persona_id (para cruzar la cedula del registro de
+// Zoom). Mismas filas que antes; se hashea al leer y las filas se descartan.
 async function cargarRoster(lunes: string): Promise<Roster> {
   const sb = supabaseServidor();
-  const filas = await leerPaginado<{ correo_norm: string | null; slot_id: string | null }>(() => sb.from("asist_roster")
-    .select("correo_norm,slot_id").eq("semana", lunes).order("persona_id", { ascending: true }).order("slot_id", { ascending: true }));
-  const roster: Roster = new Map();
-  for (const f of filas) {
-    const h = hashCorreo(f.correo_norm);
-    if (!h) continue;
-    let slots = roster.get(h);
-    if (!slots) { slots = new Set<string>(); roster.set(h, slots); }
-    if (f.slot_id) slots.add(f.slot_id);
-  }
-  return roster;
+  const filas = await leerPaginado<{ persona_id: string | null; correo_norm: string | null; slot_id: string | null }>(() => sb.from("asist_roster")
+    .select("persona_id,correo_norm,slot_id").eq("semana", lunes).order("persona_id", { ascending: true }).order("slot_id", { ascending: true }));
+  return indexarRosterVivo(filas);
+}
+
+async function cargarRegistro(dia: string): Promise<Map<string, string | null>> {
+  const sb = supabaseServidor();
+  const filas = await leerPaginado<{ correo_norm: string | null; cedula_digitos: string | null }>(() => sb.from("zoom_registrantes")
+    .select("correo_norm,cedula_digitos").eq("fecha_sesion", dia).order("registrant_id", { ascending: true }));
+  return indexarRegistroVivo(filas);
 }
 
 function salaVacia(uuid: string): SalaEstado {
@@ -160,15 +166,21 @@ async function calcular(ahoraMs: number): Promise<VivoResponse> {
   // cierre (hasta ahi llegaba el sondeo). Solo si ya habia memoria del dia; despues de la ultima ventana del dia queda "cerrado".
   const cerroVentana = vivo?.dia === dia && vivo.cargado && hoy.some((f) => ahoraMs > ventanaClase(f).hastaMs && vivo!.ultimoRefrescoMs <= ventanaClase(f).hastaMs);
   let avisoGeneral: string | null = null;
+  let avisoRegistro: string | null = null;
   if (hayVentana || cerroVentana) {
     if (!base.roster || ahoraMs - base.rosterMs > TTL_BASE_MS) { base.roster = await cargarRoster(lunes); base.rosterMs = ahoraMs; }
+    if (!registro || registro.dia !== dia || ahoraMs - registro.ms > TTL_REGISTRO_MS) {
+      try { registro = { dia, ms: ahoraMs, idx: await cargarRegistro(dia) }; }
+      catch { avisoRegistro = "No se pudo leer el registro de Zoom: quien entró con un correo distinto al del roster puede salir como desconocido."; }
+    }
     const { truncado } = await refrescarVivo(dia, ahoraMs);
     ultimaLecturaMs = ahoraMs;
     if (truncado) avisoGeneral = "Hay más salas o eventos de los que se leen; las cifras pueden estar incompletas.";
+    if (avisoRegistro) avisoGeneral = [avisoGeneral, avisoRegistro].filter(Boolean).join(" ");
     if (vivo && !hayVentana && hoy.every((f) => ahoraMs > ventanaClase(f).hastaMs)) vivo.cerrado = true;
   }
   const memoriaDelDia = vivo?.dia === dia && vivo.cargado;
-  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: base.roster ?? new Map<string, Set<string>>(),
+  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: conRegistro(base.roster ?? indexarRosterVivo([]), registro?.dia === dia ? registro.idx : null),
     ahoraMs, actualizadoMs: ultimaLecturaMs || ahoraMs, lecturaEventos: memoriaDelDia, avisoGeneral });
 }
 

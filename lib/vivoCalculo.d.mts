@@ -9,6 +9,10 @@ export type ConteosEventos = {
 };
 // Map hash->Set(slot_id) (roster por franja) o Set de hashes (legado: todo el roster cuenta como de esta clase).
 type ConHas = { has(h: string): boolean; get?(h: string): { has(slot: string): boolean } | undefined };
+// Identidad por persona en hashes (misma regla que Lista en vivo: correo del roster, si no cedula del registro de Zoom).
+export type IdentidadRosterVivo = { porCorreo: Map<string, string>; porCedula: Map<string, string>; slots: Map<string, Set<string>> };
+export type IdentidadVivo = IdentidadRosterVivo & { registro: Map<string, string | null> };
+type RosterVivo = ConHas | IdentidadVivo;
 export const COT_MS: number; export const MIN: number; export const MARGEN_VENTANA_MIN: number; export const PROXIMA_MIN: number;
 export const UMBRAL_HUERFANOS: number; export const MIN_EVENTOS_COBERTURA: number; export const DOMINIO_PERSONAL: string;
 export function normalizarCorreo(c: unknown): string;
@@ -30,7 +34,13 @@ export function ventanaClase(franja: FranjaVivo): { inicioMs: number; finMs: num
 export function estadoClase(franja: FranjaVivo, ahoraMs: number, opts?: { salaActiva?: boolean; eventosEnVentana?: number }): EstadoClaseVivo | null;
 export function ventanaAbiertaAhora(franja: FranjaVivo, ahoraMs: number): boolean;
 export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null }): EventoVivo;
-export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: ConHas, ahora: number | Date, slotId?: string | null): ConteosEventos;
+export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: RosterVivo, ahora: number | Date, slotId?: string | null): ConteosEventos;
 export function etiquetaClase(f: FranjaVivo): string;
-export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: ConHas;
+export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: RosterVivo;
   ahoraMs: number; actualizadoMs?: number; lecturaEventos?: boolean; avisoGeneral?: string | null }): VivoResponse;
+export function cedulaSinCeros(c: unknown): string;
+export function hashCedula(c: unknown): string | null;
+export function indexarRosterVivo(filas: { persona_id?: string | number | null; correo_norm: string | null; slot_id: string | null }[]): IdentidadRosterVivo;
+export function indexarRegistroVivo(filas: { correo_norm: string | null; cedula_digitos: string | null }[]): Map<string, string | null>;
+export function conRegistro(identidad: IdentidadRosterVivo, registro: Map<string, string | null> | null | undefined): IdentidadVivo;
+export function personaDeCorreo(identidad: unknown, correoHash: string | null): string | null;

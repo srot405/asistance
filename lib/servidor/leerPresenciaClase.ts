@@ -1,5 +1,5 @@
 import "server-only";
-import { clasificar, entroEnFecha } from "../detalleCalculo.mjs";
+import { asistioEnSemana, clasificar } from "../detalleCalculo.mjs";
 import { contarPresencia, estadoPresenciaOficial } from "../presenciaTiempo.mjs";
 import type { ConteosPresencia, EstadoPresencia, PresenciaClaseResponse, PresenciaNominal } from "../types";
 import { cargarBase, semanaTieneDetalle } from "./leerDetalleSemana";
@@ -20,7 +20,10 @@ async function clasificarPresenciaFranja(semana: string, slotId: string) {
   const detalle = rosterFranja.map((persona) => {
     const t = tiempo.get(persona.persona_id);
     return { persona_id: persona.persona_id, nombre: persona.nombre, ciudad: persona.ciudad,
-      estado: estadoPresenciaOficial(entroEnFecha(base, persona.persona_id, franja.fecha), t) as EstadoPresencia,
+      // Fase 1.3 (plan veracidad 2026-10-09): "entro" = MISMA regla unica del panel (asistioEnSemana: su clase o, colado,
+      // otra de la semana). Asi "Nunca entro" de esta clase == porClase.nunca del calendario == filas del CSV "No ingresaron"
+      // con ?franja. Un colado no tiene tiempo medido en SU clase -> queda "sin_dato", nunca "Nunca entro" ni "Parcial".
+      estado: estadoPresenciaOficial(asistioEnSemana(base, persona), t) as EstadoPresencia,
       minutos: t?.minutos ?? null, tiempo: t };
   });
   return { franja, conteos: contarPresencia(detalle.map((d) => d.estado)) as ConteosPresencia, medible: rosterFranja.length, detalle };

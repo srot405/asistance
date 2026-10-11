@@ -2,16 +2,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import type { CoberturaResponse, ResumenHistorico } from "../lib/types";
+import { CSS_COBERTURA, ETIQUETAS_COBERTURA } from "../lib/coberturaClases.mjs";
 
-const ETIQUETA: Record<string, string> = {
-  capturada: "Capturada", en_curso: "En curso", pendiente: "Por dictar",
-  sin_entradas_aun: "Sin entradas aún", sin_captura: "Falta captura",
-};
-const REFRESCO_MS = 300_000; // 5 min: cada carga lee ~3.000 eventos de la semana (egress)
+const REFRESCO_MS = 300_000; // 5 min mientras haya una clase en curso (cada carga son ~30 filas de asist_franjas + asist_sesiones)
 
-// Pestaña "Cobertura": ¿cada clase del roster semanal ya tiene captura de Zoom?
-// Cruza asist_franjas con zoom_live_log (ver lib/coberturaClases.mjs). Las personas son
-// distintas por correo de Zoom, sin staff @tocaunavida.org: no es la asistencia validada.
+// Pestaña "Cobertura": ¿cada clase del roster semanal ya tiene captura?
+// Cruza asist_franjas con asist_sesiones.estado_captura (fuente única del ETL, ver lib/coberturaClases.mjs):
+// la misma noción de «capturada» que los chips de Estadísticas y el calendario.
 export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const [datos, setDatos] = useState<CoberturaResponse | null>(null);
   const [error, setError] = useState("");
@@ -56,8 +53,8 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
   return <section className="panel" aria-label="Cobertura por clase">
     <div className="section-heading">
       <div><h2>Cobertura por clase</h2>
-        <p>Cada clase del roster de la semana y si Zoom ya registró entradas. Las personas son distintas por
-          correo de Zoom (cualquier entrada o salida), sin staff <code>@tocaunavida.org</code>; no es la asistencia validada.</p></div>
+        <p>Cada clase del roster de la semana con su estado de captura, el mismo que usa el resto del panel
+          (<code>asist_sesiones.estado_captura</code>, escrito por el ETL). Las personas son las del ETL: del roster que entraron y visitas.</p></div>
       <button className="control" onClick={cargar} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar"}</button>
     </div>
 
@@ -65,8 +62,8 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
     {r && <div className="presencia-grid" aria-label="Resumen de cobertura">
       <article className="presencia-card presente"><span>Capturadas</span>
         <strong>{r.capturadas}</strong><small>de {r.dictadas} dictadas</small></article>
-      <article className="presencia-card nunca-entro"><span>Falta captura</span>
-        <strong>{r.faltan}</strong><small>dictadas sin ninguna entrada</small></article>
+      <article className="presencia-card nunca-entro"><span>Sin captura confiable</span>
+        <strong>{r.faltan}</strong><small>sin captura, Zoom limit o dudosa{r.en_curso ? ` · ${r.en_curso} en curso` : ""}</small></article>
       <article className="presencia-card entro-salio"><span>Por dictar</span>
         <strong>{r.pendientes}</strong><small>de {r.programadas} del roster</small></article>
     </div>}
@@ -76,30 +73,35 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
     {datos && datos.clases.length > 0 && <div className="cob-tabla-wrap">
       <table className="cob-tabla">
         <thead><tr><th>Clase</th><th>Cuenta</th><th className="num">Roster</th>
-          <th className="num">Entraron</th><th>Estado</th></tr></thead>
+          <th className="num">Entraron (roster)</th><th className="num">Visitas</th><th>Estado de captura</th></tr></thead>
         <tbody>
           {[...dias.entries()].map(([fecha, clases]) => [
-            <tr key={fecha} className="cob-dia"><td colSpan={5}>
+            <tr key={fecha} className="cob-dia"><td colSpan={6}>
               {new Date(`${fecha}T12:00:00-05:00`).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
             </td></tr>,
             ...clases.map((c) => <tr key={c.slot_id}>
               <td>{c.horario_texto.replace(/^Backend - /, "")}</td>
               <td>{c.cuenta_zoom}</td>
               <td className="num">{c.roster_n}</td>
-              <td className="num">{c.sesiones ? c.personas : "—"}</td>
-              <td><span className={`cob-estado ${c.estado}`}>{ETIQUETA[c.estado]}</span></td>
+              <td className="num">{c.personas_roster ?? "—"}</td>
+              <td className="num">{c.personas_visita ?? "—"}</td>
+              <td><span className={`cob-estado ${CSS_COBERTURA[c.estado]}`} title={c.estado_captura ? `estado_captura: ${c.estado_captura}` : "El ETL aún no creó la sesión de esta clase"}>
+                {ETIQUETAS_COBERTURA[c.estado]}</span></td>
             </tr>),
           ])}
         </tbody>
       </table>
     </div>}
+    {datos && r && r.sin_sesion > 0 && <p className="nota">
+      {r.sin_sesion} {r.sin_sesion === 1 ? "clase del roster no tiene" : "clases del roster no tienen"} sesión en el ETL todavía.</p>}
     {datos && datos.sesiones_sin_clase > 0 && <p className="nota">
-      {datos.sesiones_sin_clase} {datos.sesiones_sin_clase === 1 ? "reunión de Zoom" : "reuniones de Zoom"} de esta
-      materia no se pudieron asociar a ninguna clase del roster.</p>}
+      {datos.sesiones_sin_clase} {datos.sesiones_sin_clase === 1 ? "sesión del ETL no corresponde" : "sesiones del ETL no corresponden"} a
+      ninguna clase del roster congelado.</p>}
     <details className="panel definitions"><summary>Cómo se calcula</summary>
-      <p>Cada reunión de Zoom se asocia a la clase del roster más cercana a su primera entrada, del mismo nivel
-        (Avanzado o no) y sala. <b>Falta captura</b> = la clase ya terminó (más 30 min) y Zoom no registró
-        ninguna entrada. El roster viene de <code>asist_franjas</code>; las entradas, del webhook de Zoom.</p>
+      <p>El estado de cada clase es el <code>estado_captura</code> de <code>asist_sesiones</code> que escribe el ETL, sin recalcularlo:
+        <b> Capturada</b> incluye las recuperadas por CSV o API; <b>Sin captura confiable</b> = sin captura, Zoom limit o dudosa
+        (es un dato que falta, no una ausencia). El roster viene de <code>asist_franjas</code>. Esta pestaña ya no usa el registro
+        crudo del webhook de Zoom: la señal en vivo está en «En vivo».</p>
     </details>
   </section>;
 }

@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { descargarTexto } from "../lib/descargas";
 import { CHIPS_CONFIANZA } from "../lib/confianzaClase.mjs";
 import {
-  SEMAFORO, SIN_DATO, TEXTO_SUPRIMIDO, barrasCiudades, cifrasDelCorte, construirCsvEstadisticas, explicarVacio, filtrosActivos,
-  nivelParaFiltros, opcionesFiltros, pctEntro, tablaCiudadDia, tablaClases, tendenciaPorCiudad,
+  AYUDA_SIN_CAPTURA, SEMAFORO, SIN_DATO, TEXTO_FILA_SUPRIMIDOS, TEXTO_SUPRIMIDO, barrasCiudades, cifrasDelCorte, construirCsvEstadisticas, explicarVacio, filtrosActivos,
+  nivelParaFiltros, opcionesFiltros, pctEntro, suprimidosDelCorte, tablaCiudadDia, tablaClases, tendenciaPorCiudad,
 } from "../lib/estadisticasCalculo.mjs";
 import type { CeldaCorte, Cifras, DatosEstadisticas, FiltrosEstadisticas } from "../lib/estadisticasCalculo.d.mts";
 import { useEstadisticas } from "../lib/useTiempo";
@@ -26,6 +26,21 @@ function Celda({ c }: { c: CeldaCorte }) {
     <b aria-hidden="true">{ICONO_SEMAFORO[s]}</b> {pct(c.pct)} <span className="est-sr">({TEXTO_SEMAFORO[s]})</span></td>;
 }
 
+// roster = visibles + suprimidos: la fila que explica por qué la tabla «Clase × ciudad» suma menos que el roster del corte.
+function CuadreSuprimidos({ datos, filtros, enTabla = false }: { datos: DatosEstadisticas; filtros: FiltrosEstadisticas; enTabla?: boolean }) {
+  const s = suprimidosDelCorte(datos, filtros);
+  if (!s.aplica) return null;
+  const ayuda = "Filas de clase con menos de 5 personas: su número no se publica para no identificar a nadie. Aquí se suman todas en un solo agregado.";
+  if (enTabla) return <tr className="est-fila-suprimidos" data-testid="est-fila-suprimidos">
+    <th scope="row" title={ayuda}>{TEXTO_FILA_SUPRIMIDOS}<small className="est-sub">{s.filas_suprimidas} {s.filas_suprimidas === 1 ? "fila oculta" : "filas ocultas"} · total {s.roster} = {s.visible} visibles + {s.suprimidos}</small></th>
+    <td>—</td><td>{s.suprimidos}</td><td colSpan={7} className="nota">{s.coherente ? "" : "⚠ Descuadre: la resta no corresponde a filas de menos de 5. Revisar los datos."}</td>
+  </tr>;
+  return <p className="nota" data-testid="est-cuadre-suprimidos" title={ayuda}>
+    Roster <b>{s.roster}</b> = <b>{s.visible}</b> en las clases visibles + <b>{s.suprimidos}</b> {TEXTO_FILA_SUPRIMIDOS.toLowerCase()}
+    {" "}({s.filas_suprimidas} {s.filas_suprimidas === 1 ? "fila" : "filas"} de «Clase × ciudad»).
+    {!s.coherente && <> <b role="alert">⚠ Descuadre: la resta no corresponde a filas de menos de 5; revisar los datos.</b></>}</p>;
+}
+
 function Tarjetas({ datos, filtros }: { datos: DatosEstadisticas; filtros: FiltrosEstadisticas }) {
   const t = cifrasDelCorte(datos, filtros);
   const origen = t.fuente === "nivel" ? `total publicado a nivel «${t.nivel}»` : t.fuente === "clases" ? `suma exacta de ${t.clases} clases (ninguna con menos de 5)` : "";
@@ -43,9 +58,10 @@ function Tarjetas({ datos, filtros }: { datos: DatosEstadisticas; filtros: Filtr
       <div className="tiempo-card t-mediana"><span>Roster</span><strong>{c.roster}</strong><small>personas con clase propia en este corte</small></div>
     </div>
     <div className="tiempo-grid est-aparte" aria-label="Cifras aparte">
-      <div className="tiempo-card t-sindato"><span>◌ No medibles (aparte)</span><strong>{c.no_medibles}</strong><small>su clase no tiene captura confiable: NO es ausencia y no se suma a «no aparecieron»</small></div>
+      <div className="tiempo-card t-sindato" title={AYUDA_SIN_CAPTURA}><span>◌ Sin captura confiable (aparte)</span><strong>{c.no_medibles}</strong><small>por el estado de captura de su clase: NO es ausencia, no se suma a «no aparecieron» y no es el «no medible» del calendario</small></div>
       <div className="tiempo-card t-mediana"><span>Visitas recibidas</span><strong>{c.visitas_recibidas}</strong><small>personas de otra clase que entraron a estas clases</small></div>
     </div>
+    <CuadreSuprimidos datos={datos} filtros={filtros} />
     <p className="nota">Fuente: {origen}.</p>
   </>;
 }
@@ -67,7 +83,7 @@ function TablaClases({ datos, filtros }: { datos: DatosEstadisticas; filtros: Fi
   if (filas.length === 0) return <p className="nota" data-testid="est-vacio-clases">{explicarVacio(datos, filtros)}</p>;
   return <div className="class-table-wrap" role="region" aria-label="Clases por ciudad" tabIndex={0}>
     <table className="class-table tiempo-tabla est-tabla"><caption>Cada clase por ciudad, con el estado de la captura</caption>
-      <thead><tr><th>Clase</th><th>Ciudad</th><th>Roster</th><th>Entraron</th><th>A otra</th><th>No aparecieron</th><th>No medibles</th><th>Visitas</th><th>Mediana % tiempo</th><th>Captura</th></tr></thead>
+      <thead><tr><th>Clase</th><th>Ciudad</th><th>Roster</th><th>Entraron</th><th>A otra</th><th>No aparecieron</th><th title={AYUDA_SIN_CAPTURA}>Sin captura confiable</th><th>Visitas</th><th>Mediana % tiempo</th><th>Captura</th></tr></thead>
       <tbody>{filas.map((f) => {
         const chip = (CHIPS_CONFIANZA as Record<string, { icono: string; texto: string; ayuda: string }>)[f.confianza];
         const s = f.suprimido; const c = f.cifras;
@@ -79,7 +95,8 @@ function TablaClases({ datos, filtros }: { datos: DatosEstadisticas; filtros: Fi
           <td><span className="chips-conf"><span className={`chip-conf chip-conf-${f.confianza}`} title={chip?.ayuda} aria-label={`Captura: ${chip?.texto}. ${chip?.ayuda}`} data-testid="chip-captura">
             <b aria-hidden="true">{chip?.icono}</b> {chip?.texto}</span></span></td>
         </tr>;
-      })}</tbody></table></div>;
+      })}
+      <CuadreSuprimidos datos={datos} filtros={filtros} enTabla /></tbody></table></div>;
 }
 
 function Barras({ datos, filtros }: { datos: DatosEstadisticas; filtros: FiltrosEstadisticas }) {
@@ -170,7 +187,8 @@ export default function Estadisticas({ actual, modo, filtros, setFiltros }: {
   return <section className="panel tiempo-panel est-panel" aria-label="Estadísticas" aria-busy={estado === "cargando"}>
     <div className="section-heading"><div><h2>Estadísticas</h2>
       <p>Qué estoy viendo: cuántas personas entraron a SU clase, cuántas fueron a otra y cuántas no aparecieron, repartidas por ciudad, día y clase.
-        Solo cifras, sin nombres. «{TEXTO_SUPRIMIDO}» = menos de 5 personas (no se publica el número).</p></div></div>
+        Solo cifras, sin nombres. «{TEXTO_SUPRIMIDO}» = menos de 5 personas (no se publica el número); la fila «{TEXTO_FILA_SUPRIMIDOS}» las suma en un solo
+        agregado para que el total cuadre con el roster.</p></div></div>
 
     {estado === "cargando" && <p className="nota" role="status" aria-live="polite">Cargando estadísticas…</p>}
     {estado === "no_disponible" && <p className="historical-notice missing-notice" role="status" data-testid="est-no-disponible">

@@ -53,9 +53,14 @@ const MODOS: { modo: Modo; texto: string; ayuda: string }[] = [
 type Cifras = ResumenPlano | DetalleHistorico;
 const pctDe = (d: Cifras, m: Modo) => (m === "horario" ? d.porcentaje_horario : m === "colados" ? d.porcentaje_colados : d.porcentaje_ambos);
 // % + "x de y" (y = roster medible) de un recorte (día, clase o semana).
+// Fase 1.7 (semana abierta): un día/clase con en_curso (sesión en_curso o roster aún en "P", ver slotsEnCurso en
+// lib/detalleCalculo.mjs) NO muestra %: solo quienes ya entraron son medibles y saldría un ~100 % artificial.
+const EN_CURSO = "en curso";
+const esEnCurso = (d: Cifras | null | undefined) => Boolean(d && "fecha" in d && d.en_curso);
 function vista(d: Cifras | null | undefined, m: Modo): { pct: string; n: number | string; xy: string } {
   if (!d) return { pct: "—", n: "—", xy: "" };
   const n = d[m] ?? "—";
+  if (esEnCurso(d)) return { pct: EN_CURSO, n, xy: `${n} hasta ahora` };
   return { pct: porcentaje(pctDe(d, m)), n, xy: `${n} de ${d.poblacion ?? "—"}` };
 }
 
@@ -252,8 +257,10 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
           return <button key={fecha} type="button" disabled={!tieneDatos}
             aria-pressed={activo} data-modo={tieneDatos ? vistaModo : undefined}
             aria-label={tieneDatos ? `${fechaLarga(fecha)}: ${modoInfo.texto} ${v.pct}, ${v.xy}` : undefined}
-            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}${esElSabadoResponsable ? " sabado-responsable" : ""}`}
-            title={esElSabadoResponsable ? "Este sábado no tuvo clase regular esta semana" : undefined}
+            className={`calendar-day${tieneDatos ? " con-datos" : " sin-datos"}${activo ? " activo" : ""}${esElSabadoResponsable ? " sabado-responsable" : ""}${esEnCurso(dia) ? " en-curso" : ""}`}
+            data-en-curso={esEnCurso(dia) ? "1" : undefined}
+            title={esElSabadoResponsable ? "Este sábado no tuvo clase regular esta semana"
+              : esEnCurso(dia) ? "Hay una clase de este día en curso o pendiente de cierre: el % se muestra al cerrar" : undefined}
             onClick={() => tieneDatos && setSelectedDate(activo ? null : fecha)}>
             {esElSabadoResponsable && <span className="calendar-day-estrella" aria-hidden="true">{ICONO_SIN_SABADO}</span>}
             <span className="calendar-day-nombre">{fechaCorta(fecha)}</span>
@@ -270,6 +277,8 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
           {diaSeleccionado ? <>
             <strong className="cifra-modo">{vista(diaSeleccionado, vistaModo).pct}</strong>
             <p className="cifra-sub">{vista(diaSeleccionado, vistaModo).xy} · {modoInfo.texto.toLowerCase()}</p>
+            {esEnCurso(diaSeleccionado) && <p className="nota" data-testid="dia-en-curso">Clase en curso o pendiente de cierre:
+              el % se calcula cuando cierre (hoy solo cuentan quienes ya entraron).</p>}
             {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
               <thead><tr><th>Clase</th><th>Roster</th><th>Cantidad</th><th>%</th><th title="Confianza de la captura y cuadre de la clase">Conf.</th></tr></thead>
               <tbody>{clasesDelDia.map((clase) => {
@@ -292,6 +301,8 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
           <h3>Semana completa</h3>
           <strong className="cifra-modo">{semana.pct}</strong>
           <p className="cifra-sub">{semana.xy} · {modoInfo.texto.toLowerCase()}{conFiltro ? " (con filtro)" : ""}</p>
+          {esDetalle && detalle?.resumen.en_curso && <p className="nota" data-testid="semana-en-curso">Semana abierta: incluye
+            una clase en curso o pendiente de cierre, así que la cifra de la semana todavía cambia.</p>}
           {esDetalle && detalle && detalle.porDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
             <thead><tr><th>Día</th><th>Roster</th><th>Cantidad</th><th>%</th></tr></thead>
             <tbody>{detalle.porDia.map((d) => {

@@ -136,8 +136,8 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       <p className="nota">{horarioDe(datos.slot_id)} · {datos.fecha} · {total} personas medibles</p>
       {datos.conteos.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
         {datos.conteos.sin_dato} {datos.conteos.sin_dato === 1 ? "persona entró" : "personas entraron"} pero su tiempo
-        no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir: no se cuentan como Parcial
-        ni como falta.
+        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase), no se pudo medir o entraron a otra
+        clase de la semana (colados): no se cuentan como Parcial ni como falta.
       </p>}
       {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
@@ -148,13 +148,15 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
 
-    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «Nunca entró» sale de las entradas registradas (asist_entradas) y el tiempo de «Presente / Parcial» sale
+    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «Nunca entró» sale de las entradas registradas (asist_entradas, a cualquier clase de la semana) y el tiempo de «Presente / Parcial» sale
       de la API de Zoom (pestaña Tiempo). Si una persona aparece distinta aquí y en Tiempo, es porque cada pantalla lee su fuente; no es un error de cálculo.</p>
     <details className="panel definitions"><summary>Cómo se calculan estas categorías</summary>
       <p><b>🟢 Presente:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
       <p><b>🟠 Parcial:</b> estuvo menos del 50&nbsp;% del tiempo de su clase.</p>
-      <p><b>🔴 Nunca entró:</b> ningún ingreso identificado a esta clase.</p>
-      <p><b>◌ Sin dato de tiempo:</b> entró, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como Parcial.</p>
+      <p><b>🔴 Nunca entró:</b> no entró a su clase ni a ninguna otra clase de la semana (misma regla que «No ingresaron» del
+        calendario: estas personas son exactamente las de ese CSV para esta clase).</p>
+      <p><b>◌ Sin dato de tiempo:</b> entró, pero su tiempo en esta clase no se pudo medir o aún no se calcula; incluye a quien
+        se coló en otra clase de la semana (entró, pero no a la suya). Nunca cuenta como Parcial.</p>
     </details>
   </section>;
 }

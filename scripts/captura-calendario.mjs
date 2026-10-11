@@ -39,6 +39,11 @@ try {
     await cal.screenshot({ path: `${salida}/2-colados-dia-${sufijo}.png` });
     await page.locator('.seg-btn[data-tipo="horario"]').click();
     await cal.screenshot({ path: `${salida}/3-horario-dia-${sufijo}.png` });
+    if (ancho === 1440 && !oscuro) for (const tab of ["Estadísticas", "Cobertura", "Presencia"]) {
+      await page.getByRole("tab", { name: tab }).click();
+      await page.waitForTimeout(2500);
+      await page.locator("main").screenshot({ path: `${salida}/9-${tab}.png` });
+    }
     if (errores.length) console.log("ERRORES", sufijo, errores);
     await page.close();
   }

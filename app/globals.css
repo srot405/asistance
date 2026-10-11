@@ -1148,3 +1148,6 @@ select {
 .poblacion-descargas { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
 .poblacion-descargas h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .poblacion-descargas h3 small { font-weight: 300; color: var(--muted); font-size: 12px; }
+/* Clase/dia en curso en la semana abierta (TOC-91 fase 1.7): sin % hasta el cierre. */
+.calendar-day.en-curso { border-style: dashed; }
+.calendar-day.en-curso .cd-pct { font-size: 13px; font-weight: 400; font-style: italic; }

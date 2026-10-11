@@ -20,7 +20,10 @@ const require = (name) => {
   if (name.endsWith("/acceso")) return { exigirAcceso: async (request) =>
     request.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } :
       NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
-  if (name.endsWith("/leerHistorico")) return { leerHistorico: async () => { lecturas.push(true); return fixture; } };
+  if (name.endsWith("/leerHistorico")) return { leerHistorico: async () => { lecturas.push(true); return fixture; },
+    aplicarResumenVivo: async (d) => d };
+  // Poblacion en vivo (TOC-91, 2026-10-09): sin calculo aqui (null = se conserva el nunca_periodo del ETL).
+  if (name.endsWith("/leerPoblacion")) return { leerPoblacion: async () => null };
   throw new Error(`Import no previsto: ${name}`);
 };
 vm.runInNewContext(compiled, { exports, require, Response, URL, Request, console });

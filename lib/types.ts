@@ -120,6 +120,8 @@ export type DetalleHistorico = {
   nunca: number;
   porcentaje_retencion: number | null;
   porcentaje_nunca: number | null;
+  // Fase 1.7 (semana abierta): la clase/dia aun no cierra (sesion en_curso o roster con celdas "P"): sin % final.
+  en_curso?: boolean;
 } & Partial<CamposIngreso>;
 // Botones del calendario (TOC-91): ver camposIngreso en lib/detalleCalculo.mjs.
 export type CamposIngreso = { horario: number; colados: number; ambos: number;
@@ -200,6 +202,7 @@ export type ResumenFiltrado = {
   nunca: number;
   porcentaje_retencion: number | null;
   porcentaje_nunca: number | null;
+  en_curso?: boolean;   // fase 1.7: alguna clase del recorte sigue en curso
 } & Partial<CamposIngreso>;
 export type DetalleSemanaResponse = {
   semana: string;

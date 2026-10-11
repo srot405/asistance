@@ -40,3 +40,8 @@ export function tendenciaPorCiudad(serie: FilaNivel[] | null | undefined, f: Fil
   series: { ciudad: string; puntos: { semana: string; estado: "vacia" | "suprimida" | "ok"; pct: number | null; roster?: number | null }[] }[] };
 export function construirCsvEstadisticas(datos: DatosEstadisticas, f: FiltrosEstadisticas): { contenido: string; archivo: string };
 export function explicarVacio(datos: DatosEstadisticas | null | undefined, f: FiltrosEstadisticas): string;
+export type SuprimidosCorte = { aplica: false } | { aplica: true; roster: number; visible: number; suprimidos: number;
+  filas_visibles: number; filas_suprimidas: number; coherente: boolean };
+export function suprimidosDelCorte(datos: DatosEstadisticas | null | undefined, f: FiltrosEstadisticas): SuprimidosCorte;
+export const TEXTO_FILA_SUPRIMIDOS: string;
+export const AYUDA_SIN_CAPTURA: string;

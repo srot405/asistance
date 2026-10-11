@@ -1,4 +1,5 @@
 import type { ResumenHistorico } from "../lib/types";
+import type { CamposResumenVivo } from "../lib/servidor/leerHistorico";
 import { textoBaseSeguimiento } from "../lib/baseSeguimiento.mjs";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import type { TiempoNoDisponible, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
@@ -10,6 +11,22 @@ const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.to
 const esMinimo = (fila: ResumenHistorico) => fila.nivel !== "Sin dato" && !fila.captura_completa;
 const MINIMO = "mínimo: hubo clases sin captura";
 
+// Fase 1.1 plan veracidad (2026-10-09): en semanas "Detalle" /api/datos recalcula la cifra en vivo (= calendario sin filtros) y
+// deja la del ETL como *_etl. Aqui solo se rotula el origen; nunca se mezcla ni se inventa una cifra.
+type FilaHero = ResumenHistorico & CamposResumenVivo;
+const difiereDelEtl = (f: FilaHero) => f.resumen_fuente === "vivo" && f.asistieron_etl !== undefined
+  && (f.asistieron_etl !== f.asistieron || f.poblacion_etl !== f.poblacion);
+function OrigenCifra({ fila }: { fila: FilaHero }) {
+  if (fila.nivel !== "Detalle" || !fila.resumen_fuente) return null;
+  if (fila.resumen_fuente === "etl") return <span className="origen-cifra" data-testid="origen-cifra">
+    {" · "}cifra del cierre del ETL (no se pudo calcular en vivo)</span>;
+  return <span className="origen-cifra" data-testid="origen-cifra" title={fila.resumen_calculado_en
+    ? `Calculado ${new Date(fila.resumen_calculado_en).toLocaleString("es-CO")}` : undefined}>
+    {" · "}calculado en vivo, igual al calendario
+    {difiereDelEtl(fila) && <> · el último cierre del ETL decía {fila.asistieron_etl ?? "—"} de {fila.poblacion_etl ?? "—"} ({porcentaje(fila.porcentaje_retencion_etl ?? null)})</>}
+  </span>;
+}
+
 function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
   const clase = nivel === "Detalle" ? "detail" : nivel === "Solo semanal" ? "weekly" : "missing";
   return <span className={`level-badge ${clase}`}>{nivel}</span>;
@@ -20,7 +37,7 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
 // "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
 // listado estático de antes a components/CalendarioSemana.tsx (interactivo).
 export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, tiempo, irATiempo }: {
-  actual: ResumenHistorico;
+  actual: FilaHero;
   nuncaPeriodo: number | null;
   // TOC-91, 2026-09-29 (pedido de Samuel): esta semana el sábado no tuvo clase
   // regular (ver lib/franjaTipo.mjs::semanaSinSabado). Se calcula una sola vez en
@@ -50,7 +67,8 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, t
     <section className="metric-grid" aria-label="Cifras de la semana">
       <article className="metric-card retained"><span>Ingresaron</span>
         <strong>{porcentaje(actual.porcentaje_retencion)}</strong>
-        <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a></small>
+        <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a>
+          <OrigenCifra fila={actual} /></small>
       </article>
       <article className="metric-card absent"><span>No ingresaron</span>
         <strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small>
@@ -84,6 +102,7 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, t
     <details className="panel definitions" id="definiciones"><summary>Cómo se calculan estas cifras</summary>
       <p><b>Ingresaron:</b> personas del roster medible con al menos una entrada identificada en la semana.</p>
       <p><b>No ingresaron:</b> personas medibles sin ninguna entrada identificada; no incluye clases pendientes ni sin dato.</p>
+      <p><b>Calculado en vivo:</b> en semanas con detalle, estas cifras y el cuadre se recalculan desde las tablas del panel (las mismas del calendario); el resumen del cierre del ETL se conserva solo como referencia.</p>
       <p><b>Mínimo:</b> la semana tuvo clases sin captura (sobre todo de la cuenta soporte). El % real de ingreso es igual o mayor al mostrado.</p>
       <p><b>Nunca en el período:</b> personas activas al cierre del período que no aparecen identificadas en ninguna semana mostrada.</p>
     </details>

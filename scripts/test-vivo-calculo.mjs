@@ -244,4 +244,47 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   assert.notEqual(h, createHash("sha256").update("estudiante001@ejemplo.test").digest("hex").slice(0, 16), "no es un sha256 sin llave (no se puede reconstruir desde un diccionario de correos)");
   assert.match(h, /^[0-9a-f]{16}$/);
 }
-console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes estado=verde`);
+// ---------- (9) identidad como Lista en vivo (fase 1.4): correo del roster y, si no, cedula del registro de Zoom (sin ceros adelante)
+{ const filasRoster = [
+    { persona_id: "1000001", correo_norm: "estudiante001@ejemplo.test", slot_id: "backend-sábado-08-uno" },
+    { persona_id: "1000002", correo_norm: "estudiante002@ejemplo.test", slot_id: "backend-sábado-08-uno" },
+    { persona_id: "0001000003", correo_norm: "estudiante003@ejemplo.test", slot_id: "backend-sábado-08-dos" },
+    { persona_id: "1000004", correo_norm: "estudiante004@ejemplo.test", slot_id: "backend-sábado-08-uno" },
+    { persona_id: "1000004", correo_norm: "segundo004@ejemplo.test", slot_id: "backend-sábado-08-uno" }, // dos correos, una persona
+  ];
+  const registro = v.indexarRegistroVivo([
+    { correo_norm: "personal001@ejemplo.test", cedula_digitos: "1000001" },     // correo fuera del roster, cedula del roster
+    { correo_norm: "OTRO002@ejemplo.test ", cedula_digitos: "0001000002" },    // cedula del registro con ceros adelante
+    { correo_norm: "visita003@ejemplo.test", cedula_digitos: "1000003" },      // roster con ceros, registro sin ellos; es de otra franja
+    { correo_norm: "ajeno@ejemplo.test", cedula_digitos: "9999999" },          // cedula fuera del roster
+    { correo_norm: "sincedula@ejemplo.test", cedula_digitos: null },
+    { correo_norm: "doble@ejemplo.test", cedula_digitos: "1000004" }, { correo_norm: "doble@ejemplo.test", cedula_digitos: null }, // el ultimo CON cedula gana
+  ]);
+  const ident = v.conRegistro(v.indexarRosterVivo(filasRoster), registro);
+  const slot = "backend-sábado-08-uno";
+  const e = [ev("joined", "personal001@ejemplo.test", "08:01"), ev("joined", "otro002@ejemplo.test", "08:02"), ev("joined", "visita003@ejemplo.test", "08:03"),
+    ev("joined", "ajeno@ejemplo.test", "08:04"), ev("joined", "sincedula@ejemplo.test", "08:05"), ev("joined", "doble@ejemplo.test", "08:06")];
+  const r = v.clasificarEventos(e, ident, COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([r.roster.maximo, r.otra.maximo, r.desconocidos.maximo], [3, 1, 2], "1 y 2 por cedula (con o sin ceros), 4 por cedula; 3 visita; ajeno y sin cedula: desconocidos");
+  // misma persona por correo del roster y por cedula del registro (o por sus dos correos del roster) = UNA persona
+  const una = v.clasificarEventos([ev("joined", "estudiante001@ejemplo.test", "08:01"), ev("left", "estudiante001@ejemplo.test", "08:10"),
+    ev("joined", "personal001@ejemplo.test", "08:11"), ev("joined", "estudiante004@ejemplo.test", "08:12"), ev("joined", "segundo004@ejemplo.test", "08:13")],
+    ident, COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([una.roster.maximo, una.roster.ahora, una.huerfanos], [2, 2, 0], "persona 1 entra con dos correos; persona 4 con sus dos correos del roster");
+  // sin registro: solo el correo identifica (el comportamiento anterior)
+  const sin = v.clasificarEventos(e, v.conRegistro(v.indexarRosterVivo(filasRoster), null), COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([sin.roster.maximo, sin.desconocidos.maximo], [0, 6]);
+  // personal sigue siendo personal aunque su correo tenga registro
+  const pers = v.clasificarEventos([ev("joined", "monitor@tocaunavida.org", "08:01")], v.conRegistro(v.indexarRosterVivo(filasRoster),
+    v.indexarRegistroVivo([{ correo_norm: "monitor@tocaunavida.org", cedula_digitos: "1000001" }])), COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([pers.personal.maximo, pers.roster.maximo], [1, 0]);
+  assert.equal(v.cedulaSinCeros(" 00.123-4 "), "1234"); assert.equal(v.hashCedula("0001234"), v.hashCedula("1234")); assert.equal(v.hashCedula("000"), null);
+  // privacidad: la identidad en memoria es solo hashes
+  const dump = JSON.stringify([...ident.porCorreo, ...ident.porCedula, ...ident.registro, ...[...ident.slots.keys()]]);
+  assert.ok(!/ejemplo|@|1000001|1000002/.test(dump), "sin correos ni cedulas en claro");
+  // via armarRespuestaVivo
+  const salas = [sala("u1", "comunicaciones", "Backend: APIs y Base de Datos", e)];
+  const c = porSlot(v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: ident, ahoraMs: COTISO(SAB, "08:10") }), slot);
+  assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.desconocidos_maximo], [3, 1, 2]);
+}
+console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes identidad_cedula=ok estado=verde`);

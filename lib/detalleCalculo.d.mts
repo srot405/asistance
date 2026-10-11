@@ -27,6 +27,8 @@ export function entroEnFecha(base: BaseDetalle, personaId: string, fecha: string
 export function entroAlgunaVez(base: BaseDetalle, personaId: string): boolean;
 export type TipoIngreso = "horario" | "colados" | "ambos";
 export type IngresoNominal = { tipo: "horario" | "colados"; nombre: string; cedula: string; ciudad: string; su_clase: string; fecha: string; entro_a: string };
+export function asistioEnSemana(base: BaseDetalle, persona: RosterRow): boolean;
+export function slotsEnCurso(base: BaseDetalle): Set<string>;
 export function tipoIngreso(base: BaseDetalle, persona: RosterRow & { persona_id: string }): "horario" | "colados" | null;
 export function listarIngresosDesdeBase(base: BaseDetalle, opts: FiltroDetalle & { fecha?: string; tipo: TipoIngreso }): IngresoNominal[];
 export function calcularResumen(rosterFiltrado: RosterRow[], base: BaseDetalle): ResumenFiltrado;

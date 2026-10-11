@@ -28,8 +28,9 @@ function fila(evento, correo, hhmm, uuid = "u1") { return { id: nextId++, evento
 
 function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
   activas = [{ uuid: "u1", activo: true, host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
-  fallaMeta = 0 }) {
-  const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, zoom_live_log: eventos };
+  fallaMeta = 0, registrantes = [] }) {
+  const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, zoom_live_log: eventos,
+    zoom_registrantes: registrantes };
   const log = [];
   let metaFallos = fallaMeta;
   const sb = { from: (t) => {
@@ -208,6 +209,34 @@ async function cargarLector(sim) {
   for (const t of ["08:10", "08:12", "08:14", "08:16", "08:18"]) await l.leerVivo(COT(t));
   assert.equal(sim.log.filter((x) => x.meta).length, 3, "tope de 3 reintentos por sala");
   assert.equal(l.estadoVivoParaPruebas().cursor, evs[0].id, "agotados los reintentos el cursor avanza");
+}
+
+// ---- (9) identidad por cedula del registro de Zoom (fase 1.4): solo en ventana, 2 columnas, cache 5 min, fallo con aviso
+{
+  const roster = correos.slice(0, 4).map((c, i) => ({ persona_id: `00${2000 + i}`, correo_norm: c, slot_id: "backend-sábado-08-uno" }));
+  const registrantes = [{ correo_norm: "alterno@ejemplo.test", cedula_digitos: "2001", fecha_sesion: SAB }];
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01"), fila("joined", "alterno@ejemplo.test", "08:02"), fila("joined", "ext@ejemplo.test", "08:03")],
+    roster, registrantes });
+  const l = await cargarLector(sim);
+  assert.equal(l.TTL_REGISTRO_MS, 5 * 60_000);
+  await l.leerVivo(COT("07:15"));
+  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 0, "fuera de ventana: no se lee el registro");
+  const c = (await l.leerVivo(COT("08:10"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c.roster_maximo, c.desconocidos_maximo], [2, 1], "correo fuera del roster + cedula (con ceros en el roster) = roster");
+  const reg = sim.log.filter((x) => x.t === "zoom_registrantes");
+  assert.equal(reg.length, 1); assert.equal(reg[0].cols, "correo_norm,cedula_digitos", "solo dos columnas");
+  assert.match(sim.log.find((x) => x.t === "asist_roster").cols, /persona_id/);
+  await l.leerVivo(COT("08:12")); await l.leerVivo(COT("08:14"));
+  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 1, "cache de 5 min");
+  await l.leerVivo(COT("08:16"));
+  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 2, "pasados 5 min se relee");
+}
+{ // si el registro falla, no tumba la respuesta: cuenta por correo y avisa
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01")], falla: "zoom_registrantes" });
+  const l = await cargarLector(sim);
+  const r = await l.leerVivo(COT("08:10"));
+  assert.equal(r.clases[0].roster_maximo, 1); assert.match(r.aviso_general, /registro de Zoom/);
+  assert.ok(!/secreto-interno/.test(JSON.stringify(r)));
 }
 
 // ---- ruta: 401 sin lecturas, 200 solo conteos, 503 sin detalles
