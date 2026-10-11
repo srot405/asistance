@@ -167,6 +167,11 @@ export type ResumenHistorico = {
 export type HistoricoData = {
   resultados: ResumenHistorico[];
   nunca_periodo: number | null;
+  // TOC-91 (auditoria 2026-10-09): "vivo" = calculado por cedula desde las tablas del panel (rastreable con el CSV de
+  // /api/poblacion); "etl" = numero congelado de asist_semana_resumen (fallback).
+  nunca_periodo_fuente?: "vivo" | "etl";
+  nunca_periodo_etl?: number | null;
+  nunca_periodo_calculado_en?: string;
 };
 
 // ── Calendario / detalle por día filtrado (TOC-91, 2026-09-29) ──────────────

@@ -1,0 +1,10 @@
+type Fila = Record<string, string>;
+export type VistaPoblacion = "nunca" | "sin_rastro" | "solo_colados" | "solo_log";
+export type ConteosPoblacion = { nunca: number; nunca_con_registro: number; nunca_sin_registro: number; sin_rastro: number; solo_colados: number; solo_log: number };
+export function sinCeros(c: unknown): string;
+export function armarPoblacion(a: { rosterPeriodo: Fila[]; ultimaSemana: string; franjas: Fila[]; entradas: Fila[]; sesiones: Fila[];
+  registrantes: Fila[]; soloLog?: Set<string>; celdas?: Map<string, string> }): { poblacion: number; conteos: ConteosPoblacion; listas: Record<VistaPoblacion, Fila[]> };
+export function correosABuscar(a: { rosterPeriodo: Fila[]; ultimaSemana: string; entradas: Fila[]; registrantes: Fila[] }): Map<string, string>;
+export const VISTAS_POBLACION: VistaPoblacion[];
+export const COLUMNAS_POBLACION: Record<VistaPoblacion | "no_medibles", string[]>;
+export function filtrarCiudad<T extends { ciudad?: string | null }>(filas: T[], ciudad: string | null | undefined): T[];

@@ -30,9 +30,15 @@ function fechasDeSemana(semana: string): string[] {
 type ResumenPlano = { poblacion: number | null; asistieron: number | null; nunca: number | null;
   porcentaje_retencion: number | null; porcentaje_nunca: number | null } & Partial<CamposIngreso>;
 
-const PENDIENTE_NUNCA_PERIODO = "Pendiente: el histórico solo expone el conteo agregado del período (arriba), " +
-  "no la lista de personas. Para nominarlo sin inventar datos falta que el ETL exponga los persona_id " +
-  "identificados en cada semana, incluidas las de nivel \"Solo semanal\".";
+// Descargas de poblacion del periodo (TOC-91, auditoria 2026-10-09): cifras de /api/poblacion (agregados) y nombres solo en CSV.
+type ConteosPoblacion = { nunca: number; nunca_con_registro: number; nunca_sin_registro: number; sin_rastro: number; solo_colados: number; solo_log: number };
+type Poblacion = { disponible: boolean; poblacion?: number; conteos?: ConteosPoblacion; periodo_desde?: string; periodo_hasta?: string };
+const DESCARGAS_POBLACION: { vista: keyof ConteosPoblacion & string; texto: string; ayuda: string }[] = [
+  { vista: "nunca", texto: "Nunca ingresaron en el período", ayuda: "Del roster actual, sin ninguna entrada a clase en todo el período (por cédula). Incluye si están registrados en Zoom." },
+  { vista: "sin_rastro", texto: "Sin rastro en Zoom", ayuda: "No aparecen en el registro de Zoom ni por correo ni por cédula: aunque entren, no se les puede identificar." },
+  { vista: "solo_colados", texto: "Solo colados del período", ayuda: "Entraron alguna vez, pero nunca a su propia clase." },
+  { vista: "solo_log", texto: "Entraron pero el panel no lo registró", ayuda: "Hay entrada a clase en el log crudo de Zoom, pero no en el panel: hueco del pipeline para revisar." },
+];
 
 // Filtros del calendario (TOC-91, Samuel 2026-10-09). Uno a la vez. Cambian la cifra de TODOS los días, del resumen y la
 // columna «Cantidad» de su tabla. Todo se cuenta en el día de la clase de la persona (si alguien del martes entra el
@@ -84,6 +90,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   const [errorDetalle, setErrorDetalle] = useState("");
   const [falloExport, setFalloExport] = useState("");
   const [vistaModo, setVistaModo] = useState<Modo>("ambos");
+  const [poblacion, setPoblacion] = useState<Poblacion | null>(null);
   const esDetalle = actual.nivel === "Detalle";
   const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
 
@@ -121,6 +128,21 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     cargar();
     return () => { cancelado = true; };
   }, [actual.semana, esDetalle, filtro.ciudad, filtro.franja, filtro.cuenta, modo]);
+
+  // Conteos de poblacion del periodo (no dependen de la semana elegida). Solo en modo real: el demo no tiene registro de Zoom.
+  useEffect(() => {
+    if (modo !== "real") return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const sesion = await sesionActual();
+        if (!sesion?.access_token) return;
+        const r = await fetch("/api/poblacion", { headers: { Authorization: `Bearer ${sesion.access_token}` }, cache: "no-store" });
+        if (r.ok && !cancelado) setPoblacion(await r.json() as Poblacion);
+      } catch { /* sin cifras: los botones salen sin conteo */ }
+    })();
+    return () => { cancelado = true; };
+  }, [modo]);
 
   const fechas = useMemo(() => fechasDeSemana(actual.semana), [actual.semana]);
   const porDiaPorFecha = useMemo(() => new Map((detalle?.porDia ?? []).map((d) => [d.fecha, d])), [detalle]);
@@ -173,6 +195,16 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     if (filtro.cuenta) params.set("cuenta", filtro.cuenta);
     const url = new URL(`/api/ingresos?${params}`, window.location.origin);
     const error = await descargarCsv(url, modo, `ingresos_${vistaModo}_${alcance === "dia" ? selectedDate : `semana_${actual.semana}`}.csv`);
+    if (error) setFalloExport(error);
+  }
+
+  async function descargarPoblacion(vista: string) {
+    setFalloExport("");
+    const params = new URLSearchParams({ vista });
+    if (vista === "no_medibles") params.set("semana", actual.semana);
+    if (filtro.ciudad) params.set("ciudad", filtro.ciudad);
+    const url = new URL(`/api/poblacion?${params}`, window.location.origin);
+    const error = await descargarCsv(url, modo, `${vista}_${vista === "no_medibles" ? actual.semana : poblacion?.periodo_hasta ?? "periodo"}.csv`);
     if (error) setFalloExport(error);
   }
 
@@ -300,11 +332,21 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
         title="Roster completo con estado por persona y resumen de captura; sirve aunque la semana esté incompleta">
         Descargar reporte CSV (semana completa o incompleta){modo === "demo" && " (práctica)"}
       </button>
-      <button className="control" disabled title={PENDIENTE_NUNCA_PERIODO}>
-        CSV: nunca ingresaron en el período (pendiente)
-      </button>
       </> : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </div>
+
+    {puedeNominal && modo === "real" && <div className="poblacion-descargas" role="group" aria-label="Descargas de población del período">
+      <h3>Población del período{poblacion?.periodo_desde ? <small> · {poblacion.periodo_desde} → {poblacion.periodo_hasta} · roster {poblacion.poblacion}</small> : null}</h3>
+      <div className="calendar-actions">
+        {DESCARGAS_POBLACION.map((d) => <button key={d.vista} className="control" title={d.ayuda} onClick={() => descargarPoblacion(d.vista)}>
+          {d.texto}{poblacion?.conteos ? ` (${poblacion.conteos[d.vista]})` : ""}
+        </button>)}
+        {esDetalle && <button className="control" title="Personas del roster de esta semana que no cuentan en el %: su clase no ha ocurrido, está pendiente de cierre o sin dato"
+          onClick={() => descargarPoblacion("no_medibles")}>No medibles esta semana</button>}
+      </div>
+      {poblacion?.conteos && <p className="nota">De los {poblacion.conteos.nunca} que nunca ingresaron, {poblacion.conteos.nunca_con_registro} están registrados en Zoom
+        y {poblacion.conteos.nunca_sin_registro} no tienen ningún registro (verificar contacto).</p>}
+    </div>}
   </section>;
 }
