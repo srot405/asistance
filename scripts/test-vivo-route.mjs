@@ -12,7 +12,7 @@ async function compilar(ruta, require) {
   const src = await readFile(new URL(ruta, import.meta.url), "utf8");
   const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const exports = {};
-  vm.runInNewContext(js, { exports, require, console, Date, Promise, Map, Set, Number, Math, JSON, Response, URL }, {});
+  vm.runInNewContext(js, { exports, require, console, Date, Promise, Map, Set, Number, Math, JSON, Response, URL, setTimeout, clearTimeout }, {});
   return exports;
 }
 

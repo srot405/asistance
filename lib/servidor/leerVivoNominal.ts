@@ -28,6 +28,16 @@ let dia: Dia | null = null;
 let cache: { ms: number; data: ListaVivoResponse } | null = null;
 let enCurso: Promise<ListaVivoResponse> | null = null;
 
+// Tiempo limite de una lectura compartida (sabado 2026-10-10): si una consulta a Supabase se cuelga (caida de red/DNS sin
+// respuesta), la promesa en vuelo nunca terminaba y TODAS las lecturas siguientes la esperaban: la pantalla quedaba congelada
+// hasta reiniciar el servidor. Con el limite, la lectura falla, se libera `enCurso` y la siguiente vuelve a leer.
+export const LIMITE_LECTURA_MS = 20_000;
+function conTiempoLimite<T>(p: Promise<T>, ms = LIMITE_LECTURA_MS): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, rechazar) => { t = setTimeout(() => rechazar(new Error("lectura sin respuesta")), ms); });
+  return Promise.race([p, limite]).finally(() => clearTimeout(t));
+}
+
 export function vaciarCacheListaVivo() { base = null; registro = null; dia = null; cache = null; enCurso = null; }
 
 const lunesDe = (fecha: string) => {
@@ -124,7 +134,7 @@ export async function leerListaVivo(ahoraMs: number = Date.now()): Promise<Lista
   if (cache && ahoraMs - cache.ms < TTL_CACHE_LISTA_MS && ahoraMs >= cache.ms) return { ...cache.data, hora_servidor: new Date(ahoraMs).toISOString() };
   if (enCurso) return enCurso;
   const anterior = cache;
-  const p = calcular(ahoraMs)
+  const p = conTiempoLimite(calcular(ahoraMs))
     .then((data) => { cache = { ms: ahoraMs, data }; return data; })
     .catch((e) => {
       if (anterior && ahoraMs - anterior.ms <= MAX_DATO_VIEJO_MS) {

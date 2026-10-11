@@ -73,13 +73,20 @@ const falla = { status: 500, body: null };
   await e.avanzar(9_999); assert.equal(e.llamadas.length, 2, "backoff 2: espera 10 s");
   await e.avanzar(1); assert.equal(e.llamadas.length, 3);
   assert.equal(c.estado().fase, "pausado", "3 errores seguidos = pausa");
-  assert.equal(e.timers.size, 0, "pausado: sin reintentos automaticos");
-  await e.avanzar(600_000); assert.equal(e.llamadas.length, 3, "pausado no sondea");
-  e.ocultar(); c.visibilidad(); e.mostrar(); c.visibilidad(); await e.asentar();
-  assert.equal(e.llamadas.length, 3, "volver a la pestana no reanuda una pausa");
+  // 2026-10-10: la pausa ya no es definitiva: se reintenta sola cada PAUSA_MS (una caida de red dejaba la pantalla quieta).
+  assert.equal(e.timers.size, 1, "pausado: un solo reintento programado");
+  await e.avanzar(119_999); assert.equal(e.llamadas.length, 3, "pausado no sondea antes de PAUSA_MS");
+  await e.avanzar(1); assert.equal(e.llamadas.length, 4, "a los 2 min reintenta sola");
+  assert.equal(c.estado().fase, "ok"); assert.equal(c.estado().errores, 0);
+  c.detener();
+}
+// 4b) Reintentar sigue leyendo ya durante la pausa.
+{ const e = entorno({ respuestas: [falla, falla, falla, ok] }); const c = crearControlador(e.cfg);
+  c.iniciar(); await e.asentar(); await e.avanzar(5_000); await e.avanzar(10_000);
+  assert.equal(c.estado().fase, "pausado");
   c.reintentar(); await e.asentar();
   assert.equal(e.llamadas.length, 4, "Reintentar lee ya");
-  assert.equal(c.estado().fase, "ok"); assert.equal(c.estado().errores, 0);
+  assert.equal(c.estado().fase, "ok");
   c.detener();
 }
 

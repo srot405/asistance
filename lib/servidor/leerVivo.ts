@@ -41,6 +41,16 @@ let cache: { ms: number; data: VivoResponse } | null = null;
 let enCurso: Promise<VivoResponse> | null = null;
 let ultimaLecturaMs = 0; // hora REAL de la ultima consulta a Supabase (alimenta actualizado_en)
 
+// Tiempo limite de una lectura compartida (sabado 2026-10-10): si una consulta a Supabase se cuelga (caida de red/DNS sin
+// respuesta), la promesa en vuelo nunca terminaba y TODAS las lecturas siguientes la esperaban: la pantalla quedaba congelada
+// hasta reiniciar el servidor. Con el limite, la lectura falla, se libera `enCurso` y la siguiente vuelve a leer.
+export const LIMITE_LECTURA_MS = 20_000;
+function conTiempoLimite<T>(p: Promise<T>, ms = LIMITE_LECTURA_MS): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, rechazar) => { t = setTimeout(() => rechazar(new Error("lectura sin respuesta")), ms); });
+  return Promise.race([p, limite]).finally(() => clearTimeout(t));
+}
+
 export function vaciarCacheVivo() { base = null; vivo = null; registro = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
 export function estadoVivoParaPruebas() { return vivo ? { cursor: vivo.cursor, cerrado: vivo.cerrado, cargado: vivo.cargado } : null; }
 
@@ -189,7 +199,7 @@ export async function leerVivo(ahoraMs: number = Date.now()): Promise<VivoRespon
   // Desde cache: cifras y actualizado_en son los de la lectura real; hora_servidor es AHORA (la pantalla suma la diferencia a la edad).
   if (cache && ahoraMs - cache.ms < TTL_CACHE_VIVO_MS && ahoraMs >= cache.ms) return { ...cache.data, hora_servidor: new Date(ahoraMs).toISOString() };
   if (enCurso) return enCurso;
-  const p = calcular(ahoraMs).then((data) => { cache = { ms: ahoraMs, data }; return data; }).finally(() => { enCurso = null; });
+  const p = conTiempoLimite(calcular(ahoraMs)).then((data) => { cache = { ms: ahoraMs, data }; return data; }).finally(() => { enCurso = null; });
   enCurso = p;
   return p;
 }

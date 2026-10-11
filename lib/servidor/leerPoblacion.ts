@@ -14,6 +14,16 @@ export const TTL_POBLACION_MS = 10 * 60_000;
 type Poblacion = ReturnType<typeof armarPoblacion> & { periodo_desde: string; periodo_hasta: string; calculado_en: string };
 let cache: { ms: number; data: Poblacion } | null = null;
 let enCurso: Promise<Poblacion> | null = null;
+// Tiempo limite de una lectura compartida (sabado 2026-10-10): si una consulta a Supabase se cuelga (caida de red/DNS sin
+// respuesta), la promesa en vuelo nunca terminaba y TODAS las lecturas siguientes la esperaban: la pantalla quedaba congelada
+// hasta reiniciar el servidor. Con el limite, la lectura falla, se libera `enCurso` y la siguiente vuelve a leer.
+export const LIMITE_LECTURA_MS = 60_000;
+function conTiempoLimite<T>(p: Promise<T>, ms = LIMITE_LECTURA_MS): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, rechazar) => { t = setTimeout(() => rechazar(new Error("lectura sin respuesta")), ms); });
+  return Promise.race([p, limite]).finally(() => clearTimeout(t));
+}
+
 export function vaciarCachePoblacion() { cache = null; enCurso = null; }
 
 async function paginado<T>(construir: () => any): Promise<T[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -72,7 +82,7 @@ export async function leerPoblacion(ahoraMs = Date.now()): Promise<Poblacion | n
   if (MODO_DEMO) return null;   // el demo no tiene log crudo ni registro de Zoom: sin cifra en vez de inventarla
   if (cache && ahoraMs - cache.ms < TTL_POBLACION_MS) return cache.data;
   if (enCurso) return enCurso;
-  enCurso = calcular().then((data) => { cache = { ms: ahoraMs, data }; return data; }).finally(() => { enCurso = null; });
+  enCurso = conTiempoLimite(calcular()).then((data) => { cache = { ms: ahoraMs, data }; return data; }).finally(() => { enCurso = null; });
   return enCurso;
 }
 

@@ -126,7 +126,7 @@ const porSlot = (r, slot) => r.clases.find((c) => c.slot_id === slot);
   assert.deepEqual([uno.roster_maximo, uno.desconocidos_maximo, uno.personal_maximo, uno.roster_total], [2, 1, 0, 50]);
   assert.deepEqual([dos.roster_maximo, dos.desconocidos_maximo, dos.personal_maximo], [1, 0, 1]);
   assert.equal(av.roster_maximo, 1, "host 'desconocido' de Soporte se resuelve por dia+hora+tipo Avanzado");
-  assert.equal(av.cobertura_baja, true, "Soporte siempre marca cobertura baja"); assert.match(av.aviso, /subestimar/);
+  assert.equal(av.cobertura_baja, false, "Soporte (admin con webhook, 2026-10-10) ya no marca cobertura baja por cuenta"); assert.equal(av.aviso, null);
   assert.equal(uno.cobertura_baja, false); assert.equal(uno.aviso, null);
   assert.equal(porSlot(r, "backend-sábado-10"), undefined, "la de las 10:00 empieza en 110 min: no se muestra");
 }

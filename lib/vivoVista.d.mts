@@ -1,5 +1,5 @@
 import type { ClaseVivo, VivoResponse } from "./vivoContrato.d.mts";
-export const INTERVALO_MS: number; export const MAX_ERRORES: number;
+export const INTERVALO_MS: number; export const MAX_ERRORES: number; export const PAUSA_MS: number;
 export const TEXTO_NO_DISPONIBLE: string; export const TEXTO_SIN_CLASE: string; export const TEXTO_COBERTURA_BAJA: string;
 export const AYUDA_OTRA_FRANJA: string; export const AVISO_CIFRA_NO_DISPONIBLE: string; export const TEXTO_SUPERA_ROSTER: string;
 export const TEXTO_CIFRA_FINAL: string; export const AYUDA_DESCONOCIDOS: string; export const AYUDA_PERSONAL: string;
