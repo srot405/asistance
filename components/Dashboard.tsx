@@ -6,6 +6,7 @@ import Cobertura from "./Cobertura";
 import Encabezado from "./Encabezado";
 import Estadisticas from "./Estadisticas";
 import EnVivo from "./EnVivo";
+import EnVivoLista from "./EnVivoLista";
 import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
 import Tiempo from "./Tiempo";
@@ -21,7 +22,7 @@ import type { FiltrosEstadisticas } from "../lib/estadisticasCalculo.d.mts";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "En vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"] as const;
+const PESTANAS = ["Semana", "En vivo", "Lista en vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -149,6 +150,7 @@ export default function Dashboard() {
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}
       {pestana === "En vivo" && <EnVivo modo={modo === "demo" ? "demo" : "real"} />}
+      {pestana === "Lista en vivo" && <EnVivoLista modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Cobertura" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}

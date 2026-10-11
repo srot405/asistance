@@ -1082,3 +1082,15 @@ select {
   .est-barras li { grid-template-columns: 1fr 70px; }
   .est-barras .est-barra-pista { grid-column: 1 / -1; grid-row: 2; }
 }
+/* Lista en vivo (TOC-153): senal de cada persona. Icono + texto, nunca solo color. */
+.chip-senal-roster { background: #e4f6e9; color: #145f31; }
+.chip-senal-otra_franja { background: #ffe3c7; color: #7a3d00; }
+.chip-senal-no_identificado { background: #fbe6e6; color: #8c2222; border-style: dashed; border-color: currentColor; }
+.chip-senal-personal { background: #eceaf1; color: #4d4a58; }
+.shell.dark .chip-senal-roster { background: #17402a; color: #9fe0b4; }
+.shell.dark .chip-senal-otra_franja { background: #4d2e10; color: #ffcf9e; }
+.shell.dark .chip-senal-no_identificado { background: #4a1f1f; color: #f2b4b4; }
+.shell.dark .chip-senal-personal { background: #34313f; color: #cbc8d6; }
+.lista-vivo .check { display: flex; align-items: center; gap: 6px; align-self: end; }
+.lista-vivo-tabla td small { opacity: .75; }
+.lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--orange); }
