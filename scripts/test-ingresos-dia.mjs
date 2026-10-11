@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { armarIngresosDia, filasCsvIngresos, filtrarTipo } from "../lib/ingresosDia.mjs";
+import { armarIngresosDia, contarPorDia, filasCsvIngresos, filtrarTipo } from "../lib/ingresosDia.mjs";
 import { DETALLE_DEMO_BASE } from "../lib/detalle-demo.mjs";
 
 // Botones del calendario: en su horario / se colaron a otra clase / ambos. Datos sinteticos.
@@ -22,8 +22,13 @@ assert.equal(filtrarTipo(r, "propias")[0].nombre, "Uno Demo");
 assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { ciudad: "cali" } }).conteo.ambos, 2);
 assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { franja: "s10" } }).conteo.otras, 1);
 assert.equal(armarIngresosDia({ fecha: F, roster, franjas, sesiones, entradas, filtro: { cuenta: "Soporte" } }).conteo.ambos, 1);
-const csv = filasCsvIngresos(r.filas, F);
+const csv = filasCsvIngresos(r.filas);
 assert.equal(csv.length, 4); assert.equal(csv[1][0], F);
+// semana completa: el miercoles entra; conteo por dia
+const w = armarIngresosDia({ roster, franjas, sesiones, entradas });
+assert.deepEqual(w.conteo, { propias: 2, otras: 2, ambos: 4 });
+assert.deepEqual(contarPorDia(w.filas), [{ fecha: "2026-10-07", propias: 1, otras: 0, ambos: 1 }, { fecha: F, propias: 1, otras: 2, ambos: 3 }]);
+assert.equal(filasCsvIngresos(w.filas)[1][0], "2026-10-07");
 // demo: el fixture sintetico arma sin errores y suma
 const sem = Object.keys(DETALLE_DEMO_BASE)[0], fx = DETALLE_DEMO_BASE[sem];
 const d = armarIngresosDia({ fecha: fx.sesiones[0].fecha, roster: fx.roster, franjas: fx.franjas, sesiones: fx.sesiones, entradas: fx.entradas });

@@ -1,11 +1,13 @@
 export type TipoIngreso = "propias" | "otras" | "ambos";
-export type FilaIngreso = { tipo: "propia" | "otra"; nombre: string; cedula: string; ciudad: string | null; clase_entro: string; slot_entro: string;
+export type FilaIngreso = { tipo: "propia" | "otra"; fecha: string; nombre: string; cedula: string; ciudad: string | null; clase_entro: string; slot_entro: string;
   su_clase: string | null; cuenta_zoom: string | null; primera_entrada: string | null };
-export type IngresosDia = { fecha: string; conteo: Record<TipoIngreso, number>; filas: FilaIngreso[] };
+export type IngresosDia = { fecha: string | null; conteo: Record<TipoIngreso, number>; filas: FilaIngreso[] };
 export const TIPOS_INGRESO: TipoIngreso[];
 export const ETIQUETA_TIPO: Record<"propia" | "otra", string>;
-export function armarIngresosDia(a: { fecha: string; roster: { persona_id: string; nombre: string; ciudad: string | null; slot_id: string | null }[];
+export function armarIngresosDia(a: { fecha?: string | null; roster: { persona_id: string; nombre: string; ciudad: string | null; slot_id: string | null }[];
   franjas: { slot_id: string; fecha: string; cuenta_zoom: string; horario_texto: string }[]; sesiones: { sesion_id: string; slot_id: string; fecha: string }[];
   entradas: { persona_id: string; sesion_id: string; primera_entrada?: string | null }[]; filtro?: { ciudad?: string; franja?: string; cuenta?: string } }): IngresosDia;
 export function filtrarTipo(r: IngresosDia, tipo: TipoIngreso): FilaIngreso[];
-export function filasCsvIngresos(filas: FilaIngreso[], fecha: string): (string | number)[][];
+export type ConteoDia = { fecha: string; propias: number; otras: number; ambos: number };
+export function contarPorDia(filas: FilaIngreso[]): ConteoDia[];
+export function filasCsvIngresos(filas: FilaIngreso[]): (string | number)[][];

@@ -1094,3 +1094,10 @@ select {
 .lista-vivo .check { display: flex; align-items: center; gap: 6px; align-self: end; }
 .lista-vivo-tabla td small { opacity: .75; }
 .lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--orange); }
+/* Calendario: botones generales «En su horario / Se colaron / Ambos» (cifras por dia; nombres solo en CSV). */
+.ingresos-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 4px 0 10px; }
+.ingresos-botones .tab.ingreso-otras.active { box-shadow: inset 0 -3px 0 var(--orange); }
+.calendar-day-ingresos small { font-size: 10px; font-weight: 500; opacity: .8; }
+.calendar-day-ingresos.ingreso-otras { color: var(--orange); }
+.calendar-ingresos-resumen { margin: 2px 0; }
+.calendar-ingresos-resumen b { font-size: 20px; }

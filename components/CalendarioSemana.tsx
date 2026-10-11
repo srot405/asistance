@@ -7,6 +7,16 @@ import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import { useConfianzaSemana } from "../lib/useTiempo";
 import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
 import type { DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
+import type { ConteoDia, TipoIngreso } from "../lib/ingresosDia.d.mts";
+
+// Botones generales del calendario (TOC-91): cambian lo que muestra CADA dia de la semana. En pantalla solo cifras;
+// los nombres salen unicamente en el CSV (nominal, con permiso).
+const BOTONES_INGRESO: { tipo: TipoIngreso; texto: string; unidad: string }[] = [
+  { tipo: "propias", texto: "En su horario", unidad: "en su horario" },
+  { tipo: "otras", texto: "Se colaron a otra clase", unidad: "colados" },
+  { tipo: "ambos", texto: "Ambos", unidad: "ingresos" },
+];
+type Ingresos = { conteo: Record<TipoIngreso, number>; porDia: ConteoDia[] };
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
 const fechaCorta = (fecha: string) => new Intl.DateTimeFormat("es-CO", { weekday: "short", timeZone: "UTC" })
@@ -54,12 +64,46 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   const [cargando, setCargando] = useState(false);
   const [errorDetalle, setErrorDetalle] = useState("");
   const [falloExport, setFalloExport] = useState("");
+  const [tipoIngreso, setTipoIngreso] = useState<TipoIngreso | null>(null);
+  const [ingresos, setIngresos] = useState<Ingresos | null>(null);
+  const [errorIngresos, setErrorIngresos] = useState("");
   const esDetalle = actual.nivel === "Detalle";
   const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
 
   // Cambiar de semana limpia día y filtros: "si se elige ver una semana, solo se
   // ve información de esa semana" (pedido explícito, no mezclar).
-  useEffect(() => { setSelectedDate(null); setFiltro({}); setFalloExport(""); }, [actual.semana]);
+  useEffect(() => { setSelectedDate(null); setFiltro({}); setFalloExport(""); setTipoIngreso(null); }, [actual.semana]);
+
+  // Conteos de ingresos (solo cifras) mientras haya un boton general activo; mismos filtros del calendario.
+  // Cambiar entre los tres botones reusa los mismos conteos (la respuesta trae los tres).
+  const conBoton = tipoIngreso != null;
+  useEffect(() => {
+    if (!esDetalle || !conBoton) { setIngresos(null); return; }
+    let cancelado = false;
+    (async () => {
+      setErrorIngresos("");
+      try {
+        const params = new URLSearchParams({ semana: actual.semana });
+        if (filtro.ciudad) params.set("ciudad", filtro.ciudad);
+        if (filtro.franja) params.set("franja", filtro.franja);
+        if (filtro.cuenta) params.set("cuenta", filtro.cuenta);
+        const headers: Record<string, string> = {};
+        if (modo === "demo") params.set("demo", "1");
+        else {
+          const sesion = await sesionActual();
+          if (!sesion?.access_token) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+          headers.Authorization = `Bearer ${sesion.access_token}`;
+        }
+        const r = await fetch(`/api/ingresos?${params}`, { headers, cache: "no-store" });
+        if (!r.ok) throw new Error(`No se pudieron cargar los ingresos (HTTP ${r.status}).`);
+        const data = await r.json() as Ingresos;
+        if (!cancelado) setIngresos(data);
+      } catch (error) {
+        if (!cancelado) { setIngresos(null); setErrorIngresos(error instanceof Error ? error.message : String(error)); }
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [actual.semana, esDetalle, conBoton, filtro.ciudad, filtro.franja, filtro.cuenta, modo]);
 
   useEffect(() => {
     if (!esDetalle) { setDetalle(null); return; }
@@ -98,6 +142,12 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
   const clasesDelDia = useMemo(() => selectedDate
     ? (detalle?.porClase ?? []).filter((c) => c.fecha === selectedDate) : [],
     [detalle, selectedDate]);
+  const ingresoPorFecha = useMemo(() => new Map((ingresos?.porDia ?? []).map((d) => [d.fecha, d])), [ingresos]);
+  const boton = BOTONES_INGRESO.find((b) => b.tipo === tipoIngreso) ?? null;
+  const cifraIngreso = (fecha: string | null) => {
+    if (!tipoIngreso || !ingresos) return null;
+    return fecha ? ingresoPorFecha.get(fecha)?.[tipoIngreso] ?? 0 : ingresos.conteo[tipoIngreso];
+  };
   const horarioDe = (slotId?: string) => detalle?.franjas.find((f) => f.slot_id === slotId)?.horario_texto ?? slotId ?? "";
 
   // Agregado de la semana completa (sin día elegido): si hay filtro Detalle
@@ -131,6 +181,19 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
     if (error) setFalloExport(error);
   }
 
+  async function descargarIngresos(alcance: "semana" | "dia") {
+    if (!tipoIngreso) return;
+    setFalloExport("");
+    const params = new URLSearchParams({ semana: actual.semana, tipo: tipoIngreso, formato: "csv" });
+    if (alcance === "dia") { if (!selectedDate) return; params.set("fecha", selectedDate); }
+    if (filtro.ciudad) params.set("ciudad", filtro.ciudad);
+    if (filtro.franja) params.set("franja", filtro.franja);
+    if (filtro.cuenta) params.set("cuenta", filtro.cuenta);
+    const url = new URL(`/api/ingresos?${params}`, window.location.origin);
+    const error = await descargarCsv(url, modo, `ingresos_${tipoIngreso}_${alcance === "dia" ? selectedDate : `semana_${actual.semana}`}.csv`);
+    if (error) setFalloExport(error);
+  }
+
   return <section className="panel calendar-panel" aria-label="Calendario de la semana">
     <div className="section-heading">
       <div><h2>Calendario · semana {actual.semana}</h2>
@@ -142,6 +205,16 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
       muestra sin días clicables y sin filtros de ciudad/franja/cuenta ni CSV nominal.
     </p>}
     {esDetalle && errorDetalle && <p className="historical-notice missing-notice">{errorDetalle}</p>}
+
+    {esDetalle && <div className="ingresos-botones" role="group" aria-label="Qué mostrar en cada día">
+      {BOTONES_INGRESO.map((b) => <button key={b.tipo} type="button" aria-pressed={tipoIngreso === b.tipo}
+        className={`tab ingreso-${b.tipo}${tipoIngreso === b.tipo ? " active" : ""}`}
+        onClick={() => setTipoIngreso(tipoIngreso === b.tipo ? null : b.tipo)}>
+        {b.texto}{ingresos ? ` (${ingresos.conteo[b.tipo]})` : ""}
+      </button>)}
+      <span className="nota">{tipoIngreso ? "Cada día muestra cuántas personas. Los nombres, en el CSV." : "Elige qué contar en cada día; vuelve a oprimir para ver el % de ingreso."}</span>
+    </div>}
+    {tipoIngreso && errorIngresos && <p className="historical-notice missing-notice" role="alert">{errorIngresos}</p>}
 
     <div className="calendar-layout">
       <div className="calendar-grid" role="group" aria-label="Días de la semana">
@@ -161,7 +234,9 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
             {esElSabadoResponsable && <span className="calendar-day-estrella" aria-hidden="true">{ICONO_SIN_SABADO}</span>}
             <span className="calendar-day-nombre">{fechaCorta(fecha)}</span>
             <span className="calendar-day-numero">{fecha.slice(8, 10)}</span>
-            {tieneDatos && dia ? <span className="calendar-day-pct">{porcentaje(dia.porcentaje_retencion)}</span>
+            {tieneDatos && boton ? <span className={`calendar-day-pct calendar-day-ingresos ingreso-${boton.tipo}`}>
+                {cifraIngreso(fecha) ?? "…"}<small> {boton.unidad}</small></span>
+              : tieneDatos && dia ? <span className="calendar-day-pct">{porcentaje(dia.porcentaje_retencion)}</span>
               : <span className="calendar-day-pct calendar-day-sin">{cargando && esDetalle ? "…" : "sin dato"}</span>}
           </button>;
         })}
@@ -170,6 +245,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
       <aside className="calendar-detail" aria-live="polite">
         {selectedDate ? <>
           <h3>{fechaLarga(selectedDate)}</h3>
+          {boton && <p className="calendar-ingresos-resumen"><b>{cifraIngreso(selectedDate) ?? "…"}</b> {boton.unidad} este día</p>}
           {diaSeleccionado ? <>
             <strong>{porcentaje(diaSeleccionado.porcentaje_retencion)}</strong>
             <p>{diaSeleccionado.asistieron} ingresaron · {diaSeleccionado.nunca} no ingresaron ·
@@ -182,12 +258,16 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
                 <td>{confianza.size ? <ChipConfianza c={confianza.get(clase.slot_id ?? "")} /> : "—"}</td>
               </tr>)}</tbody>
             </table></div>}
+            {puedeNominal && boton && <button className="control" onClick={() => descargarIngresos("dia")}>
+              Descargar CSV: {boton.texto.toLowerCase()} este día{modo === "demo" && " (práctica)"}
+            </button>}
             {puedeNominal && <button className="control" onClick={() => descargarNominal("dia")}>
               Descargar CSV: no ingresaron este día{modo === "demo" && " (práctica)"}
             </button>}
           </> : <p className="nota">Sin datos para este día.</p>}
         </> : <>
           <h3>Semana completa</h3>
+          {boton && <p className="calendar-ingresos-resumen"><b>{cifraIngreso(null) ?? "…"}</b> {boton.unidad} en la semana</p>}
           <strong>{porcentaje(resumenSemana.porcentaje_retencion)}</strong>
           <p>{resumenSemana.asistieron ?? "—"} ingresaron · {resumenSemana.nunca ?? "—"} no ingresaron de{" "}
             {resumenSemana.poblacion ?? "—"} medibles{filtro.ciudad || filtro.franja || filtro.cuenta ? " (con filtro aplicado)" : ""}</p>
@@ -218,6 +298,9 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
       <button className="control" disabled={!esDetalle} onClick={() => descargarNominal("semana")}>
         Descargar CSV: no ingresaron esta semana{modo === "demo" && " (práctica)"}
       </button>
+      {boton && <button className="control" onClick={() => descargarIngresos("semana")}>
+        Descargar CSV: {boton.texto.toLowerCase()} esta semana{modo === "demo" && " (práctica)"}
+      </button>}
       <button className="control" onClick={descargarReporte}
         title="Roster completo con estado por persona y resumen de captura; sirve aunque la semana esté incompleta">
         Descargar reporte CSV (semana completa o incompleta){modo === "demo" && " (práctica)"}
