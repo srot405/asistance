@@ -16,6 +16,7 @@ import type { DetalleSemanaResponse } from "../lib/types";
 const NOMBRE: Record<SerieGrafica, string> = { horario: "Horario correcto", colados: "Colados", ambos: "Total (horario + colados)" };
 const ANCHO = 640, ALTO = 230, IZQ = 40, DER = 44, SUP = 16, INF = 40;
 const UTIL_X = ANCHO - IZQ - DER, UTIL_Y = ALTO - SUP - INF, BASE = ALTO - INF;
+const ALTO_ETIQUETA = 13;   // px mínimos de segmento para que su cifra quepa adentro
 const pct = (v: number | null) => (v == null ? "—" : `${v.toFixed(1)} %`);
 
 function Eje({ techo, sufijo = "" }: { techo: number; sufijo?: string }) {
@@ -111,7 +112,20 @@ function Barras({ barras, modo, provisional, nombreClase, tramaId }: {
           return <rect key={s.tipo} x={x0 + 3} y={y(s.hasta)} width={ancho - 6} height={Math.max(alto, 1)} rx={2}
             className={`cal-graf-seg s-${s.tipo}${prov ? " provisional" : ""}`} fill={prov ? `url(#${tramaId})` : undefined} />;
         })}
-        <text x={cx} y={y(tope) - 4} textAnchor="middle" className="cal-graf-valor">{b.visible}</text>
+        {/* Cifra de cada segmento DENTRO de su color (azul = horario, amarillo = colados). Si el segmento es más bajo
+            que el texto, la cifra va pegada a la derecha de la barra a su misma altura, nunca se omite. */}
+        {b.segmentos.map((s) => {
+          const n = s.hasta - s.desde;
+          if (n <= 0) return null;
+          const dentro = BASE - y(n) >= ALTO_ETIQUETA;
+          const medio = (y(s.desde) + y(s.hasta)) / 2 + 3.5;
+          return dentro
+            ? <text key={`n-${s.tipo}`} x={cx} y={medio} textAnchor="middle"
+              className={`cal-graf-dentro d-${s.tipo}${s.tipo === "colados" && provisional ? " provisional" : ""}`}>{n}</text>
+            : <text key={`n-${s.tipo}`} x={x0 + ancho + 3} y={medio} textAnchor="start"
+              className={`cal-graf-fuera d-${s.tipo}`}>{n}</text>;
+        })}
+        {modo === "ambos" && <text x={cx} y={y(tope) - 4} textAnchor="middle" className="cal-graf-valor">{b.visible}</text>}
         <text x={cx} y={BASE + 14} textAnchor="middle" className="cal-graf-eje-x">{hora}</text>
         {extra && <text x={cx} y={BASE + 26} textAnchor="middle" className="cal-graf-eje-x">{extra}</text>}
         <rect x={cx - hueco / 2} y={SUP} width={hueco} height={UTIL_Y + 30} className="cal-graf-hit">

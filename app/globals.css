@@ -1156,8 +1156,10 @@ select {
    amarillo del manual = colados (borde ocre para llegar a 3:1 sobre blanco), gris = roster medible. Tema oscuro con
    sus propios tonos validados contra --card oscuro (no inversión automática). */
 .cal-graf { --g-horario: #406c9e; --g-colados: #f2c230; --g-colados-borde: #a87f00; --g-roster: #e6ecf1; --g-total: #18322b;
+  --g-horario-texto: #ffffff; --g-colados-texto: #2b2100;
   margin: 0 0 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 12px 14px 10px; }
-.dark .cal-graf { --g-horario: #6fa0d8; --g-colados: #e0b52a; --g-colados-borde: #e0b52a; --g-roster: #24344a; --g-total: #eef4f9; }
+.dark .cal-graf { --g-horario: #6fa0d8; --g-colados: #e0b52a; --g-colados-borde: #e0b52a; --g-roster: #24344a; --g-total: #eef4f9;
+  --g-horario-texto: #0b1a2b; --g-colados-texto: #2b2100; }
 .cal-graf-titulo { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .cal-graf-titulo small { color: var(--muted); font-weight: 400; }
 .cal-graf-svg { display: block; max-height: 260px; overflow: visible; }
@@ -1179,6 +1181,13 @@ select {
 .cal-graf-seg.s-horario { fill: var(--g-horario); }
 .cal-graf-seg.s-colados { fill: var(--g-colados); stroke: var(--g-colados-borde); stroke-width: 1.2; }
 .cal-graf-seg.s-colados.provisional { stroke-dasharray: 3 2; }
+.cal-graf-dentro, .cal-graf-fuera { font-size: 11px; font-weight: 700; font-family: inherit; pointer-events: none; }
+.cal-graf-dentro.d-horario { fill: var(--g-horario-texto); }
+.cal-graf-dentro.d-colados { fill: var(--g-colados-texto); }
+/* Trama provisional: halo del color de la tarjeta para que la cifra se lea sobre las rayas. */
+.cal-graf-dentro.d-colados.provisional { paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; fill: var(--fg); }
+.cal-graf-fuera.d-horario { fill: var(--g-horario); }
+.cal-graf-fuera.d-colados { fill: var(--g-colados-borde); }
 .cal-graf-trama-fondo { fill: var(--card); }
 .cal-graf-trama-raya { fill: var(--g-colados); }
 .cal-graf-hit { fill: transparent; }
