@@ -1151,3 +1151,52 @@ select {
 /* Clase/dia en curso en la semana abierta (TOC-91 fase 1.7): sin % hasta el cierre. */
 .calendar-day.en-curso { border-style: dashed; }
 .calendar-day.en-curso .cd-pct { font-size: 13px; font-weight: 400; font-style: italic; }
+
+/* Gráficas del calendario (TOC-91, plan 2026-10-12). Paleta del manual ROFÉ: azul de marca = horario correcto,
+   amarillo del manual = colados (borde ocre para llegar a 3:1 sobre blanco), gris = roster medible. Tema oscuro con
+   sus propios tonos validados contra --card oscuro (no inversión automática). */
+.cal-graf { --g-horario: #406c9e; --g-colados: #f2c230; --g-colados-borde: #a87f00; --g-roster: #e6ecf1; --g-total: #18322b;
+  margin: 0 0 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 12px 14px 10px; }
+.dark .cal-graf { --g-horario: #6fa0d8; --g-colados: #e0b52a; --g-colados-borde: #e0b52a; --g-roster: #24344a; --g-total: #eef4f9; }
+.cal-graf-titulo { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.cal-graf-titulo small { color: var(--muted); font-weight: 400; }
+.cal-graf-svg { display: block; max-height: 260px; overflow: visible; }
+.cal-graf-defs { position: absolute; width: 0; height: 0; }
+.cal-graf-grid { stroke: var(--line); stroke-width: 1; }
+.cal-graf-eje, .cal-graf-eje-x { font-size: 10px; fill: var(--muted); font-family: inherit; }
+.cal-graf-valor { font-size: 11px; font-weight: 600; fill: var(--fg); font-family: inherit; }
+.cal-graf-linea { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.cal-graf-linea.l-horario { stroke: var(--g-horario); }
+.cal-graf-linea.l-colados { stroke: var(--g-colados-borde); }
+.cal-graf-linea.l-colados.provisional { stroke-dasharray: 5 4; }
+.cal-graf-linea.l-ambos { stroke: var(--g-total); stroke-width: 1.4; stroke-dasharray: 2 3; opacity: .75; }
+.cal-graf-marca { stroke: var(--card); stroke-width: 2; }
+.cal-graf-marca.m-horario { fill: var(--g-horario); }
+.cal-graf-marca.m-ambos { fill: var(--g-total); }
+.cal-graf-marca.m-colados { fill: var(--g-colados); stroke: var(--g-colados-borde); stroke-width: 1.4; }
+.cal-graf-marca.m-colados.provisional { stroke-dasharray: 2 1.5; }
+.cal-graf-roster { fill: var(--g-roster); }
+.cal-graf-seg.s-horario { fill: var(--g-horario); }
+.cal-graf-seg.s-colados { fill: var(--g-colados); stroke: var(--g-colados-borde); stroke-width: 1.2; }
+.cal-graf-seg.s-colados.provisional { stroke-dasharray: 3 2; }
+.cal-graf-trama-fondo { fill: var(--card); }
+.cal-graf-trama-raya { fill: var(--g-colados); }
+.cal-graf-hit { fill: transparent; }
+.cal-graf-hit:hover { fill: var(--line); fill-opacity: .25; }
+.cal-graf-leyenda { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.cal-graf-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-graf-leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.cal-graf-leyenda .m-roster { background: var(--g-roster); border: 1px solid var(--line); }
+.cal-graf-leyenda .m-horario { background: var(--g-horario); border-radius: 50%; }
+.cal-graf-leyenda .m-colados { background: var(--g-colados); border: 1.4px solid var(--g-colados-borde); }
+.cal-graf-leyenda .m-colados.provisional { border-style: dashed;
+  background: repeating-linear-gradient(45deg, var(--g-colados) 0 3px, var(--card) 3px 6px); }
+.cal-graf-leyenda .m-ambos { height: 0; width: 16px; border-radius: 0; border-top: 2px dotted var(--g-total); }
+.cal-graf-nota { margin: 6px 0 0; }
+.cal-graf-datos { margin-top: 6px; font-size: 12px; }
+.cal-graf-datos summary { cursor: pointer; color: var(--brand); }
+.cal-graf-datos table { margin-top: 6px; }
+@media (forced-colors: active) {
+  .cal-graf-seg.s-colados, .cal-graf-marca.m-colados { stroke: CanvasText; }
+  .cal-graf-roster { fill: Canvas; stroke: CanvasText; }
+}
