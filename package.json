@@ -70,7 +70,8 @@
     "test:asistio-invariante": "node scripts/test-asistio-invariante.mjs",
     "test:estad-suprimidos": "node scripts/test-estad-suprimidos.mjs",
     "test:hero-vivo": "node scripts/test-hero-vivo.mjs",
-    "test:franjas-hermanas": "node scripts/test-franjas-hermanas.mjs"
+    "test:franjas-hermanas": "node scripts/test-franjas-hermanas.mjs",
+    "test:graficas-calendario": "node scripts/test-graficas-calendario.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.0",

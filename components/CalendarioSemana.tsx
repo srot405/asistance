@@ -6,6 +6,8 @@ import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { esFranjaPresencial, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
 import { useConfianzaSemana } from "../lib/useTiempo";
 import ChipConfianza, { mapaConfianza } from "./ChipConfianza";
+import GraficaCalendario from "./GraficaCalendario";
+import { semanaAbierta } from "../lib/graficasCalendario.mjs";
 import type { CamposIngreso, DetalleHistorico, DetalleSemanaResponse, FiltroDetalle, ResumenHistorico } from "../lib/types";
 
 const porcentaje = (valor: number | null | undefined) => (valor == null ? "—" : `${valor.toFixed(1)} %`);
@@ -314,6 +316,11 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
         </>}
       </aside>
     </div>
+
+    {/* Gráficas (plan 2026-10-12): mismas cifras de porDia/porClase, reaccionan al filtro y al día elegido. */}
+    {esDetalle && detalle && <GraficaCalendario detalle={detalle} fecha={diaSeleccionado ? selectedDate : null} modo={vistaModo}
+      abierta={semanaAbierta(actual.cerrada_en, detalle.resumen)} etiquetaDia={(f) => `${fechaCorta(f)} ${f.slice(8, 10)}`}
+      nombreClase={(slot) => claseCorta(horarioDe(slot))} />}
 
     <div className="calendar-filters">
       <label>Ciudad <select className="control" disabled={!esDetalle} value={filtro.ciudad ?? ""}
