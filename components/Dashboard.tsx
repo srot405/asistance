@@ -145,7 +145,7 @@ export default function Dashboard() {
       </div>
 
       {pestana === "Semana" && <>
-        <ResumenSemanaVisual actual={actual} nuncaPeriodo={data.nunca_periodo} sinSabado={actualSinSabado}
+        <ResumenSemanaVisual actual={actual} sinSabado={actualSinSabado}
           tiempo={{ estado: tiempoSemana.estado, datos: tiempoSemana.datos }} irATiempo={() => setPestana("Tiempo")} />
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}

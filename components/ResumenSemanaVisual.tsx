@@ -36,9 +36,8 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
 // nunca mezclada con otras. La comparación entre semanas vive en la pestaña
 // "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
 // listado estático de antes a components/CalendarioSemana.tsx (interactivo).
-export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, tiempo, irATiempo }: {
+export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiempo }: {
   actual: FilaHero;
-  nuncaPeriodo: number | null;
   // TOC-91, 2026-09-29 (pedido de Samuel): esta semana el sábado no tuvo clase
   // regular (ver lib/franjaTipo.mjs::semanaSinSabado). Se calcula una sola vez en
   // Dashboard.tsx y se pasa aquí para no repetir la comparación entre semanas.
@@ -57,10 +56,6 @@ export default function ResumenSemanaVisual({ actual, nuncaPeriodo, sinSabado, t
         </p>
         <h1>Ingresos a clases virtuales</h1>
         <p className="hero-copy">Una lectura ejecutiva del alcance semanal, con el nivel de evidencia visible.</p>
-      </div>
-      <div className="period-never" aria-label="Nunca ingresaron en todo el período">
-        <strong>{nuncaPeriodo ?? "—"}</strong><span>nunca ingresaron en todo el período</span>
-        {actual.periodo_desde && actual.periodo_hasta && <small>{actual.periodo_desde} a {actual.periodo_hasta}</small>}
       </div>
     </section>
 
