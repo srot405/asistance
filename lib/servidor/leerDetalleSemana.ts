@@ -52,7 +52,7 @@ async function cargarBaseSupabase(semana: string) {
     // el resto de este módulo lo ignora.
     tabla<RosterRow>("asist_roster", "persona_id,nombre,ciudad,slot_id,correo_norm", semana, ["persona_id"]),
     // hora_inicio/hora_fin: idem, solo Presencia (lib/horarioFranja.mjs).
-    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto,hora_inicio,hora_fin,tipo", semana, ["slot_id"]),
+    tabla<FranjaRow>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto,hora_inicio,hora_fin", semana, ["slot_id"]),
     tabla<SesionRow>("asist_sesiones", "sesion_id,slot_id,fecha,entradas_totales,estado_captura", semana, ["sesion_id"]),
     tabla<EntradaRow>("asist_entradas", "persona_id,sesion_id", semana, ["persona_id", "sesion_id"]),
     tabla<CeldaRow>("asist_celda_semana", "persona_id,estado", semana, ["persona_id"]),
