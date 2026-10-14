@@ -20,11 +20,11 @@ const difiereDelEtl = (f: FilaHero) => f.resumen_fuente === "vivo" && f.asistier
 function OrigenCifra({ fila }: { fila: FilaHero }) {
   if (fila.nivel !== "Detalle" || !fila.resumen_fuente) return null;
   if (fila.resumen_fuente === "etl") return <span className="origen-cifra" data-testid="origen-cifra">
-    {" · "}cifra del cierre del ETL (no se pudo calcular en vivo)</span>;
+    {" · "}cifra guardada al cierre de la semana (no se pudo calcular en vivo)</span>;
   return <span className="origen-cifra" data-testid="origen-cifra" title={fila.resumen_calculado_en
     ? `Calculado ${new Date(fila.resumen_calculado_en).toLocaleString("es-CO")}` : undefined}>
     {" · "}calculado en vivo, igual al calendario
-    {difiereDelEtl(fila) && <> · el último cierre del ETL decía {fila.asistieron_etl ?? "—"} de {fila.poblacion_etl ?? "—"} ({porcentaje(fila.porcentaje_retencion_etl ?? null)})</>}
+    {difiereDelEtl(fila) && <> · la cifra guardada al cierre decía {fila.asistieron_etl ?? "—"} de {fila.poblacion_etl ?? "—"} ({porcentaje(fila.porcentaje_retencion_etl ?? null)})</>}
   </span>;
 }
 
@@ -60,6 +60,7 @@ function TarjetaTiempo({ actual, tiempo, t, irATiempo, poblacion }: {
   const origen = t?.origen_personas ?? null;
   const fila: ConteoOrigen | null = !origen ? null : poblacion === "horario" ? origen.con_propia : poblacion === "colados" ? origen.solo_visita : origen.total;
   const esperadas = poblacion === "horario" ? actual.ingresaron_horario : poblacion === "colados" ? actual.ingresaron_colados : actual.asistieron;
+  const faltan = fila && esperadas != null ? Math.max(fila.sin_pct, esperadas - fila.con_pct) : 0;   // ingresaron (en vivo) y aun sin % en la base
   const verPestana = irATiempo ? <button type="button" className="link-boton" onClick={irATiempo}>ver pestaña Tiempo</button> : "ver pestaña Tiempo";
   const provisional = t?.provisional ? <> · ⏳ provisional</> : null;
   const sp = t?.semana_personas ?? null;
@@ -68,10 +69,11 @@ function TarjetaTiempo({ actual, tiempo, t, irATiempo, poblacion }: {
     {t && t.hay_tiempos ? (fila ? <>
       <strong>{pctEntero(fila.con_pct, fila.personas)}</strong>
       <small><b>{fila.con_pct} de {fila.personas} {QUIENES[poblacion]} con % de estancia en sala</b>
-        {fila.sin_pct > 0 && <b className="tiempo-alerta" data-testid="alerta-sin-pct"> · ⚠ {fila.sin_pct} sin % de estancia (revisar)</b>}
+        {faltan > 0 && (!actual.cerrada_en
+          ? <span data-testid="nota-tiempo-desfase"> · {faltan} por calcular (el tiempo se actualiza cada ~15 min)</span>
+          : <b className="tiempo-alerta" data-testid="alerta-sin-pct"> · ⚠ {faltan} sin % de estancia (revisar)</b>)}
         {" "}· <b className="tiempo-bajo50" data-testid="bajo-50">{fila.rojo} no superan el 50 % de estancia ni con su mejor clase</b> · {fila.cumplen} sí lo superan
         {fila.pendientes > 0 && <> · {fila.pendientes} pendientes de medir</>}
-        {esperadas != null && esperadas !== fila.personas && <span data-testid="nota-tiempo-desfase"> · el tiempo se calcula cada ~15 min: {fila.personas} de {esperadas} ya procesadas</span>}
         {provisional} · {verPestana}</small></>
       : poblacion === "colados"
         ? <><strong>—</strong><small>Sin detalle por persona de los colados para esta semana (falta la vista de origen). Entradas de visita: {t.visitas.sesiones} · {t.visitas.cumplen} cumplen · {t.visitas.rojo} bajo 50 %{provisional} · {verPestana}</small></>
@@ -105,6 +107,7 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
   // El selector solo existe con la cifra en vivo (trae horario y colados por persona); sin ella se muestra todo como siempre.
   const hayPoblaciones = actual.nivel === "Detalle" && actual.ingresaron_horario != null && actual.ingresaron_colados != null;
   const poblacion: Poblacion = hayPoblaciones ? elegida : "todos";
+  const abierta = actual.nivel === "Detalle" && !actual.cerrada_en;       // semana en curso: cifras parciales
   const horario = actual.ingresaron_horario ?? 0, colados = actual.ingresaron_colados ?? 0, total = actual.poblacion ?? 0;
   return <>
     <section className="historical-hero">
@@ -114,10 +117,11 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
           </span>}
         </p>
         <h1>Ingresos a clases virtuales</h1>
-        <p className="hero-copy">Una lectura ejecutiva del alcance semanal, con el nivel de evidencia visible.</p>
+        <p className="hero-copy">Cuántos entraron a clase esta semana y cuánto tiempo se quedaron.</p>
       </div>
     </section>
 
+    {abierta && <p className="historical-notice weekly-notice" data-testid="aviso-semana-abierta">⏳ Semana abierta: solo cuentan las clases ya realizadas. «Aún no ingresaron» puede bajar cuando se dicten las demás.</p>}
     {hayPoblaciones && <SelectorPoblacion actual={actual} valor={poblacion} onCambiar={setElegida} />}
     <section className="metric-grid" aria-label="Cifras de la semana" data-poblacion={poblacion}>
       <article className="metric-card retained"><span>Ingresaron{poblacion === "horario" ? " a su clase" : poblacion === "colados" ? " (colados)" : ""}</span>
@@ -125,11 +129,11 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
           <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a>
             <OrigenCifra fila={actual} /></small></>}
         {poblacion === "horario" && <><strong>{total > 0 ? porcentaje((horario / total) * 100) : "—"}</strong>
-          <small>{horario} de {total} personas medibles entraron a su propia clase (horario correcto){esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a></small></>}
+          <small>{horario} de {total} personas medibles entraron a su propia clase{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a></small></>}
         {poblacion === "colados" && <><strong>{colados > 0 ? "100 %" : "—"}</strong>
           <small>{colados} de {colados} colados: entraron a una clase que no es la suya y no a la suya; por definición todos ingresaron · <a href="#definiciones">¿Qué significa?</a></small></>}
       </article>
-      <article className="metric-card absent"><span>No ingresaron{poblacion === "horario" ? " a su clase" : poblacion === "colados" ? " (colados)" : ""}</span>
+      <article className="metric-card absent"><span>{poblacion === "horario" ? "No entraron a su clase" : poblacion === "colados" ? "No ingresaron (colados)" : abierta ? "Aún no ingresaron" : "No ingresaron"}</span>
         {poblacion === "todos" && <><strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small></>}
         {poblacion === "horario" && <><strong>{total > 0 ? porcentaje(((total - horario) / total) * 100) : "—"}</strong>
           <small>{total - horario} personas no entraron a su clase: {actual.nunca ?? "—"} no entraron a ninguna clase y {colados} entraron solo como colados · <a href="#definiciones">¿Qué significa?</a></small></>}
@@ -142,11 +146,11 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
     {actual.nivel === "Sin dato" && <p className="historical-notice missing-notice"><b>Sin dato suficiente.</b>{" "}
       {actual.aviso.replace(/^Sin dato suficiente\s*·?\s*/, "")}</p>}
 
-    <section className="panel reconciliation" aria-label="Cuadre del roster">
-      <div className="section-heading"><div><h2>Cuadre del roster</h2><p>La población siempre debe quedar completamente explicada.</p></div><Nivel nivel={actual.nivel} /></div>
-      <div className="reconciliation-line" role="status"><b>{actual.cuadre.roster} roster</b><span>=</span>
+    <section className="panel reconciliation" aria-label="Lista de la semana">
+      <div className="section-heading"><div><h2>Lista de la semana</h2><p>Todas las personas de la lista, repartidas por estado.</p></div><Nivel nivel={actual.nivel} /></div>
+      <div className="reconciliation-line" role="status"><b>{actual.cuadre.roster} personas en la lista</b><span>=</span>
         <span>{actual.cuadre.medibles} medibles</span><span>+</span><span>{actual.cuadre.sin_dato} sin dato</span><span>+</span>
-        <span>{actual.cuadre.pendientes} pendientes</span><span>+</span><span>{actual.cuadre.sin_clase} sin clase ocurrida</span>
+        <span>{actual.cuadre.pendientes} pendientes</span><span>+</span><span>{actual.cuadre.sin_clase} sin clase realizada</span>
       </div>
       {actual.cuadre.roster > 0 && <p className="coverage-line" data-testid="base-seguimiento">Base del denominador:{" "}
         <b>{textoBaseSeguimiento(actual.cuadre.roster, actual.congelada_en, { reconstruida: actual.roster_reconstruido })}</b></p>}
@@ -159,7 +163,7 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
       <p><b>Población (botones de arriba):</b> «Todos los que ingresaron» = entraron a su clase o a otra; «En su horario» = entraron a su propia clase; «Colados» = entraron solo a otra clase. Cada persona está en una sola de las dos últimas, así que suman el total. Un colado siempre ingresó, por eso «No ingresaron» no aplica para ellos.</p>
       <p><b>Tiempo en clase · % de estancia:</b> cuenta personas, no entradas. «Con % de estancia» son las que ingresaron y tienen un % medido en alguna clase (el de su mejor clase), aunque sea mínimo; el objetivo es que sean todas. «No superan el 50 % ni con su mejor clase» son las que, aun en su mejor clase medida, no llegaron a la mitad del tiempo; su % bajo se conserva y se muestra. Si alguna persona que ingresó no tuviera ningún % medido, la tarjeta lo avisa.</p>
       <p><b>No ingresaron:</b> personas medibles sin ninguna entrada identificada; no incluye clases pendientes ni sin dato.</p>
-      <p><b>Calculado en vivo:</b> en semanas con detalle, estas cifras y el cuadre se recalculan desde las tablas del panel (las mismas del calendario); el resumen del cierre del ETL se conserva solo como referencia.</p>
+      <p><b>Calculado en vivo:</b> en semanas con detalle, estas cifras y el cuadre se recalculan desde las tablas del panel (las mismas del calendario); la cifra guardada al cierre de la semana se conserva solo como referencia.</p>
       <p><b>Mínimo:</b> la semana tuvo clases sin captura (sobre todo de la cuenta soporte). El % real de ingreso es igual o mayor al mostrado.</p>
       <p><b>Nunca en el período:</b> personas activas al cierre del período que no aparecen identificadas en ninguna semana mostrada.</p>
     </details>

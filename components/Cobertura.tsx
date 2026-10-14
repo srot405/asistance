@@ -23,7 +23,7 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
       const params = new URLSearchParams({ semana: actual.semana, materia: actual.materia });
       const response = await fetch(`/api/cobertura?${params}`, {
         headers: { Authorization: `Bearer ${sesion.access_token}` }, cache: "no-store" });
-      if (!response.ok) throw new Error(`No se pudo cargar la cobertura (HTTP ${response.status}).`);
+      if (!response.ok) throw new Error(`No se pudo cargar la captura de clases (HTTP ${response.status}).`);
       setDatos((await response.json()) as CoberturaResponse);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -40,21 +40,20 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
     return () => clearInterval(id);
   }, [hayEnCurso, cargar]);
 
-  if (modo === "demo") return <section className="panel" aria-label="Cobertura por clase">
-    <div className="section-heading"><div><h2>Cobertura por clase</h2></div></div>
+  if (modo === "demo") return <section className="panel" aria-label="Captura de clases">
+    <div className="section-heading"><div><h2>Captura de clases</h2></div></div>
     <p className="historical-notice missing-notice">
-      La cobertura usa el registro real de Zoom y no existe en modo práctica.</p>
+      La captura de clases usa el registro real de Zoom y no existe en modo práctica.</p>
   </section>;
 
   const dias = new Map<string, CoberturaResponse["clases"]>();
   for (const clase of datos?.clases ?? []) dias.set(clase.fecha, [...(dias.get(clase.fecha) ?? []), clase]);
   const r = datos?.resumen;
 
-  return <section className="panel" aria-label="Cobertura por clase">
+  return <section className="panel" aria-label="Captura de clases">
     <div className="section-heading">
-      <div><h2>Cobertura por clase</h2>
-        <p>Cada clase del roster de la semana con su estado de captura, el mismo que usa el resto del panel
-          (<code>asist_sesiones.estado_captura</code>, escrito por el ETL). Las personas son las del ETL: del roster que entraron y visitas.</p></div>
+      <div><h2>Captura de clases</h2>
+        <p>Las clases de la semana y si Zoom registró quién entró. Es captura de <b>clases</b> (no es el % de estancia de las personas, que está en la pestaña Tiempo).</p></div>
       <button className="control" onClick={cargar} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar"}</button>
     </div>
 
@@ -65,15 +64,15 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
       <article className="presencia-card nunca-entro"><span>Sin captura confiable</span>
         <strong>{r.faltan}</strong><small>sin captura, Zoom limit o dudosa{r.en_curso ? ` · ${r.en_curso} en curso` : ""}</small></article>
       <article className="presencia-card entro-salio"><span>Por dictar</span>
-        <strong>{r.pendientes}</strong><small>de {r.programadas} del roster</small></article>
+        <strong>{r.pendientes}</strong><small>de {r.programadas} clases de la semana</small></article>
     </div>}
 
     {datos && datos.clases.length === 0 && <p className="historical-notice weekly-notice">
-      Esta semana no tiene clases en el roster congelado.</p>}
+      No hay clases programadas esta semana.</p>}
     {datos && datos.clases.length > 0 && <div className="cob-tabla-wrap">
       <table className="cob-tabla">
-        <thead><tr><th>Clase</th><th>Cuenta</th><th className="num">Roster</th>
-          <th className="num">Entraron (roster)</th><th className="num">Visitas</th><th>Estado de captura</th></tr></thead>
+        <thead><tr><th>Clase</th><th>Cuenta</th><th className="num">Inscritas</th>
+          <th className="num">Entraron (su clase)</th><th className="num">Colados (entradas)</th><th>Estado de captura</th></tr></thead>
         <tbody>
           {[...dias.entries()].map(([fecha, clases]) => [
             <tr key={fecha} className="cob-dia"><td colSpan={6}>
@@ -85,7 +84,7 @@ export default function Cobertura({ actual, modo }: { actual: ResumenHistorico; 
               <td className="num">{c.roster_n}</td>
               <td className="num">{c.personas_roster ?? "—"}</td>
               <td className="num">{c.personas_visita ?? "—"}</td>
-              <td><span className={`cob-estado ${CSS_COBERTURA[c.estado]}`} title={c.estado_captura ? `estado_captura: ${c.estado_captura}` : "El ETL aún no creó la sesión de esta clase"}>
+              <td><span className={`cob-estado ${CSS_COBERTURA[c.estado]}`} title={c.estado_captura ? `Estado: ${c.estado_captura}` : "Aún no hay registro de esta clase"}>
                 {ETIQUETAS_COBERTURA[c.estado]}</span></td>
             </tr>),
           ])}

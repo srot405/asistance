@@ -110,7 +110,7 @@ for (const [k, v] of Object.entries(capturas)) assert.doesNotMatch(v, /@|ejemplo
 
 // 11) Dashboard: pestana "En vivo" justo despues de Semana, y nada de En vivo se monta en otras pestanas
 { const d = await readFile(new URL("../components/Dashboard.tsx", import.meta.url), "utf8");
-  assert.match(d, /PESTANAS = \["Semana", "En vivo", "Lista en vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"]/);
+  assert.match(d, /PESTANAS = \["Semana", "En vivo", "Lista en vivo", "Presencia", "Captura de clases", "Tiempo", "Estadísticas", "Historial"]/);
   assert.match(d, /\{pestana === "En vivo" && <EnVivo /,"EnVivo solo se monta con su pestana activa");
   assert.equal((d.match(/useVivo/g) ?? []).length, 1, "Dashboard no llama al hook (solo limpia el cache en cambios de sesion)");
   assert.match(d, /alCambiarSesionVivo\(evento, sesion\?\.user\?\.id\)/);

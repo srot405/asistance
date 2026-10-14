@@ -80,3 +80,18 @@ const sinP = construirBase(roster, franjas, sesiones.map((s) => (s.slot_id === "
 assert.equal(slotsEnCurso(sinP).size, 0, "clase cerrada: sin marca");
 
 console.log("RESUMEN: asistio=regla_unica_ambos no_ingresaron=complemento_exacto presencia=misma_regla en_curso=marcado estado=verde");
+
+// 2026-10-14: quien entro a otra clase pero su propia clase aun no ocurrio (semana abierta) INGRESO y es medible (antes salia del conteo)
+{
+  const franjas2 = [{ slot_id: "a", fecha: "2026-10-13", cuenta_zoom: "x" }, { slot_id: "b", fecha: "2026-10-16", cuenta_zoom: "x" }];
+  const sesiones2 = [{ sesion_id: "2026-10-12|a", slot_id: "a", fecha: "2026-10-13", entradas_totales: 2, estado_captura: "capturada" },
+                     { sesion_id: "2026-10-12|b", slot_id: "b", fecha: "2026-10-16", entradas_totales: 0, estado_captura: "por_ocurrir" }];
+  const roster2 = [{ persona_id: "1", slot_id: "a" }, { persona_id: "2", slot_id: "b" }, { persona_id: "3", slot_id: "b" }];
+  const entradas2 = [{ persona_id: "1", sesion_id: "2026-10-12|a" }, { persona_id: "2", sesion_id: "2026-10-12|a" }];
+  const celdas2 = [{ persona_id: "1", estado: "SI" }, { persona_id: "2", estado: "SI" }, { persona_id: "3", estado: "P" }];
+  const base2 = construirBase(roster2, franjas2, sesiones2, entradas2, celdas2);
+  const r2 = calcularDetalleSemana("2026-10-12", base2).resumen;
+  assert.equal(r2.asistieron, 2, "ingresaron: 1 en su horario + 1 colado cuya clase aun no ocurre");
+  assert.equal(r2.horario, 1); assert.equal(r2.colados, 1);
+  assert.equal(r2.asistieron + r2.nunca, r2.poblacion, "asistieron + nunca = poblacion");
+}

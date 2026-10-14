@@ -45,7 +45,7 @@ assert.match(css, /@media \(max-width: 600px\) \{ \.tiempo-grid \{ grid-template
 assert.match(fuentes.Tiempo, /TEXTO_NO_DISPONIBLE/);
 assert.match(fuentes.TendenciaTiempo, /TEXTO_NO_DISPONIBLE/);
 const dash = await leer("components/Dashboard.tsx");
-assert.match(dash, /\["Semana", "En vivo", "Lista en vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"]/);
+assert.match(dash, /\["Semana", "En vivo", "Lista en vivo", "Presencia", "Captura de clases", "Tiempo", "Estadísticas", "Historial"]/);
 for (const comp of ["<Presencia ", "<Cobertura ", "<CalendarioSemana ", "<TendenciaHistorica "]) assert.ok(dash.includes(comp), `${comp} sigue`);
 // 9) TOC-146: Presencia usa el criterio unico del 50 % de Tiempo (sin 70 %, sin "Entró y salió")
 const presenciaSrc = await leer("components/Presencia.tsx");

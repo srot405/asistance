@@ -118,9 +118,9 @@ async function ruta(aplicar) {
     asistieron_etl: 170, poblacion_etl: 230, porcentaje_retencion_etl: 73.91 };
   const t1 = await renderizar("components/ResumenSemanaVisual.tsx", props(vivo));
   assert.match(t1, /174 de 233 personas medibles/); assert.match(t1, /calculado en vivo, igual al calendario/);
-  assert.match(t1, /cierre del ETL decía 170 de 230 \(73\.9 %\)/);
+  assert.match(t1, /cifra guardada al cierre decía 170 de 230 \(73\.9 %\)/);
   const t2 = await renderizar("components/ResumenSemanaVisual.tsx", props({ ...vivo, asistieron_etl: 174, poblacion_etl: 233 }));
-  assert.match(t2, /calculado en vivo, igual al calendario/); assert.doesNotMatch(t2, /cierre del ETL decía/, "sin nota si coincide");
+  assert.match(t2, /calculado en vivo, igual al calendario/); assert.doesNotMatch(t2, /cifra guardada al cierre decía/, "sin nota si coincide");
   const t3 = await renderizar("components/ResumenSemanaVisual.tsx", props({ ...fila("2026-10-05", "Detalle"), resumen_fuente: "etl" }));
   assert.match(t3, /no se pudo calcular en vivo/);
   const t4 = await renderizar("components/ResumenSemanaVisual.tsx", props(fila("2026-08-25", "Solo semanal")));

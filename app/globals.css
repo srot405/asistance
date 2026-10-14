@@ -996,11 +996,6 @@ select {
 .tiempo-track.cob-baja { border: 2px dotted var(--t-sindato); }
 .link-boton { background: none; border: 0; padding: 0; color: var(--brand); text-decoration: underline; cursor: pointer; font: inherit; }
 .metric-card.tiempo { background: var(--t-sindato-bg); color: var(--t-sindato-fg); }
-.tiempo-vistas { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
-.tiempo-vista { min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-size: 12.5px; cursor: pointer; opacity: .85; }
-.tiempo-vista:hover { opacity: 1; }
-.tiempo-vista[aria-checked="true"] { background: #406c9e; border-color: #406c9e; color: #fff; opacity: 1; }
-.tiempo-vista:focus-visible { outline: 3px solid #83b6dd; outline-offset: 2px; }
 @media (min-width: 981px) { .metric-grid:has(.metric-card.tiempo) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 980px) { .tiempo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .tiempo-grid { grid-template-columns: 1fr; } .tiempo-filtros label { flex: 1 1 100%; } .tiempo-card { padding: 14px; } }
@@ -1216,10 +1211,12 @@ select {
 }
 
 .poblacion-vistas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
-.poblacion-vista { min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+.poblacion-vista { min-height: 44px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
 .poblacion-vista:hover { border-color: #406c9e; }
 .poblacion-vista[aria-checked="true"] { background: #406c9e; border-color: #406c9e; color: #fff; }
 .poblacion-vista:focus-visible { outline: 3px solid #83b6dd; outline-offset: 2px; }
 .shell.dark .poblacion-vista[aria-checked="true"] { background: #2b4a6f; border-color: #83b6dd; }
 .tiempo-bajo50 { text-decoration: underline; text-decoration-color: #d1793f; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .tiempo-alerta { color: #b3261e; }
+
+.control, .tab { min-height: 44px; }

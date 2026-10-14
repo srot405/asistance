@@ -22,7 +22,7 @@ import type { FiltrosEstadisticas } from "../lib/estadisticasCalculo.d.mts";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
-const PESTANAS = ["Semana", "En vivo", "Lista en vivo", "Presencia", "Cobertura", "Tiempo", "Estadísticas", "Historial"] as const;
+const PESTANAS = ["Semana", "En vivo", "Lista en vivo", "Presencia", "Captura de clases", "Tiempo", "Estadísticas", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function Dashboard() {
@@ -152,7 +152,7 @@ export default function Dashboard() {
       {pestana === "En vivo" && <EnVivo modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Lista en vivo" && <EnVivoLista modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
-      {pestana === "Cobertura" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {pestana === "Captura de clases" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Estadísticas" && <Estadisticas actual={actual} modo={modo === "demo" ? "demo" : "real"} filtros={filtrosEst} setFiltros={setFiltrosEst} />}
       {pestana === "Historial" && <>

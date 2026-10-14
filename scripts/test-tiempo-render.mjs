@@ -24,7 +24,7 @@ const origen = normalizarOrigen([
 assert.deepEqual([origen.total.personas, origen.total.cumplen, origen.total.rojo, origen.total.con_pct, origen.total.sin_pct], [525, 412, 113, 525, 0], "suma exacta de origenes");
 assert.equal(normalizarOrigen([]), null, "sin filas no hay origen");
 const tO = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: normalizarResumenPersonas(d.resumenFila), origen_personas: origen } });
-const real = { ...actual, asistieron: 525, poblacion: 720, nunca: 195, porcentaje_retencion: 72.9, porcentaje_nunca: 27.1, ingresaron_horario: 465, ingresaron_colados: 60 };
+const real = { ...actual, asistieron: 525, poblacion: 720, nunca: 195, porcentaje_retencion: 72.9, porcentaje_nunca: 27.1, ingresaron_horario: 465, ingresaron_colados: 60, cerrada_en: "2026-10-11T02:00:00Z" };
 const props = (extra = {}, datos = tO, act = real) => ({ actual: act, nuncaPeriodo: 1, sinSabado: false, tiempo: { estado: "ok", datos }, irATiempo: () => {}, ...extra });
 const R = (extra, datos, act) => renderizar("components/ResumenSemanaVisual.tsx", props(extra, datos, act));
 
@@ -51,9 +51,11 @@ const origenFalla = normalizarOrigen([
 const tF = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: normalizarResumenPersonas(d.resumenFila), origen_personas: origenFalla } });
 const falla = await R({}, tF);
 assert.ok(falla.includes("524 de 525") && falla.includes("⚠ 1 sin % de estancia (revisar)"), falla);
-// 5) Tiempo aun sin recalcular (semana abierta): avisa el desfase en vez de afirmar una cobertura que no cuadra con «Ingresaron»
+// 5) Ingresaron (vivo) 531 pero el tiempo solo cubre 525: en semana CERRADA es una alerta (⚠ 6 sin % de estancia); en semana ABIERTA, «por calcular»
 const desfase = await R({}, tO, { ...real, asistieron: 531 });
-assert.ok(desfase.includes("el tiempo se calcula cada ~15 min: 525 de 531 ya procesadas"), desfase);
+assert.ok(desfase.includes("⚠ 6 sin % de estancia (revisar)"), desfase);
+const desfaseAbierta = await R({}, { ...tO, provisional: true }, { ...real, asistieron: 531, cerrada_en: null });
+assert.ok(desfaseAbierta.includes("6 por calcular (el tiempo se actualiza cada ~15 min)") && !desfaseAbierta.includes("⚠ 6"), desfaseAbierta);
 // 6) Sin la cifra en vivo (ETL de respaldo) no hay selector y todo se ve como antes
 const etl = await R({}, tO, { ...actual });
 assert.ok(!etl.includes("Todos los que ingresaron ·"), "sin selector sin cifra en vivo");
@@ -65,6 +67,19 @@ assert.ok(sinVistaCol.includes("falta la vista de origen"), sinVistaCol);
 // 8) Lectura de antes (jornada) conserva el N de M del backend cuando no hay origen
 const jornada = await R({ poblacionInicial: "horario" }, t);
 assert.ok(jornada.includes(`${a.n_medibles} de ${a.n_ingresaron} con tiempo medido`), jornada);
+// 9) Semana abierta (2026-10-14): aviso y «Aún no ingresaron»; semana cerrada: «No ingresaron»
+const abierta = await R({}, { ...tO, provisional: true }, { ...real, cerrada_en: null });
+assert.ok(abierta.includes("Semana abierta") && abierta.includes("Aún no ingresaron"), abierta);
+const cerrada = await R({}, tO, { ...real, cerrada_en: "2026-10-11T02:00:00Z" });
+assert.ok(!cerrada.includes("Semana abierta") && cerrada.includes("No ingresaron") && !cerrada.includes("Aún no ingresaron"), "cerrada sin aviso");
+// 10) «En su horario»: el titulo de la segunda tarjeta es «No entraron a su clase» (no «No ingresaron», que incluiria a colados)
+const hor2 = await R({ poblacionInicial: "horario" }, tO, { ...real, cerrada_en: "2026-10-11T02:00:00Z" });
+assert.ok(hor2.includes("No entraron a su clase") && !hor2.includes("No ingresaron a su clase"), hor2);
+// 11) Hueco: en semana cerrada, ingresaron (en vivo) sin % en la base = alerta; en abierta = «por calcular»
+const hueco = await R({}, tO, { ...real, asistieron: 527, cerrada_en: "2026-10-11T02:00:00Z" });      // origen dice 525 con %, vivo 527
+assert.ok(hueco.includes("⚠ 2 sin % de estancia (revisar)"), hueco);
+const porCalcular = await R({}, { ...tO, provisional: true }, { ...real, asistieron: 527, cerrada_en: null });
+assert.ok(porCalcular.includes("2 por calcular") && !porCalcular.includes("⚠"), porCalcular);
 { // accesibilidad
   const { readFile } = await import("node:fs/promises");
   const fuente = await readFile(new URL("../components/ResumenSemanaVisual.tsx", import.meta.url), "utf8");
