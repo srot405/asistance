@@ -8,24 +8,26 @@ export type PoblacionTiempo = "todos" | "horario" | "colados";
 const ETIQUETA: Record<PoblacionTiempo, string> = { todos: "Todos los que ingresaron", horario: "En su horario", colados: "Colados" };
 const QUIENES: Record<PoblacionTiempo, string> = { todos: "personas que ingresaron", horario: "personas que entraron a su clase", colados: "colados" };
 
-export default function TiempoPersonas({ datos, vista, onCambiar, filtrado }: {
+export default function TiempoPersonas({ datos, vista, onCambiar, filtrado, soloTodos = false }: {
   datos: PersonasPorOrigen; vista: PoblacionTiempo; onCambiar: (v: PoblacionTiempo) => void; filtrado: boolean;
+  soloTodos?: boolean;     // semana reconstruida: la clase de cada persona es la asignacion actual, no se separa en su horario / colados
 }) {
-  const a = datos[vista];
+  const a = datos[soloTodos ? "todos" : vista];
+  const v0: PoblacionTiempo = soloTodos ? "todos" : vista;
   const pct = a.n_ingresaron > 0 ? Math.round((a.con_pct / a.n_ingresaron) * 100) : null;
   return <section className="tiempo-personas-bloque" aria-label="Tiempo por persona que ingresó" data-testid="tiempo-personas">
     <p className="tiempo-encabezado" data-testid="tiempo-encabezado">
-      <b>{datos.todos.n_ingresaron} ingresaron</b> = {datos.horario.n_ingresaron} en su horario + {datos.colados.n_ingresaron} colados
+      <b>{datos.todos.n_ingresaron} ingresaron</b>{!soloTodos && <> = {datos.horario.n_ingresaron} en su horario + {datos.colados.n_ingresaron} colados</>}
       {filtrado && <> <span className="nota">(con los filtros elegidos)</span></>}</p>
-    <div className="poblacion-vistas" role="radiogroup" aria-label="Población del tiempo en clase" data-testid="selector-tiempo">
+    {!soloTodos && <div className="poblacion-vistas" role="radiogroup" aria-label="Población del tiempo en clase" data-testid="selector-tiempo">
       {(["todos", "horario", "colados"] as PoblacionTiempo[]).map((v) =>
         <button key={v} type="button" role="radio" className="poblacion-vista" data-poblacion={v} aria-checked={vista === v} onClick={() => onCambiar(v)}>
           {ETIQUETA[v]} · {datos[v].n_ingresaron}</button>)}
-    </div>
+    </div>}
     {a.n_ingresaron === 0
-      ? <p className="nota" data-testid="tiempo-personas-vacio">No hay {QUIENES[vista]} con estos filtros.</p>
+      ? <p className="nota" data-testid="tiempo-personas-vacio">No hay {QUIENES[v0]} con estos filtros.</p>
       : <>
-        <p className="tiempo-cobertura" data-testid="tiempo-cobertura-personas"><b>{a.con_pct} de {a.n_ingresaron} {QUIENES[vista]} con % de estancia en sala{pct != null && <> ({pct} %)</>}</b>
+        <p className="tiempo-cobertura" data-testid="tiempo-cobertura-personas"><b>{a.con_pct} de {a.n_ingresaron} {QUIENES[v0]} con % de estancia en sala{pct != null && <> ({pct} %)</>}</b>
           {a.sin_pct > 0 && <b className="tiempo-alerta" data-testid="alerta-sin-pct-tiempo"> · ⚠ {a.sin_pct} sin % de estancia (revisar)</b>}</p>
         <TiempoTarjetas a={a} porPersona />
         <h3>Distribución del % de estancia (mejor clase de cada persona)</h3>

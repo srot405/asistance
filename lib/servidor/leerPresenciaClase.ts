@@ -2,15 +2,17 @@ import "server-only";
 import { asistioEnSemana, clasificar, tipoIngreso } from "../detalleCalculo.mjs";
 import { contarPresencia, estadoPresenciaOficial } from "../presenciaTiempo.mjs";
 import type { ConteosPresencia, EstadoPresencia, PresenciaClaseResponse, PresenciaNominal } from "../types";
-import { cargarBase, semanaTieneDetalle } from "./leerDetalleSemana";
+import { cargarBase, semanaConPersonas, semanaTieneDetalle } from "./leerDetalleSemana";
 import { leerTiempoPersonasClase, leerTiempoReporte } from "./leerTiempo";
 
-export { semanaTieneDetalle };
+export { semanaConPersonas, semanaTieneDetalle };
 
 // TOC-146 (D2): la presencia ya no se calcula con eventos crudos de Zoom ni con otro umbral. Se deriva del veredicto oficial de tiempo
 // (50 %, guardado por el backend en v_asist_tiempo_persona) cruzado con asist_entradas. Sin tiempo medido -> "sin_dato".
 async function clasificarPresenciaFranja(semana: string, slotId: string) {
-  if (!(await semanaTieneDetalle(semana))) throw new Error("Esta semana no tiene roster congelado (nivel distinto de Detalle)");
+  const gate = await semanaConPersonas(semana);
+  if (!gate.ok) throw new Error("Esta semana no tiene detalle por persona");
+  const reconstruida = gate.reconstruida;
   const base = await cargarBase(semana);
   const franja = base.franjas.get(slotId);
   if (!franja) throw new Error("Franja no encontrada en esta semana");
@@ -20,6 +22,15 @@ async function clasificarPresenciaFranja(semana: string, slotId: string) {
   const semanal = await leerTiempoReporte(semana);   // veredicto semanal por persona (mejor clase): da su % a los colados
   const detalle = rosterFranja.map((persona) => {
     const entro = asistioEnSemana(base, persona);
+    if (reconstruida) {
+      // Semana reconstruida: la clase de cada persona es la asignacion ACTUAL, asi que no se separa «su clase» / «colado». Cada persona
+      // se muestra con su estado SEMANAL (mejor clase): ingreso con su %, o no ingreso (esto ultimo es semanal y si vale).
+      const sem = semanal.personas.get(persona.persona_id);
+      const ts = sem ? { estado_tiempo: sem.estado_tiempo, pct_tiempo: sem.mejor_pct, cumple_50: sem.cumple_50,
+        minutos: sem.minutos_max == null ? null : Number(sem.minutos_max) } : undefined;
+      return { persona_id: persona.persona_id, nombre: persona.nombre, ciudad: persona.ciudad,
+        estado: estadoPresenciaOficial(entro, ts, false) as EstadoPresencia, minutos: ts?.minutos ?? null, tiempo: ts };
+    }
     const colado = entro && tipoIngreso(base, persona) === "colados";
     const propio = tiempo.get(persona.persona_id);
     // Un colado no tiene tiempo en SU clase: su % es el de la mejor clase a la que entro (veredicto semanal), nunca «sin dato» por eso.
@@ -36,14 +47,23 @@ async function clasificarPresenciaFranja(semana: string, slotId: string) {
       minutos: t?.minutos ?? null, tiempo: t };
   });
   const colados = detalle.filter((d) => d.estado === "colado");
-  return { franja, conteos: contarPresencia(detalle.map((d) => d.estado)) as ConteosPresencia, medible: rosterFranja.length, detalle,
+  return { franja, reconstruida, conteos: contarPresencia(detalle.map((d) => d.estado)) as ConteosPresencia, medible: rosterFranja.length, detalle,
     colados_con_pct: colados.filter((d) => d.tiempo?.pct_tiempo != null).length,
     colados_bajo_50: colados.filter((d) => d.tiempo?.estado_tiempo === "rojo_tiempo").length };
 }
 
 export async function leerPresenciaClase(semana: string, slotId: string): Promise<PresenciaClaseResponse> {
-  const { franja, conteos, medible, colados_con_pct, colados_bajo_50 } = await clasificarPresenciaFranja(semana, slotId);
-  return { semana, slot_id: slotId, fecha: franja.fecha, horario_texto: franja.horario_texto, medible, conteos, colados_con_pct, colados_bajo_50 };
+  const { franja, conteos, medible, colados_con_pct, colados_bajo_50, reconstruida } = await clasificarPresenciaFranja(semana, slotId);
+  return { semana, slot_id: slotId, fecha: franja.fecha, horario_texto: franja.horario_texto, medible, conteos, colados_con_pct, colados_bajo_50, reconstruida };
+}
+
+// Lista de clases de la semana para el selector de Presencia en semanas SIN detalle por dia (reconstruidas): misma base, solo franjas.
+export async function listarFranjasPresencia(semana: string) {
+  const gate = await semanaConPersonas(semana);
+  if (!gate.ok) throw new Error("Esta semana no tiene detalle por persona");
+  const base = await cargarBase(semana);
+  return [...base.franjas.values()].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.slot_id.localeCompare(b.slot_id))
+    .map((f) => ({ slot_id: f.slot_id, fecha: f.fecha, cuenta_zoom: f.cuenta_zoom, horario_texto: f.horario_texto }));
 }
 
 // Nominal (PII): mismo patrón que listarAusentesDesdeBase en leerDetalleSemana.ts

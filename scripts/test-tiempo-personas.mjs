@@ -113,4 +113,23 @@ assert.ok(hist.includes("Las semanas sin cierre son parciales y no se comparan")
   assert.doesNotMatch(est, /Visitas recibidas|No aparecieron<\/span>/, "sin los nombres viejos");
 }
 
+// Semanas «Solo semanal» RECONSTRUIDAS (08-17…09-07), 2026-10-14: solo «Todos los que ingresaron» (la clase de cada persona es la asignacion actual)
+{
+  const solo = await renderizar("components/TiempoPersonas.tsx", { datos: p, vista: "horario", onCambiar: () => {}, filtrado: false, soloTodos: true });
+  assert.ok(solo.includes("531 ingresaron") && !solo.includes("en su horario +") && !solo.includes("Todos los que ingresaron ·"), "sin separar en su horario / colados y sin selector");
+  assert.ok(solo.includes("531 de 531 personas que ingresaron con % de estancia en sala"), "ignora la vista elegida: siempre todos");
+  const { readFile } = await import("node:fs/promises");
+  const tiempoSrc = await readFile(new URL("../components/Tiempo.tsx", import.meta.url), "utf8");
+  assert.match(tiempoSrc, /hayTiempo = esDetalle \|\| actual\.nivel === "Solo semanal"/, "Tiempo se habilita en «Solo semanal»");
+  assert.match(tiempoSrc, /data-testid="tiempo-reconstruida"/, "aviso de semana reconstruida");
+  assert.match(tiempoSrc, /actual\.asistieron[\s\S]*pp\.todos\.n_ingresaron/, "el aviso muestra los dos numeros (resumen de Semana y los que se sabe que ingresaron)");
+  assert.match(tiempoSrc, /!reconstruida && <label>Clase/, "sin filtro de clase en semanas reconstruidas");
+  assert.match(tiempoSrc, /!reconstruida && <label>Cuenta Zoom/, "sin filtro de cuenta en semanas reconstruidas");
+  const gateSrc = await readFile(new URL("../lib/servidor/leerDetalleSemana.ts", import.meta.url), "utf8");
+  assert.match(gateSrc, /ok: nivel === "Detalle" \|\| hayCeldas/, "una semana Detalle sin celdas aun conserva Tiempo y Presencia");
+  const presSrc = await readFile(new URL("../components/Presencia.tsx", import.meta.url), "utf8");
+  assert.match(presSrc, /hayPresencia = esDetalle \|\| actual\.nivel === "Solo semanal"/, "Presencia se habilita en «Solo semanal»");
+  assert.match(presSrc, /data-testid="presencia-reconstruida"/); assert.match(presSrc, /listar", "franjas"/, "lista de clases por /api/presencia");
+}
+
 console.log("RESUMEN: tiempo_personas=ok suma_exacta=531_447_84 cobertura=531_de_531 filtros=ok supresion_n5=ok egress=solo_pestana_tiempo estado=verde");

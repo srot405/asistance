@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODO_DEMO } from "../../../lib/demo.js";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
-import { leerPresenciaClase, semanaTieneDetalle } from "../../../lib/servidor/leerPresenciaClase";
+import { leerPresenciaClase, listarFranjasPresencia, semanaConPersonas } from "../../../lib/servidor/leerPresenciaClase";
 
 const headers = { "Cache-Control": "private, no-store" };
 
@@ -21,13 +21,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Semana inválida" }, { status: 400, headers });
   let tieneDetalle: boolean;
   try {
-    tieneDetalle = await semanaTieneDetalle(semana);
+    tieneDetalle = (await semanaConPersonas(semana)).ok;       // acepta «Solo semanal» reconstruidas con detalle por persona
   } catch {
     return NextResponse.json({ error: "No disponible" }, { status: 503, headers });
   }
   if (!tieneDetalle)
-    return NextResponse.json({ error: "Esta semana no tiene presencia por clase (nivel distinto de Detalle)" },
+    return NextResponse.json({ error: "Esta semana no tiene presencia por persona" },
       { status: 400, headers });
+  if (params.get("listar") === "franjas") {
+    try { return NextResponse.json({ franjas: await listarFranjasPresencia(semana) }, { headers }); }
+    catch { return NextResponse.json({ error: "No disponible" }, { status: 503, headers }); }
+  }
   if (!franja)
     return NextResponse.json({ error: "Falta la franja (clase)" }, { status: 400, headers });
   try {

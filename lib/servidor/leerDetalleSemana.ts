@@ -30,6 +30,27 @@ export async function nivelSemana(semana: string): Promise<string | null> {
   return (data?.[0] as { nivel?: string } | undefined)?.nivel ?? null;
 }
 
+// 2026-10-14: Tiempo y Presencia por PERSONA tambien existen en semanas «Solo semanal» cuyo roster fue RECONSTRUIDO (08-17…09-07): quien
+// ingreso y su % de estancia son fiables, pero la clase a la que pertenecia cada persona es la asignacion ACTUAL (no la de entonces).
+// Por eso esta compuerta acepta «Solo semanal» cuando hay celdas por persona, y avisa `reconstruida`; las separaciones que dependen de la clase
+// (en su horario / colados, tablas y filtros por clase) NO se afirman en esas semanas. NO reemplaza a semanaTieneDetalle (Semana, calendario y
+// Estadisticas siguen igual).
+export async function semanaConPersonas(semana: string): Promise<{ ok: boolean; reconstruida: boolean }> {
+  if (MODO_DEMO) return { ok: semana in DETALLE_DEMO_BASE, reconstruida: false };
+  const nivel = await nivelSemana(semana);
+  if (nivel !== "Detalle" && nivel !== "Solo semanal") return { ok: false, reconstruida: false };
+  const cliente = supabaseServidor();
+  const [celdas, semanas] = await Promise.all([
+    cliente.from("asist_celda_semana").select("persona_id").eq("semana", semana).limit(1),
+    cliente.from("asist_semanas").select("notas").eq("semana", semana).limit(1),
+  ]);
+  if (celdas.error) throw celdas.error;
+  if (semanas.error) throw semanas.error;
+  const notas = String((semanas.data?.[0] as { notas?: string | null } | undefined)?.notas ?? "");
+  const hayCeldas = (celdas.data ?? []).length > 0;
+  return { ok: nivel === "Detalle" || hayCeldas, reconstruida: nivel === "Solo semanal" || /reconstruid/i.test(notas) };
+}
+
 // Pagina de a 1000 (tope por defecto de PostgREST) con orden estable: sin esto, una
 // semana con >1000 entradas se truncaba en silencio y generaba ausentes falsos.
 const PAGINA = 1000;

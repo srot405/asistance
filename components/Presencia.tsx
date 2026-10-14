@@ -23,6 +23,8 @@ async function headersAuth(modo: "demo" | "real", params: URLSearchParams): Prom
 // consulta a mano.
 export default function Presencia({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const esDetalle = actual.nivel === "Detalle";
+  // 2026-10-14: semanas «Solo semanal» con roster reconstruido: lista de clases y estado semanal por persona (sin separar su clase / colado).
+  const hayPresencia = esDetalle || actual.nivel === "Solo semanal";
   const { puede: puedeNominal, rol } = usePuedeNominal();   // TOC-148
   const [franjas, setFranjas] = useState<DetalleSemanaResponse["franjas"]>([]);
   const [franjaId, setFranjaId] = useState("");
@@ -35,13 +37,14 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
   useEffect(() => { setFranjaId(""); setDatos(null); setError(""); setFalloExport(""); }, [actual.semana]);
 
   useEffect(() => {
-    if (!esDetalle) { setFranjas([]); return; }
+    if (!hayPresencia) { setFranjas([]); return; }
     let cancelado = false;
     (async () => {
       try {
         const params = new URLSearchParams({ semana: actual.semana });
         const headers = await headersAuth(modo, params);
-        const response = await fetch(`/api/detalle?${params}`, { headers, cache: "no-store" });
+        if (!esDetalle) params.set("listar", "franjas");
+        const response = await fetch(esDetalle ? `/api/detalle?${params}` : `/api/presencia?${params}`, { headers, cache: "no-store" });
         if (!response.ok) throw new Error(`No se pudo cargar la lista de clases (HTTP ${response.status}).`);
         const data = (await response.json()) as DetalleSemanaResponse;
         if (!cancelado) {
@@ -53,10 +56,10 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       }
     })();
     return () => { cancelado = true; };
-  }, [actual.semana, esDetalle, modo]);
+  }, [actual.semana, esDetalle, hayPresencia, modo]);
 
   useEffect(() => {
-    if (!esDetalle || !franjaId) { setDatos(null); return; }
+    if (!hayPresencia || !franjaId) { setDatos(null); return; }
     let cancelado = false;
     (async () => {
       setCargando(true); setError("");
@@ -74,7 +77,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       }
     })();
     return () => { cancelado = true; };
-  }, [actual.semana, esDetalle, franjaId, modo]);
+  }, [actual.semana, esDetalle, hayPresencia, franjaId, modo]);
 
   const horarioDe = useMemo(() => (id: string) => franjas.find((f) => f.slot_id === id)?.horario_texto ?? id, [franjas]);
 
@@ -87,21 +90,22 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
     if (err) setFalloExport(err);
   }
 
-  if (!esDetalle) return <section className="panel presencia-panel" aria-label="Presencia por clase">
+  if (!hayPresencia) return <section className="panel presencia-panel" aria-label="Presencia por clase">
     <div className="section-heading"><div><h2>Presencia por clase</h2></div></div>
     <p className="historical-notice missing-notice">
-      Esta semana es nivel <b>{actual.nivel}</b>: solo tiene el resumen semanal, sin detalle por clase, así que la presencia por clase no está disponible (igual que el calendario y el CSV nominal).
+      Esta semana es nivel <b>{actual.nivel}</b>: no tiene detalle por persona, así que la presencia no está disponible.
     </p>
   </section>;
 
   const total = datos ? datos.conteos.presente + datos.conteos.parcial + datos.conteos.nunca_entro + datos.conteos.sin_dato + (datos.conteos.colado ?? 0) : 0;
-  const abierta = !actual.cerrada_en;        // semana en curso: «Nunca entró» aun puede cambiar (entran a otra clase despues)
+  const abierta = !actual.cerrada_en;
+  const reconstruida = Boolean(datos?.reconstruida);   // la lista de la clase es la asignacion actual; estado semanal por persona        // semana en curso: «Nunca entró» aun puede cambiar (entran a otra clase despues)
   const pct = (n: number) => (total ? `${((n * 100) / total).toFixed(1)} %` : "—");
 
   return <section className="panel presencia-panel" aria-label="Presencia por clase">
     <div className="section-heading">
       <div><h2>Presencia por clase</h2>
-        <p>Quién estuvo en una clase, con el mismo criterio de la pestaña <b>Tiempo</b>: el 50 % del tiempo de su clase.</p></div>
+        <p>{datos?.reconstruida ? <>Las personas de la lista de una clase y su estado de la semana, con el mismo criterio de la pestaña <b>Tiempo</b>: el 50 % del tiempo de su mejor clase.</> : <>Quién estuvo en una clase, con el mismo criterio de la pestaña <b>Tiempo</b>: el 50 % del tiempo de su clase.</>}</p></div>
     </div>
 
     <label className="presencia-selector">Clase <select className="control" value={franjaId}
@@ -116,6 +120,9 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       Esta semana todavía no tiene clases en el roster congelado, así que no hay una clase que elegir.</p>}
 
     {datos && !cargando && <>
+      {reconstruida && <p className="historical-notice weekly-notice" role="note" data-testid="presencia-reconstruida">
+        <b>Semana reconstruida.</b> La lista de esta clase es la asignación actual de cada persona, no la de entonces; por eso aquí no se separa «su clase» y «colados».
+        Cada persona se muestra con su estado de la semana (su mejor clase). No aparecen en ninguna lista las personas sin clase asignada ni las de clases sin captura de Zoom (que en la pestaña Semana cuentan como presuntos).</p>}
       <div className="presencia-grid" aria-label="Conteo por categoría de presencia">
         <article className="presencia-card presente">
           <span>✓ 50 % o más</span><strong>{datos.conteos.presente}</strong><small>{pct(datos.conteos.presente)}</small>
@@ -124,10 +131,10 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
           <span>⏱ Menos del 50 %</span><strong>{datos.conteos.parcial}</strong>
           <small>{pct(datos.conteos.parcial)}</small>
         </article>
-        <article className="presencia-card colado" data-testid="presencia-colados">
+        {!reconstruida && <article className="presencia-card colado" data-testid="presencia-colados">
           <span>↗ Entró a otra clase (colado)</span><strong>{datos.conteos.colado ?? 0}</strong>
           <small>{(datos.conteos.colado ?? 0) === 0 ? "—" : `${datos.colados_con_pct ?? 0} con % de estancia · ${datos.colados_bajo_50 ?? 0} no superan el 50 % ni con su mejor clase`}</small>
-        </article>
+        </article>}
         <article className="presencia-card nunca-entro">
           <span>{abierta ? "✕ Aún no ingresó" : "✕ No ingresó"}</span><strong>{datos.conteos.nunca_entro}</strong>
           <small>{pct(datos.conteos.nunca_entro)}</small>
@@ -140,11 +147,11 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       <p className="nota">{horarioDe(datos.slot_id)} · {datos.fecha} · {total} personas medibles</p>
       {datos.conteos.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
         {datos.conteos.sin_dato} {datos.conteos.sin_dato === 1 ? "persona entró" : "personas entraron"} pero su tiempo
-        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir: no cuentan como «menos del 50 %» ni como falta.
+        {reconstruida ? "no está medido o no se pudo medir" : "en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir"}: no cuentan como «menos del 50 %» ni como falta.
       </p>}
       {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
-      {puedeNominal ? <button className="control" onClick={descargar}>
+      {puedeNominal && reconstruida ? null : puedeNominal ? <button className="control" onClick={descargar}>
         Descargar CSV: presencia de esta clase{modo === "demo" && " (práctica)"}
       </button>
         : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
@@ -155,11 +162,10 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
     <details className="panel definitions"><summary>Cómo se calculan estas categorías</summary>
       <p><b>✓ 50 % o más:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
       <p><b>⏱ Menos del 50 %:</b> estuvo menos de la mitad del tiempo de su clase; su % se conserva.</p>
-      <p><b>✕ No ingresó:</b> no entró a su clase ni a ninguna otra clase de la semana (misma regla que «No ingresaron» del
-        calendario: estas personas son exactamente las de ese CSV para esta clase).</p>
+      <p><b>✕ No ingresó:</b> no entró a ninguna clase de la semana (misma regla que «No ingresaron» del calendario).</p>
       <p><b>↗ Entró a otra clase (colado):</b> entró a una clase que no es la suya y no a la suya. Ingresó y tiene su % de estancia (el de su
         mejor clase), que se muestra y se conserva aunque sea bajo.</p>
-      <p><b>◌ Sin dato de tiempo:</b> entró a su clase, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como «menos del 50 %».</p>
+      <p><b>◌ Sin dato de tiempo:</b> entró, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como «menos del 50 %».</p>
     </details>
   </section>;
 }

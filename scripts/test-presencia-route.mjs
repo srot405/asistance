@@ -21,8 +21,10 @@ const require = (name) => {
     request.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } :
       NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (name.endsWith("/leerPresenciaClase")) return {
-    semanaTieneDetalle: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno"); return ["2026-09-14", "2026-09-21"].includes(s); },
+    // «2026-08-17» = semana «Solo semanal» reconstruida con detalle por persona; «2026-06-01» = sin detalle
+    semanaConPersonas: async (s) => { if (s === "2026-01-01") throw new Error("red caida: secreto-interno"); return { ok: ["2026-09-14", "2026-09-21", "2026-08-17"].includes(s), reconstruida: s === "2026-08-17" }; },
     leerPresenciaClase: async (semana, franja) => { lecturas.push({ semana, franja }); return fixture; },
+    listarFranjasPresencia: async () => [{ slot_id: "backend-martes-18", fecha: "2026-08-18", cuenta_zoom: "comunicaciones", horario_texto: "Martes 18:00" }],
   };
   throw new Error(`Import no previsto: ${name}`);
 };
@@ -36,16 +38,21 @@ const headers = { Authorization: "Bearer fixture-token" };
 const malaSemana = await exports.GET(new Request("http://local/api/presencia?semana=14-09-2026&franja=x", { headers }));
 assert.equal(malaSemana.status, 400);
 
-const noDetalle = await exports.GET(new Request("http://local/api/presencia?semana=2026-08-31&franja=x", { headers }));
-assert.equal(noDetalle.status, 400, "una semana Solo semanal/Sin dato no tiene presencia por clase");
-assert.match((await noDetalle.json()).error, /nivel distinto de Detalle/);
+const noDetalle = await exports.GET(new Request("http://local/api/presencia?semana=2026-06-01&franja=x", { headers }));
+assert.equal(noDetalle.status, 400, "una semana sin detalle por persona no tiene presencia");
+assert.match((await noDetalle.json()).error, /no tiene presencia por persona/);
+// 2026-10-14: semana reconstruida: se habilita (estado semanal por persona) y entrega su lista de clases
+const recons = await exports.GET(new Request("http://local/api/presencia?semana=2026-08-17&franja=backend-martes-18", { headers }));
+assert.equal(recons.status, 200, "semana reconstruida con detalle por persona: habilitada");
+const lista = await exports.GET(new Request("http://local/api/presencia?semana=2026-08-17&listar=franjas", { headers }));
+assert.equal(lista.status, 200); assert.deepEqual((await lista.json()).franjas.map((f) => f.slot_id), ["backend-martes-18"], "lista de clases para el selector");
 
 const sinFranja = await exports.GET(new Request("http://local/api/presencia?semana=2026-09-14", { headers }));
 assert.equal(sinFranja.status, 400, "falta franja");
 assert.match((await sinFranja.json()).error, /Falta la franja/);
 
 const caida = await exports.GET(new Request("http://local/api/presencia?semana=2026-01-01&franja=x", { headers }));
-assert.equal(caida.status, 503, "error de red en semanaTieneDetalle -> JSON 503, no 500 HTML");
+assert.equal(caida.status, 503, "error de red en la compuerta -> JSON 503, no 500 HTML");
 assert.equal(caida.headers.get("content-type"), "application/json");
 assert.deepEqual(await caida.json(), { error: "No disponible" }, "sin filtrar detalles internos");
 
@@ -54,8 +61,8 @@ const allowed = await exports.GET(new Request(
 assert.equal(allowed.status, 200);
 assert.equal(allowed.headers.get("cache-control"), "private, no-store");
 assert.deepEqual(JSON.parse(await allowed.text()), fixture);
-assert.equal(lecturas[0].semana, "2026-09-14");
-assert.equal(lecturas[0].franja, "backend-martes-18");
+assert.equal(lecturas.at(-1).semana, "2026-09-14");
+assert.equal(lecturas.at(-1).franja, "backend-martes-18");
 
 const serialized = JSON.stringify(fixture);
 for (const forbidden of ["nombre", "persona_id", "correo", "cedula"])

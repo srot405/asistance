@@ -51,6 +51,7 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
       leerTiempoReporte: async () => ({ disponible: true, personas: semanal, resumen: null }) };
     if (name.endsWith("/leerDetalleSemana")) return {
       semanaTieneDetalle: async (s) => ["2026-09-14", "2026-09-21"].includes(s),
+      semanaConPersonas: async (s) => ({ ok: ["2026-09-14", "2026-09-21", "2026-08-17"].includes(s), reconstruida: s === "2026-08-17" }),
       cargarBase: async () => baseX,
     };
     throw new Error(`Import no previsto: ${name}`);
@@ -111,6 +112,33 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   assert.equal(por("Siete").estado, "colado"); assert.equal(por("Siete").pct_tiempo, 12.5); assert.equal(por("Siete").minutos, 15);
   assert.equal(por("Siete").estado_tiempo, "rojo_tiempo");
   assert.equal(por("Ocho").estado, "colado"); assert.equal(por("Ocho").pct_tiempo, null, "sin % real no se inventa");
+}
+
+// ── 2026-10-14: semana RECONSTRUIDA (08-17): la clase de cada persona es la asignacion actual -> estado SEMANAL (mejor clase), sin «colado» ──
+{
+  const FRANJA2 = { slot_id: "s2", fecha: "2026-09-16", cuenta_zoom: "comunicaciones", horario_texto: "Miércoles 18:00", hora_inicio: 18, hora_fin: 20 };
+  const R2 = [...ROSTER, { persona_id: "1000000007", nombre: "Siete", ciudad: "Cali", slot_id: "s1", correo_norm: "siete@ejemplo.test" },
+    { persona_id: "1000000008", nombre: "Ocho", ciudad: "Cali", slot_id: "s1", correo_norm: "ocho@ejemplo.test" }];
+  const S2 = [...SESIONES, { sesion_id: "sess2", slot_id: "s2", fecha: "2026-09-16", entradas_totales: 2 }];
+  const E2 = [...ENTRADAS, { persona_id: "1000000007", sesion_id: "sess2" }, { persona_id: "1000000008", sesion_id: "sess2" }];
+  const C2 = [...CELDAS, { persona_id: "1000000007", estado: "SI" }, { persona_id: "1000000008", estado: "SI" }];
+  const base2 = detalleCalculo.construirBase(R2, [FRANJA, FRANJA2], S2, E2, C2);
+  const semanal = new Map([
+    ["1000000001", { estado_tiempo: "cumple", cumple_50: true, mejor_pct: 80, minutos_max: 96 }],
+    ["1000000002", { estado_tiempo: "rojo_tiempo", cumple_50: false, mejor_pct: 30, minutos_max: 36 }],
+    ["1000000007", { estado_tiempo: "cumple", cumple_50: true, mejor_pct: 55, minutos_max: 66 }]]);          // Cuatro, Cinco y Ocho: sin fila semanal
+  const { leerPresenciaClase, listarPresenciaNominal } = ejecutar(TIEMPO, base2, semanal);
+  const r = await leerPresenciaClase("2026-08-17", "s1");
+  assert.equal(r.reconstruida, true);
+  assert.deepEqual({ ...r.conteos }, { presente: 2, parcial: 1, nunca_entro: 1, sin_dato: 3, colado: 0 }, "Uno y Siete cumplen, Dos menos del 50, Tres no ingreso, Cuatro/Cinco/Ocho sin dato; ningun colado");
+  assert.equal(r.medible, 7);
+  const nominal = await listarPresenciaNominal("2026-08-17", "s1");
+  const por = (n) => nominal.find((f) => f.nombre === n);
+  assert.equal(por("Siete").estado, "presente"); assert.equal(por("Siete").pct_tiempo, 55, "el % es el de su mejor clase");
+  assert.equal(por("Tres").estado, "nunca_entro", "no ingresar es semanal y si vale");
+  // una semana NORMAL (09-14) conserva su lectura por clase
+  const normal = await ejecutar(TIEMPO, base2, semanal).leerPresenciaClase("2026-09-14", "s1");
+  assert.equal(normal.reconstruida, false); assert.equal(normal.conteos.colado, 2);
 }
 
 console.log("RESUMEN: tests=presencia-clase criterio=50pct sin_zoom_live_log=si sin_dato=cubierto estado=verde");

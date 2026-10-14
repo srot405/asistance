@@ -24,9 +24,10 @@ async function cargar(ruta, lector) {
     if (name.endsWith("/demo.js")) return { MODO_DEMO: false };
     if (name.endsWith("/acceso")) return { exigirAcceso: async (request) => request.headers.get("authorization") === "Bearer fixture-token"
       ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
-    if (name.endsWith("/leerDetalleSemana")) return { semanaTieneDetalle: async (s) => {
+    if (name.endsWith("/leerDetalleSemana")) return { semanaConPersonas: async (s) => {
       if (s === "2026-01-01") throw new Error("red caida: secreto-interno");
-      return ["2026-09-14", "2026-09-21", "2026-09-28"].includes(s); } };
+      // Detalle + semana «Solo semanal» RECONSTRUIDA con detalle por persona (08-17); «Sin dato» (2026-06-01) no tiene nada
+      return { ok: ["2026-09-14", "2026-09-21", "2026-09-28", "2026-08-17"].includes(s), reconstruida: s === "2026-08-17" }; } };
     if (name.endsWith("/leerTiempo")) return lector;
     throw new Error(`Import no previsto: ${name}`);
   };
@@ -56,9 +57,17 @@ assert.equal(llamadas.length, 0, "sin Bearer no se toca el lector");
 assert.equal((await ruta.GET(new Request(url("semana=2026-09-14&demo=1")))).status, 401, "demo=1 sin MODO_DEMO exige auth");
 // semana invalida / no Detalle / caida
 assert.equal((await ruta.GET(new Request(url("semana=14-09-2026"), { headers }))).status, 400);
-const noDetalle = await ruta.GET(new Request(url("semana=2026-08-31"), { headers }));
+const noDetalle = await ruta.GET(new Request(url("semana=2026-06-01"), { headers }));
 assert.equal(noDetalle.status, 400);
-assert.match((await noDetalle.json()).error, /nivel distinto de Detalle/);
+assert.match((await noDetalle.json()).error, /no tiene tiempo por persona/);
+// 2026-10-14: una semana «Solo semanal» reconstruida (08-17) SI responde: tiempo por persona fiable aunque la clase no lo sea
+assert.equal((await ruta.GET(new Request(url("semana=2026-08-17"), { headers }))).status, 200, "semana reconstruida con detalle por persona: habilitada");
+// en una semana reconstruida el servidor solo admite el filtro de ciudad: sin cortes por clase ni por cuenta (la clase es la asignacion actual)
+assert.equal((await ruta.GET(new Request(url("semana=2026-08-17&ciudad=Cali"), { headers }))).status, 200, "ciudad si");
+const porClase = await ruta.GET(new Request(url("semana=2026-08-17&franja=backend-martes-18"), { headers }));
+assert.equal(porClase.status, 400); assert.match((await porClase.json()).error, /solo se puede filtrar por ciudad/);
+assert.equal((await ruta.GET(new Request(url("semana=2026-08-17&cuenta=comunicaciones"), { headers }))).status, 400, "cuenta tampoco");
+assert.equal((await ruta.GET(new Request(url("semana=2026-09-14&franja=backend-martes-18"), { headers }))).status, 200, "semana normal conserva sus filtros por clase");
 const caida = await ruta.GET(new Request(url("semana=2026-01-01"), { headers }));
 assert.equal(caida.status, 503);
 assert.equal(caida.headers.get("content-type"), "application/json");

@@ -242,6 +242,8 @@ export type PresenciaClaseResponse = {
   // 2026-10-14: de los «colados» de esta clase (entraron solo a otra), cuantos tienen % de estancia y cuantos no superan el 50 % ni con su mejor clase.
   colados_con_pct?: number;
   colados_bajo_50?: number;
+  // Semana con roster reconstruido: la clase de cada persona es la asignacion actual; el estado es el SEMANAL (mejor clase), sin «colado».
+  reconstruida?: boolean;
 };
 // Fila nominal con la clasificación de presencia (PII): mismo criterio que
 // AusenteNominal, solo sale por el CSV autenticado de /api/exportar-nominal.
