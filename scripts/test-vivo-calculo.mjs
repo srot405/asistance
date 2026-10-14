@@ -287,4 +287,25 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   const c = porSlot(v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: ident, ahoraMs: COTISO(SAB, "08:10") }), slot);
   assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.desconocidos_maximo], [3, 1, 2]);
 }
+// ---------- personal con correo institucional COMPARTIDO (host y monitores entran con jovenescreativos@ y distinto nombre visible)
+{
+  const e2 = (id, evento, nombre, correo, hhmm) => v.compactarEvento({ id, evento, nombre, correo, hora_ms: COTISO(SAB, hhmm) });
+  const evs = [
+    e2(1, "joined", "jovenes creativos", "jovenescreativos@tocaunavida.org", "08:00"),
+    e2(2, "joined", "Ana Calderon - Monitora", "jovenescreativos@tocaunavida.org", "08:01"),
+    e2(3, "joined", "Katherine Demo - Monitora", "jovenescreativos@tocaunavida.org", "08:02"),
+    e2(4, "left", "Katherine Demo - Monitora", "jovenescreativos@tocaunavida.org", "08:05"),
+    e2(5, "joined", "Estudiante 001", "e1@ejemplo.test", "08:03"),
+    e2(6, "left", "Estudiante 001", "e1@ejemplo.test", "08:04"),
+    e2(7, "joined", "Estudiante Uno", "e1@ejemplo.test", "08:06"), // mismo alumno, otro nombre visible: sigue siendo 1
+  ];
+  const c = v.clasificarEventos(evs, new Set(), COTISO(SAB, "08:10"), null);
+  assert.deepEqual([c.personal.maximo, c.personal.ahora], [3, 2], "3 personas de personal con 1 correo compartido, 2 adentro");
+  assert.deepEqual([c.desconocidos.maximo, c.desconocidos.ahora], [1, 1], "el alumno no se duplica por cambiar de nombre");
+  // sesion duplicada de la misma persona (mismo correo y nombre) sigue siendo 1, con tope 1
+  const dup = v.clasificarEventos([e2(8, "joined", "jovenes creativos", "jovenescreativos@tocaunavida.org", "08:00"),
+    e2(9, "joined", "jovenes creativos", "jovenescreativos@tocaunavida.org", "08:01")], new Set(), COTISO(SAB, "08:10"), null);
+  assert.deepEqual([dup.personal.maximo, dup.personal.ahora], [1, 1]);
+  assert.ok(!/jovenescreativos|tocaunavida/.test(JSON.stringify(evs.map((x) => x.clave))), "la clave sigue siendo hash");
+}
 console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes identidad_cedula=ok estado=verde`);

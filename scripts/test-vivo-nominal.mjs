@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { armarListaVivo, cedulaSinCeros, esPersonal, filasCsv, recortarPorPermiso } from "../lib/vivoNominal.mjs";
+import { armarListaVivo, cedulaSinCeros, esPersonal, filasCsv, indexarRoster, personasDeClase, recortarPorPermiso } from "../lib/vivoNominal.mjs";
 import { LISTA_VIVO_DEMO } from "../lib/vivoNominal-demo.mjs";
 import { mismaCiudad } from "../lib/rolesCalculo.mjs";
 
@@ -59,6 +59,14 @@ assert.ok(esPersonal("", "Otter.ai")); assert.ok(!esPersonal("persona1@ejemplo.t
 // robots reales vistos en zoom_live_log, y nombres reales que NO deben caer
 for (const [c, n] of [["", "Read.ai Meeting Notes"], ["fred@fireflies.ai", "Fireflies.ai Notetaker Val"], ["", "Elvira's meeting notes - tldv"]]) assert.ok(esPersonal(c, n), n);
 for (const n of ["Yaira Botero", "Ana Potter", "Luis Otterbein", "Abbot Ruiz"]) assert.ok(!esPersonal("x@ejemplo.test", n), n);
+{ // personal con correo institucional compartido: una persona por nombre visible
+  const idx = indexarRoster([]);
+  const r = (id, evento, nombre, min) => ({ id, evento, nombre, correo: "jovenescreativos@tocaunavida.org", ms: Date.parse("2026-10-03T13:00:00Z") + min * 60000 });
+  const ps = personasDeClase([r(1, "joined", "jovenes creativos", 0), r(2, "joined", "Ana Demo - Monitora", 1), r(3, "joined", "Ana Demo - Monitora", 2)],
+    "slot", idx, new Map(), (s) => s, Date.parse("2026-10-03T14:00:00Z"));
+  assert.equal(ps.length, 2, "2 personas de personal con el mismo correo y distinto nombre");
+  assert.ok(ps.every((p) => p.senal === "personal" && p.en_sala));
+}
 const csv = filasCsv(d);
 assert.equal(csv[0][1], "senal");
 assert.equal(csv.length, 1 + d.clases.reduce((n, c) => n + c.personas.length, 0));
