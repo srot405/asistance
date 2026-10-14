@@ -12,10 +12,34 @@ const a = t.semana_agregada;
 const actual = { semana: "2026-09-14", materia: "Todas", nivel: "Detalle", porcentaje_retencion: 80, asistieron: 1, poblacion: 1, porcentaje_nunca: 1, nunca: 1,
   captura_completa: true, cuadre: { roster: 1, medibles: 1, sin_dato: 0, pendientes: 0, sin_clase: 0 }, clases_capturadas: 1, clases_programadas: 1,
   porcentaje_cobertura: 100, aviso: "", periodo_desde: null, periodo_hasta: null, congelada_en: null, roster_reconstruido: false };
-const texto = await renderizar("components/ResumenSemanaVisual.tsx", { actual, nuncaPeriodo: 1, sinSabado: false,
-  tiempo: { estado: "ok", datos: t }, irATiempo: () => {} });
-assert.ok(texto.includes(`${a.n_cumplen} de ${a.n_medibles} medidos cumplen (suma de clases)`), texto);
-assert.ok(texto.includes("el veredicto semanal usa la mejor sesión: ver pestaña Tiempo"), "remite a la pestaña Tiempo");
+const props = (extra = {}, datos = t) => ({ actual, nuncaPeriodo: 1, sinSabado: false, tiempo: { estado: "ok", datos }, irATiempo: () => {}, ...extra });
+const sp = t.semana_personas;
+assert.ok(sp && sp.medidos > 0, "el demo trae veredicto por persona");
+// Regla C (2026-10-14): por defecto la tarjeta cuenta a TODOS los que ingresaron, por persona y con su mejor clase
+const texto = await renderizar("components/ResumenSemanaVisual.tsx", props());
+assert.ok(texto.includes(`${sp.cumplen} de ${sp.medidos} cumplen`), texto);
+assert.ok(texto.includes(`${sp.medidos} de ${sp.con_entrada} con tiempo medido`), "misma base que Ingresaron");
+assert.ok(texto.includes("una visita corta se conserva con su % bajo"), "la visita corta no se pierde");
+assert.ok(texto.includes("Todos los que ingresaron") && texto.includes("En su jornada") && texto.includes("Visitas / colados"), "botones de vista");
+{ // accesibilidad: grupo de radios con estado y vista inicial «todos» (el render devuelve solo texto)
+  const { readFile } = await import("node:fs/promises");
+  const fuente = await readFile(new URL("../components/ResumenSemanaVisual.tsx", import.meta.url), "utf8");
+  assert.match(fuente, /role="radiogroup"[\s\S]*role="radio"[\s\S]*aria-checked=\{activa === v\}/, "grupo de radios con aria-checked");
+  assert.match(fuente, /vistaInicial = "todos"/, "por defecto cuenta a todos los que ingresaron");
+}
+// Lectura de su jornada: la de antes (suma de clases) y remite al veredicto semanal
+const propia = await renderizar("components/ResumenSemanaVisual.tsx", props({ vistaTiempoInicial: "propia" }));
+assert.ok(propia.includes(`${a.n_cumplen} de ${a.n_medibles} medidos cumplen (suma de clases)`), propia);
+assert.ok(propia.includes("el veredicto semanal usa la mejor sesión: ver pestaña Tiempo"), "remite a la pestaña Tiempo");
+// Visitas / colados: solo entradas a una sala que no es la suya
+const vis = await renderizar("components/ResumenSemanaVisual.tsx", props({ vistaTiempoInicial: "visitas" }));
+const v = t.visitas;
+assert.ok(vis.includes(`${v.cumplen} de ${v.cumplen + v.rojo} visitas cumplen`), vis);
+assert.ok(vis.includes("no entran en «En su jornada»"));
+// Sin veredicto por persona no hay botones y se muestra solo la jornada (no se inventa una cifra)
+const sinPersonas = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: null } });
+const textoSin = await renderizar("components/ResumenSemanaVisual.tsx", props({}, sinPersonas));
+assert.ok(!textoSin.includes("tiempo-vistas") && textoSin.includes(`${a.n_cumplen} de ${a.n_medibles} medidos cumplen (suma de clases)`), "fallback a la jornada sin botones");
 
 // Bajo 1: 49,6 nunca se ve "50 %"; la comparacion con el umbral sigue usando el valor exacto
 assert.equal(porcentajeUnDecimal(49.6), "49,6 %");
