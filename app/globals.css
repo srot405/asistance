@@ -1220,3 +1220,11 @@ select {
 .tiempo-alerta { color: #b3261e; }
 
 .control, .tab { min-height: 44px; }
+
+.tiempo-personas-bloque { display: grid; gap: 10px; margin: 8px 0 14px; }
+.tiempo-encabezado { font-size: 18px; margin: 0; }
+.tiempo-cobertura { margin: 0; }
+.tiempo-detalle { margin: 12px 0; }
+.tiempo-detalle > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+
+.presencia-card.colado { border-left: 4px solid #d1793f; }

@@ -10,6 +10,7 @@ import { mapaConfianza } from "./ChipConfianza";
 import CoberturaTiempo from "./CoberturaTiempo";
 import HistogramaTiempo from "./HistogramaTiempo";
 import LeyendaTiempo from "./LeyendaTiempo";
+import TiempoPersonas, { type PoblacionTiempo } from "./TiempoPersonas";
 import TiempoTablaClases from "./TiempoTablaClases";
 import TiempoTarjetas from "./TiempoTarjetas";
 import TiempoVisitas from "./TiempoVisitas";
@@ -22,9 +23,11 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
   const { puede: puedeNominal, rol } = usePuedeNominal();   // TOC-148: CSV y tabla de visitas llevan nombres
   const [filtro, setFiltro] = useState<FiltroTiempo>({});
   const [falloExport, setFalloExport] = useState("");
-  useEffect(() => { setFiltro({}); setFalloExport(""); }, [actual.semana]);
+  const [vista, setVista] = useState<PoblacionTiempo>("todos");
+  useEffect(() => { setFiltro({}); setFalloExport(""); setVista("todos"); }, [actual.semana]);
   const { estado, datos, recargar } = useTiempoSemana(actual.semana, filtro, modo, esDetalle);
   const d = datos && datos.disponible ? (datos as TiempoSemanaResponse) : null;
+  const pp = d?.personas_por_origen ?? null;     // tiempo por persona (mejor clase) de TODOS los que ingresaron; null sin la vista 094
   // TOC-151: chip de confianza + cuadre por clase; si no hay lectura, la tabla queda como antes.
   const lecturaConfianza = useConfianzaSemana(actual.semana, modo, esDetalle).datos;
   const confianza = mapaConfianza(lecturaConfianza);
@@ -43,33 +46,8 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
     <p className="historical-notice missing-notice">Esta semana es nivel <b>{actual.nivel}</b>: no tiene tiempo por clase (solo las semanas con roster congelado por clase).</p>
   </section>;
 
-  return <section className="panel tiempo-panel" aria-label="Tiempo en clase" aria-busy={estado === "cargando"}>
-    <div className="section-heading"><div><h2>Tiempo en clase</h2>
-      <p>Regla: menos del {UMBRAL_PORCENTAJE_ROJO} % del tiempo de su clase = {ICONOS.rojo_tiempo} rojo por tiempo. Solo agregados, sin nombres; la tabla «Entró a clase ajena» es nominal.</p></div>
-      {d?.provisional && <span className="badge-provisional" title="Las cifras pueden cambiar hasta que cierre la semana.">⏳ PROVISIONAL: semana abierta</span>}
-    </div>
-
-    {estado === "cargando" && <p className="nota" role="status" aria-live="polite">Cargando tiempo…</p>}
-    {estado === "no_disponible" && <p className="historical-notice missing-notice" role="status" data-testid="tiempo-no-disponible">{TEXTO_NO_DISPONIBLE}</p>}
-    {estado === "no_detalle" && <p className="historical-notice missing-notice">Esta semana no tiene tiempo por clase.</p>}
-    {estado === "error" && <p className="historical-notice missing-notice" role="alert">No se pudo cargar el tiempo.{" "}
-      <button type="button" className="control" onClick={recargar}>Reintentar</button></p>}
-    {estado === "vacio" && <p className="historical-notice weekly-notice" role="status" data-testid="tiempo-vacio">
-      Aún no hay tiempos calculados para esta semana. Se calculan al cerrar cada clase.</p>}
-
-    {estado === "ok" && d && <>
-      {d.provisional && <p className="historical-notice weekly-notice">Semana en curso: las cifras cambian hasta que cierre la última clase.</p>}
+  const detalle = d ? <>
       <CoberturaTiempo conteos={d.semana_agregada} roster={d.roster} congeladaEn={d.congelada_en} reconstruida={d.reconstruida} />
-      <div className="tiempo-filtros" aria-label="Filtros">
-        <label>Ciudad <select className="control" value={filtro.ciudad ?? ""} onChange={(e) => setFiltro({ ...filtro, ciudad: e.target.value || null })}>
-          <option value="">Todas</option>{d.ciudades.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-        <label>Clase <select className="control" value={filtro.franja ?? ""} onChange={(e) => setFiltro({ ...filtro, franja: e.target.value || null })}>
-          <option value="">Todas</option>{d.franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}</select></label>
-        <label>Cuenta Zoom <select className="control" value={filtro.cuenta ?? ""} onChange={(e) => setFiltro({ ...filtro, cuenta: e.target.value || null })}>
-          <option value="">Todas</option>{d.cuentas.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-      </div>
-      <p className="nota">Filtros por la clase y la ciudad PROPIAS de cada persona. Cada cifra de aquí cuenta a quienes ingresaron a SU clase.</p>
-
       <TiempoTarjetas a={d.semana_agregada} />
       <section aria-label="Visitas" className="tiempo-visitas">
         <p><b>Visitas</b> (clase que no es la suya): {d.visitas.sesiones} sesiones — cumplen {d.visitas.cumplen} · rojo {d.visitas.rojo} · sin dato {d.visitas.sin_dato}.
@@ -83,8 +61,40 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       {resumenConfianza && <p className="nota" data-testid="resumen-confianza">Confianza de la captura: {resumenConfianza.resumen.capturadas} de {resumenConfianza.resumen.clases} clases capturadas
         {resumenConfianza.cuadre_disponible ? ` · cuadre: ${resumenConfianza.resumen.cuadradas} cuadradas, ${resumenConfianza.resumen.con_diferencias} con diferencias, ${resumenConfianza.resumen.sin_cuadre} sin cuadre.` : " · el cuadre automático aún no está disponible en esta base."}</p>}
       <TiempoTablaClases clases={d.por_clase} dias={d.por_dia} semana={d.semana_agregada} confianza={confianza} />
+  </> : null;
 
-      {d.semana_personas && !filtro.ciudad && !filtro.franja && !filtro.cuenta && <section className="panel tiempo-personas" aria-label="Veredicto semanal por persona">
+  return <section className="panel tiempo-panel" aria-label="Tiempo en clase" aria-busy={estado === "cargando"}>
+    <div className="section-heading"><div><h2>Tiempo en clase</h2>
+      <p>Cuánto tiempo estuvo en sala cada persona que ingresó. Menos del {UMBRAL_PORCENTAJE_ROJO} % ni con su mejor clase = {ICONOS.rojo_tiempo} rojo. Solo agregados, sin nombres; la tabla «Entró a clase ajena» es nominal.</p></div>
+      {d?.provisional && <span className="badge-provisional" title="Las cifras pueden cambiar hasta que cierre la semana.">⏳ PROVISIONAL: semana abierta</span>}
+    </div>
+
+    {estado === "cargando" && <p className="nota" role="status" aria-live="polite">Cargando tiempo…</p>}
+    {estado === "no_disponible" && <p className="historical-notice missing-notice" role="status" data-testid="tiempo-no-disponible">{TEXTO_NO_DISPONIBLE}</p>}
+    {estado === "no_detalle" && <p className="historical-notice missing-notice">Esta semana no tiene tiempo por clase.</p>}
+    {estado === "error" && <p className="historical-notice missing-notice" role="alert">No se pudo cargar el tiempo.{" "}
+      <button type="button" className="control" onClick={recargar}>Reintentar</button></p>}
+    {estado === "vacio" && <p className="historical-notice weekly-notice" role="status" data-testid="tiempo-vacio">
+      Aún no hay tiempos calculados para esta semana. Se calculan al cerrar cada clase.</p>}
+
+    {estado === "ok" && d && <>
+      {d.provisional && <p className="historical-notice weekly-notice">Semana en curso: las cifras cambian hasta que cierre la última clase.</p>}
+      <div className="tiempo-filtros" aria-label="Filtros">
+        <label>Ciudad <select className="control" value={filtro.ciudad ?? ""} onChange={(e) => setFiltro({ ...filtro, ciudad: e.target.value || null })}>
+          <option value="">Todas</option>{d.ciudades.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+        <label>Clase <select className="control" value={filtro.franja ?? ""} onChange={(e) => setFiltro({ ...filtro, franja: e.target.value || null })}>
+          <option value="">Todas</option>{d.franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}</select></label>
+        <label>Cuenta Zoom <select className="control" value={filtro.cuenta ?? ""} onChange={(e) => setFiltro({ ...filtro, cuenta: e.target.value || null })}>
+          <option value="">Todas</option>{d.cuentas.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+      </div>
+      <p className="nota">Los filtros usan la clase y la ciudad PROPIAS de cada persona. Arriba se cuenta a todos los que ingresaron; en el detalle por clase, solo a quienes entraron a SU clase.</p>
+
+      {pp && <TiempoPersonas datos={pp} vista={vista} onCambiar={setVista} filtrado={Boolean(filtro.ciudad || filtro.franja || filtro.cuenta)} />}
+      {pp ? <details className="panel tiempo-detalle" data-testid="tiempo-detalle"><summary>Detalle por clase y por día (solo quienes entraron a su clase) y colados</summary>
+        {detalle}
+      </details> : detalle}
+
+      {!pp && d.semana_personas && !filtro.ciudad && !filtro.franja && !filtro.cuenta && <section className="panel tiempo-personas" aria-label="Veredicto semanal por persona">
         <h3>Veredicto de la semana por persona (la MEJOR clase)</h3>
         <p className="nota">Otra lectura, no se suma a las tablas de arriba: cada persona cuenta una vez, con su mejor clase (visitas incluidas, tiempos sin sumar).</p>
         <p>{ICONOS.cumple} cumplen {d.semana_personas.cumplen} · {ICONOS.rojo_tiempo} rojo por tiempo {d.semana_personas.rojo} · {ICONOS.sin_dato_tiempo} sin dato {d.semana_personas.sin_dato}

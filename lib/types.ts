@@ -230,7 +230,7 @@ export type AusenteNominal = {
 // ── Pestaña "Presencia" (TOC-91; criterio unico del 50 % desde TOC-146): Presente (cumple 50 %) / Parcial (menos del 50 %)
 // / Nunca entró / Sin dato de tiempo (entró pero no se pudo medir; nunca es Parcial). Solo para semanas nivel "Detalle"
 // — ver lib/servidor/leerPresenciaClase.ts y lib/presenciaTiempo.mjs.
-export type EstadoPresencia = "presente" | "parcial" | "nunca_entro" | "sin_dato";
+export type EstadoPresencia = "presente" | "parcial" | "nunca_entro" | "sin_dato" | "colado";
 export type ConteosPresencia = Record<EstadoPresencia, number>;
 export type PresenciaClaseResponse = {
   semana: string;
@@ -239,6 +239,9 @@ export type PresenciaClaseResponse = {
   horario_texto: string;
   medible: number;
   conteos: ConteosPresencia;
+  // 2026-10-14: de los «colados» de esta clase (entraron solo a otra), cuantos tienen % de estancia y cuantos no superan el 50 % ni con su mejor clase.
+  colados_con_pct?: number;
+  colados_bajo_50?: number;
 };
 // Fila nominal con la clasificación de presencia (PII): mismo criterio que
 // AusenteNominal, solo sale por el CSV autenticado de /api/exportar-nominal.

@@ -90,12 +90,12 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
   if (!esDetalle) return <section className="panel presencia-panel" aria-label="Presencia por clase">
     <div className="section-heading"><div><h2>Presencia por clase</h2></div></div>
     <p className="historical-notice missing-notice">
-      Esta semana es nivel <b>{actual.nivel}</b>: no tiene roster congelado por clase, así que la presencia
-      Presente/Parcial/Nunca entró no está disponible (igual que el calendario y el CSV nominal).
+      Esta semana es nivel <b>{actual.nivel}</b>: solo tiene el resumen semanal, sin detalle por clase, así que la presencia por clase no está disponible (igual que el calendario y el CSV nominal).
     </p>
   </section>;
 
-  const total = datos ? datos.conteos.presente + datos.conteos.parcial + datos.conteos.nunca_entro + datos.conteos.sin_dato : 0;
+  const total = datos ? datos.conteos.presente + datos.conteos.parcial + datos.conteos.nunca_entro + datos.conteos.sin_dato + (datos.conteos.colado ?? 0) : 0;
+  const abierta = !actual.cerrada_en;        // semana en curso: «Nunca entró» aun puede cambiar (entran a otra clase despues)
   const pct = (n: number) => (total ? `${((n * 100) / total).toFixed(1)} %` : "—");
 
   return <section className="panel presencia-panel" aria-label="Presencia por clase">
@@ -124,8 +124,12 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
           <span>🟠 Parcial</span><strong>{datos.conteos.parcial}</strong>
           <small>{pct(datos.conteos.parcial)}</small>
         </article>
+        <article className="presencia-card colado" data-testid="presencia-colados">
+          <span>↗ Entró a otra clase (colado)</span><strong>{datos.conteos.colado ?? 0}</strong>
+          <small>{(datos.conteos.colado ?? 0) === 0 ? "—" : `${datos.colados_con_pct ?? 0} con % de estancia · ${datos.colados_bajo_50 ?? 0} no superan el 50 % ni con su mejor clase`}</small>
+        </article>
         <article className="presencia-card nunca-entro">
-          <span>🔴 Nunca entró</span><strong>{datos.conteos.nunca_entro}</strong>
+          <span>{abierta ? "🔴 Aún no ingresó" : "🔴 Nunca entró"}</span><strong>{datos.conteos.nunca_entro}</strong>
           <small>{pct(datos.conteos.nunca_entro)}</small>
         </article>
         <article className="presencia-card sin-dato">
@@ -136,8 +140,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       <p className="nota">{horarioDe(datos.slot_id)} · {datos.fecha} · {total} personas medibles</p>
       {datos.conteos.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
         {datos.conteos.sin_dato} {datos.conteos.sin_dato === 1 ? "persona entró" : "personas entraron"} pero su tiempo
-        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase), no se pudo medir o entraron a otra
-        clase de la semana (colados): no se cuentan como Parcial ni como falta.
+        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir: no se cuentan como Parcial ni como falta.
       </p>}
       {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
@@ -155,8 +158,9 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       <p><b>🟠 Parcial:</b> estuvo menos del 50&nbsp;% del tiempo de su clase.</p>
       <p><b>🔴 Nunca entró:</b> no entró a su clase ni a ninguna otra clase de la semana (misma regla que «No ingresaron» del
         calendario: estas personas son exactamente las de ese CSV para esta clase).</p>
-      <p><b>◌ Sin dato de tiempo:</b> entró, pero su tiempo en esta clase no se pudo medir o aún no se calcula; incluye a quien
-        se coló en otra clase de la semana (entró, pero no a la suya). Nunca cuenta como Parcial.</p>
+      <p><b>↗ Entró a otra clase (colado):</b> entró a una clase que no es la suya y no a la suya. Ingresó y tiene su % de estancia (el de su
+        mejor clase), que se muestra y se conserva aunque sea bajo.</p>
+      <p><b>◌ Sin dato de tiempo:</b> entró a su clase, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como Parcial.</p>
     </details>
   </section>;
 }

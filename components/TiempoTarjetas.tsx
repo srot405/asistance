@@ -5,7 +5,7 @@ const entero = porcentajeUnDecimal;
 
 // Cuatro tarjetas: cumple (✓), rojo por tiempo (⏱), sin dato (◌) y mediana. El % se calcula SOLO sobre los medidos;
 // con 0 medidos muestra "—" (nunca 0 %) y un panel que explica por que.
-export default function TiempoTarjetas({ a }: { a: AgregadoTiempo }) {
+export default function TiempoTarjetas({ a, porPersona = false }: { a: AgregadoTiempo; porPersona?: boolean }) {
   const baja = a.nivel_cobertura === "baja";
   const sinMedidos = a.n_medibles === 0;
   return <>
@@ -22,7 +22,7 @@ export default function TiempoTarjetas({ a }: { a: AgregadoTiempo }) {
         <small>{sinMedidos ? "sin tiempo medido" : `${a.n_cumplen} de ${a.n_medibles} medidos${baja ? " (de los medidos)" : ""}`}</small></article>
       <article className="tiempo-card t-rojo"><span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Rojo por tiempo</span>
         <strong>{entero(porcentajeRojo(a))}</strong>
-        <small>{sinMedidos ? "sin tiempo medido" : `${a.n_rojo} personas · menos del 50 % de su clase`}</small></article>
+        <small>{sinMedidos ? "sin tiempo medido" : `${a.n_rojo} personas · ${porPersona ? "menos del 50 % ni con su mejor clase" : "menos del 50 % de su clase"}`}</small></article>
       <article className="tiempo-card t-sindato"><span><b aria-hidden="true">{ICONOS.sin_dato_tiempo}</b> {ETIQUETAS.sin_dato_tiempo}</span>
         <strong>{a.n_sin_dato}</strong>
         <small>no entra al cálculo{a.n_pendiente > 0 ? ` · ${a.n_pendiente} pendientes` : ""}</small>

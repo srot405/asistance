@@ -18,9 +18,13 @@ assert.equal(estadoPresenciaOficial(true, null), PRESENCIA.SIN_DATO);
 // borde del 50 %: lo decide el veredicto del backend (misma funcion de la pestaña Tiempo), no esta capa
 assert.equal(cumple50Pct(50), true); assert.equal(cumple50Pct(49.9), false);
 
-assert.deepEqual(contarPresencia(["presente", "parcial", "parcial", "sin_dato", "nunca_entro"]),
-  { presente: 1, parcial: 2, nunca_entro: 1, sin_dato: 1 });
-assert.deepEqual(contarPresencia([]), { presente: 0, parcial: 0, nunca_entro: 0, sin_dato: 0 });
+// 2026-10-14: un colado (entro solo a otra clase) es «colado», no «sin dato»: ingreso y tiene el % de su mejor clase
+assert.equal(estadoPresenciaOficial(true, undefined, true), PRESENCIA.COLADO, "colado sin fila propia: colado (no sin dato)");
+assert.equal(estadoPresenciaOficial(true, t("rojo_tiempo"), true), PRESENCIA.COLADO, "colado con % bajo: sigue siendo colado, se conserva su %");
+assert.equal(estadoPresenciaOficial(false, undefined, true), PRESENCIA.NUNCA_ENTRO, "sin ingreso manda sobre todo");
+assert.deepEqual(contarPresencia(["presente", "parcial", "parcial", "sin_dato", "nunca_entro", "colado"]),
+  { presente: 1, parcial: 2, nunca_entro: 1, sin_dato: 1, colado: 1 });
+assert.deepEqual(contarPresencia([]), { presente: 0, parcial: 0, nunca_entro: 0, sin_dato: 0, colado: 0 });
 
 // Leyenda global: los 6 codigos del pedido, cada uno con texto, y consistentes con la leyenda del CSV
 assert.deepEqual(CODIGOS_CELDA.map((c) => c.codigo), ["SI", "NO", "NO?", "ZL", "P", "SC"]);
