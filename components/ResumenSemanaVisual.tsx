@@ -9,6 +9,8 @@ const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni po
 const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
 // Con clases sin captura, "ingresaron" solo puede subir: la cifra es un piso, no el valor real.
 const esMinimo = (fila: ResumenHistorico) => fila.nivel !== "Sin dato" && !fila.captura_completa;
+// Ingresaron (calendario) cuenta entrada a cualquier clase; la tarjeta de tiempo solo a la propia (ingresaron_propios).
+const otrosIngresos = (asistieron: number | null, propios: number) => asistieron == null ? 0 : Math.max(0, asistieron - propios);
 const MINIMO = "mínimo: hubo clases sin captura";
 
 // Fase 1.1 plan veracidad (2026-10-09): en semanas "Detalle" /api/datos recalcula la cifra en vivo (= calendario sin filtros) y
@@ -72,6 +74,9 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
         {t && t.hay_tiempos ? <>
           <strong>{t.semana_agregada.n_medibles > 0 ? `${Math.round((t.semana_agregada.n_cumplen / t.semana_agregada.n_medibles) * 100)} %` : "—"}</strong>
           <small>{t.semana_agregada.n_cumplen} de {t.semana_agregada.n_medibles} medidos cumplen (suma de clases) · 50 % del tiempo de su clase · <b>{textoCobertura(t.semana_agregada)}</b>
+            {otrosIngresos(actual.asistieron, t.semana_agregada.n_ingresaron) > 0 && <span data-testid="nota-ingresos-otros"> · de las {actual.asistieron} personas que ingresaron,
+              {" "}{t.semana_agregada.n_ingresaron} entraron a su propia clase y cuentan aquí; las otras {otrosIngresos(actual.asistieron, t.semana_agregada.n_ingresaron)} entraron
+              solo a otra clase (visitas, medidas aparte) o Zoom no devolvió su tiempo</span>}
             {t.provisional && <> · ⏳ provisional</>} · el veredicto semanal usa la mejor sesión: {irATiempo
               ? <button type="button" className="link-boton" onClick={irATiempo}>ver pestaña Tiempo</button> : "ver pestaña Tiempo"}</small></>
           : <><strong>—</strong><small>{tiempo.estado === "cargando" ? "Cargando tiempo…" : tiempo.estado === "vacio" ? "Aún no hay tiempos calculados para esta semana." : TEXTO_NO_DISPONIBLE}</small></>}
@@ -96,6 +101,7 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
 
     <details className="panel definitions" id="definiciones"><summary>Cómo se calculan estas cifras</summary>
       <p><b>Ingresaron:</b> personas del roster medible con al menos una entrada identificada en la semana.</p>
+      <p><b>Tiempo en clase:</b> solo cuenta a quienes entraron a su propia clase. Quien entró a otra clase (visita) sí cuenta como «Ingresó», pero su tiempo se mide aparte; por eso «Ingresaron» puede ser mayor que las personas con tiempo medido.</p>
       <p><b>No ingresaron:</b> personas medibles sin ninguna entrada identificada; no incluye clases pendientes ni sin dato.</p>
       <p><b>Calculado en vivo:</b> en semanas con detalle, estas cifras y el cuadre se recalculan desde las tablas del panel (las mismas del calendario); el resumen del cierre del ETL se conserva solo como referencia.</p>
       <p><b>Mínimo:</b> la semana tuvo clases sin captura (sobre todo de la cuenta soporte). El % real de ingreso es igual o mayor al mostrado.</p>
