@@ -17,12 +17,13 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
 // muestre la semana elegida, sin mezclar con la comparación entre semanas.
 export default function TendenciaHistorica({ resultados }: { resultados: ResumenHistorico[] }) {
   return <section className="panel trend-panel">
-    <div className="section-heading"><div><h2>Tendencia semanal</h2><p>Cada semana muestra qué tan sólido es el dato.</p></div></div>
+    <div className="section-heading"><div><h2>Tendencia semanal</h2><p>Ingresaron = quienes entraron a alguna clase (en su horario o colados). Las semanas sin cierre son parciales y no se comparan con las cerradas.</p></div></div>
     <TendenciaGrafico resultados={resultados} />
     <div className="trend-legend" aria-label="Series de la tendencia"><span><i className="in" />Ingresaron</span><span><i className="out" />No ingresaron</span></div>
     <div className="trend-list">{resultados.map((fila) => <article className="trend-row" key={`${fila.semana}-${fila.materia}`}>
       <div className="trend-label"><b>{fila.semana}</b><span>{fila.materia}</span>
         <span className="trend-label-badges"><Nivel nivel={fila.nivel} />
+          {fila.cerrada_en === null && <span className="badge-provisional" data-testid="badge-sin-cierre" title="La semana aún no tiene cierre: la cifra es parcial y puede cambiar.">⏳ Sin cierre · parcial</span>}
           {semanaSinSabado(fila, resultados) && <span className="badge-sin-sabado"
             title="Las franjas de sábado de esta semana no tuvieron clase regular.">
             {ICONO_SIN_SABADO} {ETIQUETA_SIN_SABADO}</span>}

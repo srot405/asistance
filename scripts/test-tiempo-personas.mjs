@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { renderizar } from "./render-componente.mjs";
-import { agregarPersonasPorOrigen, armarTiempoSemana } from "../lib/tiempoCalculo.mjs";
+import { agregarPersonasPorOrigen, armarSerieTiempo, armarTiempoSemana } from "../lib/tiempoCalculo.mjs";
 import { TIEMPO_DEMO } from "../lib/tiempo-demo.mjs";
 import { cargarLector } from "./test-tiempo-paginacion.mjs";
 
@@ -88,5 +88,29 @@ assert.equal((await l2.leerTiempoSemana("2026-09-14", {})).personas_por_origen, 
 const { lector: l3 } = await cargarLector(datos, { v_asist_tiempo_personas: { code: "PGRST205", message: "no existe" } });
 l3.vaciarCacheTiempo();
 assert.equal((await l3.leerTiempoSemana("2026-09-14", {})).personas_por_origen, null, "sin la vista (migracion 094) no se rompe la pestaña");
+
+// Historial (2026-10-14): la serie de tiempo usa la base «todos los que ingresaron» (por persona) cuando la semana la trae
+const serie = armarSerieTiempo([
+  { semana: "2026-10-05", n_ingresaron: 447, n_medibles: 435, n_cumplen: 339, n_rojo: 96, n_sin_dato: 12, provisional: false, estado_semana: "cerrada",
+    p_con_entrada: 531, p_medidos: 531, p_cumplen: 413, p_rojo: 118, p_sin_dato: 0 },
+  { semana: "2026-09-28", n_ingresaron: 465, n_medibles: 465, n_cumplen: 366, n_rojo: 99, n_sin_dato: 0, provisional: false, estado_semana: "cerrada" }]);
+const s1005 = serie.find((x) => x.semana === "2026-10-05"), s0928 = serie.find((x) => x.semana === "2026-09-28");
+assert.deepEqual([s1005.n_ingresaron, s1005.n_medibles, s1005.n_cumplen, s1005.n_rojo, s1005.base, s1005.cobertura], [531, 531, 413, 118, "personas", 1], "la serie usa 531, no 447");
+assert.deepEqual([s0928.n_ingresaron, s0928.base], [465, "clases"], "sin el veredicto por persona conserva la lectura por clase");
+const filaHist = (semana, cerrada_en) => ({ semana, materia: "Backend", nivel: "Detalle", poblacion: 713, asistieron: 531, nunca: 182, porcentaje_retencion: 74.5, porcentaje_nunca: 25.5,
+  clases_programadas: 14, clases_capturadas: 14, porcentaje_cobertura: 100, captura_completa: true, aviso: "", periodo_desde: null, periodo_hasta: null,
+  congelada_en: null, roster_reconstruido: false, cerrada_en, cuadre: { roster: 713, medibles: 713, sin_dato: 0, pendientes: 0, sin_clase: 0 } });
+const hist = await renderizar("components/TendenciaHistorica.tsx", { resultados: [filaHist("2026-10-05", "2026-10-11T02:00:00Z"), filaHist("2026-10-12", null)] });
+assert.equal((hist.match(/Sin cierre · parcial/g) ?? []).length, 1, "solo la semana sin cierre se marca como parcial");
+assert.ok(hist.includes("Las semanas sin cierre son parciales y no se comparan"), hist);
+
+// Estadisticas (2026-10-14): tarjeta «Ingresaron» = en su horario + colados (misma definicion que Semana), sin sumar nulos suprimidos
+{
+  const { readFile } = await import("node:fs/promises");
+  const est = await readFile(new URL("../components/Estadisticas.tsx", import.meta.url), "utf8");
+  assert.match(est, /data-testid="est-ingresaron"/);
+  assert.match(est, /c\.entraron_a_su_clase != null && c\.fueron_a_otra != null \? c\.entraron_a_su_clase \+ c\.fueron_a_otra : null/, "si una parte esta suprimida (<5) no se inventa el total");
+  assert.doesNotMatch(est, /Visitas recibidas|No aparecieron<\/span>/, "sin los nombres viejos");
+}
 
 console.log("RESUMEN: tiempo_personas=ok suma_exacta=531_447_84 cobertura=531_de_531 filtros=ok supresion_n5=ok egress=solo_pestana_tiempo estado=verde");

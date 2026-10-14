@@ -57,6 +57,6 @@ async function lector(errorDeLectura) {
 // ---- (8) Presencia explica sus dos fuentes ----
 {
   const src = await readFile(new URL("../components/Presencia.tsx", import.meta.url), "utf8");
-  assert.match(src, /data-testid="presencia-fuentes"/); assert.match(src, /asist_entradas/); assert.match(src, /API de Zoom/);
+  assert.match(src, /data-testid="presencia-fuentes"/); assert.match(src, /entradas registradas/); assert.doesNotMatch(src, /asist_entradas|asist_sesiones/, "sin nombres de tabla en pantalla"); assert.match(src, /API de Zoom/);
 }
 console.log("RESUMEN: hallazgos_auditoria tiempo_presencia=propaga_error(503) tabla_ausente=degradado visitas_desconocido=sin_dato total=suma_buckets nota_fuentes=ok estado=verde");

@@ -144,8 +144,19 @@ const COLUMNAS_SERIE = "semana,clases,clases_evaluables,roster_franjas,n_ingresa
 export async function leerTiempoSemanas(): Promise<TiempoSerieResponse> {
   if (MODO_DEMO) return { disponible: true, semanas: armarSerieTiempo(TIEMPO_DEMO_SERIE as Record<string, unknown>[]) };
   try {
-    const filas = await tablaTiempo<Record<string, unknown>>("v_asist_tiempo_semana", COLUMNAS_SERIE, null, ["semana"]);
-    return { disponible: true, semanas: armarSerieTiempo(filas) };
+    const [filas, personas] = await Promise.all([
+      tablaTiempo<Record<string, unknown>>("v_asist_tiempo_semana", COLUMNAS_SERIE, null, ["semana"]),
+      // Veredicto por PERSONA de cada semana (todos los que ingresaron, mejor clase): una fila por semana. Opcional.
+      tablaTiempo<Record<string, unknown>>("asist_semana_resumen", "semana,tiempo_con_entrada,tiempo_medidos,tiempo_cumplen,tiempo_rojo,tiempo_sin_dato", null, ["semana"])
+        .catch(() => [] as Record<string, unknown>[]),
+    ]);
+    const porSemana = new Map(personas.map((r) => [String(r.semana), r]));
+    const unidas = filas.map((f) => {
+      const p = porSemana.get(String(f.semana));
+      return p && p.tiempo_con_entrada != null
+        ? { ...f, p_con_entrada: p.tiempo_con_entrada, p_medidos: p.tiempo_medidos, p_cumplen: p.tiempo_cumplen, p_rojo: p.tiempo_rojo, p_sin_dato: p.tiempo_sin_dato } : f;
+    });
+    return { disponible: true, semanas: armarSerieTiempo(unidas) };
   } catch (error) {
     if (esTablaAusente(error)) return NO_DISPONIBLE;
     throw error;

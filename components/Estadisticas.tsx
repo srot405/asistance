@@ -41,7 +41,7 @@ function CuadreSuprimidos({ datos, filtros, enTabla = false }: { datos: DatosEst
     {!s.coherente && <> <b role="alert">⚠ Descuadre: la resta no corresponde a filas de menos de 5; revisar los datos.</b></>}</p>;
 }
 
-function Tarjetas({ datos, filtros }: { datos: DatosEstadisticas; filtros: FiltrosEstadisticas }) {
+function Tarjetas({ datos, filtros, abierta }: { datos: DatosEstadisticas; filtros: FiltrosEstadisticas; abierta: boolean }) {
   const t = cifrasDelCorte(datos, filtros);
   const origen = t.fuente === "nivel" ? `total publicado a nivel «${t.nivel}»` : t.fuente === "clases" ? `suma exacta de ${t.clases} clases (ninguna con menos de 5)` : "";
   if (t.fuente === "ninguna") return <p className="historical-notice weekly-notice" role="status" data-testid="est-sin-cifras">{explicarVacio(datos, filtros)}</p>;
@@ -50,16 +50,20 @@ function Tarjetas({ datos, filtros }: { datos: DatosEstadisticas; filtros: Filtr
     {t.fuente === "clases" ? " Con filtros de clase el total solo se muestra si ninguna clase del corte tiene menos de 5 personas." : ""}</p>;
   const c = t.cifras as Cifras;
   const total = pctEntro(c);
+  // Regla C (2026-10-14): «Ingresaron» = en su horario + colados, la misma cifra y definicion de la pestaña Semana.
+  const ingresaron = c.entraron_a_su_clase != null && c.fueron_a_otra != null ? c.entraron_a_su_clase + c.fueron_a_otra : null;     // null = alguna parte suprimida (<5)
   return <>
     <div className="tiempo-grid est-tarjetas" aria-label="Cifras del corte">
-      <div className="tiempo-card t-cumple"><span>✓ Entraron a su clase</span><strong>{c.entraron_a_su_clase}</strong><small>{pct(total)} de los medibles</small></div>
-      <div className="tiempo-card t-mediana"><span>↗ Fueron a otra clase</span><strong>{c.fueron_a_otra}</strong><small>entraron solo a una clase distinta de la propia</small></div>
-      <div className="tiempo-card t-rojo"><span>✕ No aparecieron</span><strong>{c.no_aparecieron}</strong><small>su clase se capturó y no entraron</small></div>
-      <div className="tiempo-card t-mediana"><span>Roster</span><strong>{c.roster}</strong><small>personas con clase propia en este corte</small></div>
+      <div className="tiempo-card t-cumple" data-testid="est-ingresaron"><span>Ingresaron</span><strong>{ingresaron ?? SIN_DATO}</strong>
+        <small>{c.entraron_a_su_clase ?? SIN_DATO} en su horario + {c.fueron_a_otra ?? SIN_DATO} colados{ingresaron != null && c.roster ? ` · ${pct((ingresaron * 100) / c.roster)} de ${c.roster}${abierta ? " (semana en curso)" : ""}` : ""}</small></div>
+      <div className="tiempo-card t-cumple"><span>✓ En su horario</span><strong>{c.entraron_a_su_clase}</strong><small>{pct(total)} de las personas con clase propia</small></div>
+      <div className="tiempo-card t-mediana"><span>↗ Colados</span><strong>{c.fueron_a_otra}</strong><small>entraron solo a una clase que no es la suya; también ingresaron</small></div>
+      <div className="tiempo-card t-rojo"><span>{abierta ? "✕ Aún no ingresaron" : "✕ No ingresaron"}</span><strong>{c.no_aparecieron}</strong><small>{abierta ? "su clase ya se capturó y no entraron (la semana sigue abierta)" : "su clase se capturó y no entraron a ninguna clase"}</small></div>
+      <div className="tiempo-card t-mediana"><span>Personas con clase propia</span><strong>{c.roster}</strong><small>base de los porcentajes en este corte</small></div>
     </div>
     <div className="tiempo-grid est-aparte" aria-label="Cifras aparte">
       <div className="tiempo-card t-sindato" title={AYUDA_SIN_CAPTURA}><span>◌ Sin captura confiable (aparte)</span><strong>{c.no_medibles}</strong><small>por el estado de captura de su clase: NO es ausencia, no se suma a «no aparecieron» y no es el «no medible» del calendario</small></div>
-      <div className="tiempo-card t-mediana"><span>Visitas recibidas</span><strong>{c.visitas_recibidas}</strong><small>personas de otra clase que entraron a estas clases</small></div>
+      <div className="tiempo-card t-mediana"><span>Entradas de colados</span><strong>{c.visitas_recibidas}</strong><small>entradas a estas clases de personas de otra clase (ya cuentan en «Ingresaron»; una persona puede sumar más de una)</small></div>
     </div>
     <CuadreSuprimidos datos={datos} filtros={filtros} />
     <p className="nota">Fuente: {origen}.</p>
@@ -83,7 +87,7 @@ function TablaClases({ datos, filtros }: { datos: DatosEstadisticas; filtros: Fi
   if (filas.length === 0) return <p className="nota" data-testid="est-vacio-clases">{explicarVacio(datos, filtros)}</p>;
   return <div className="class-table-wrap" role="region" aria-label="Clases por ciudad" tabIndex={0}>
     <table className="class-table tiempo-tabla est-tabla"><caption>Cada clase por ciudad, con el estado de la captura</caption>
-      <thead><tr><th>Clase</th><th>Ciudad</th><th>Roster</th><th>Entraron</th><th>A otra</th><th>No aparecieron</th><th title={AYUDA_SIN_CAPTURA}>Sin captura confiable</th><th>Visitas</th><th>Mediana % tiempo</th><th>Captura</th></tr></thead>
+      <thead><tr><th>Clase</th><th>Ciudad</th><th>Inscritas</th><th>En su horario</th><th>Colados</th><th>No ingresaron</th><th title={AYUDA_SIN_CAPTURA}>Sin captura confiable</th><th>Visitas</th><th>Mediana % tiempo</th><th>Captura</th></tr></thead>
       <tbody>{filas.map((f) => {
         const chip = (CHIPS_CONFIANZA as Record<string, { icono: string; texto: string; ayuda: string }>)[f.confianza];
         const s = f.suprimido; const c = f.cifras;
@@ -207,7 +211,7 @@ export default function Estadisticas({ actual, modo, filtros, setFiltros }: {
         {` Nivel de totales: ${nivelParaFiltros(filtros)}.`}</p>
 
       <h3>Cifras del corte</h3>
-      <Tarjetas datos={d} filtros={filtros} />
+      <Tarjetas datos={d} filtros={filtros} abierta={!actual.cerrada_en} />
 
       <h3>Ciudad × día</h3>
       <p className="nota">Semáforo del % que entró a su clase (de los medibles): ✓ {SEMAFORO.verde} % o más · ▲ {SEMAFORO.amarillo}–{SEMAFORO.verde - 1} % · ✕ menos de {SEMAFORO.amarillo} %.

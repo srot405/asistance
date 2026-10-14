@@ -1228,3 +1228,5 @@ select {
 .tiempo-detalle > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 
 .presencia-card.colado { border-left: 4px solid #d1793f; }
+
+.vivo-ingresaron { margin: 8px 0 0; font-size: 15px; }

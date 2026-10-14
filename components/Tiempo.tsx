@@ -50,8 +50,8 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <CoberturaTiempo conteos={d.semana_agregada} roster={d.roster} congeladaEn={d.congelada_en} reconstruida={d.reconstruida} />
       <TiempoTarjetas a={d.semana_agregada} />
       <section aria-label="Visitas" className="tiempo-visitas">
-        <p><b>Visitas</b> (clase que no es la suya): {d.visitas.sesiones} sesiones — cumplen {d.visitas.cumplen} · rojo {d.visitas.rojo} · sin dato {d.visitas.sin_dato}.
-          No suman a los conteos de arriba.</p></section>
+        <p><b>Entradas de colados</b> (a una clase que no es la suya): {d.visitas.sesiones} sesiones — cumplen {d.visitas.cumplen} · rojo {d.visitas.rojo} · sin dato {d.visitas.sin_dato}.
+          Estas personas ya cuentan en «Ingresaron»; aquí se listan por clase.</p></section>
       {puedeNominal ? <TiempoVisitas semana={actual.semana} filtro={filtro} modo={modo} />
         : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
 
@@ -114,7 +114,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <p><b>{ETIQUETAS.rojo_tiempo}:</b> estuvo conectado menos de la mitad de la duración de SU clase (la sala abre ~15 min antes y ese rato no cuenta). Exactamente 50 % cumple.</p>
       <p><b>{ETIQUETAS.sin_dato_tiempo}:</b> no se pudo medir; nunca cuenta como rojo ni como 0.</p>
       <p><b>Cobertura:</b> «N de M con tiempo medido»; con menos de 70 % se avisa y con menos de 5 medidos no se publica mediana ni distribución.</p>
-      <p><b>Presencia</b> usa este mismo criterio: Presente = 50 % o más, Parcial = menos del 50 %.</p>
+      <p><b>Presencia</b> usa este mismo criterio: «50 % o más» y «menos del 50 %».</p>
     </details>
   </section>;
 }

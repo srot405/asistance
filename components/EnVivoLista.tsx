@@ -8,7 +8,7 @@ import type { ClaseListaVivo, PersonaVivo, SenalVivo } from "../lib/vivoNominal.
 // Pestana «Lista en vivo» (TOC-153): quien entro HOY a cada clase, con nombre, y con que senal. Nominal: el servidor decide
 // que filas salen (monitor = su ciudad); ocultar la pestana nunca reemplaza esa validacion.
 const SENALES: SenalVivo[] = ["roster", "otra_franja", "no_identificado", "personal"];
-const ETIQUETA: Record<SenalVivo, string> = { roster: "De esta clase", otra_franja: "De otra franja", no_identificado: "No identificado", personal: "Personal" };
+const ETIQUETA: Record<SenalVivo, string> = { roster: "De esta clase", otra_franja: "Colados (otra clase)", no_identificado: "No identificado", personal: "Personal" };
 const ICONO: Record<SenalVivo, string> = { roster: "✓", otra_franja: "↔", no_identificado: "?", personal: "★" };
 const ESTADO: Record<string, string> = { abierta: "En curso", proxima: "Próxima", terminada: "Terminada", sin_sala: "Sin sala" };
 const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" }) : "—");
@@ -21,7 +21,7 @@ function Chip({ senal }: { senal: SenalVivo }) {
 function TablaCifras({ clases }: { clases: ClaseListaVivo[] }) {
   return <div className="class-table-wrap" role="region" aria-label="Cifras por clase" tabIndex={0}>
     <table className="class-table"><caption>Personas que entraron hoy, por clase (entre paréntesis: ahora en sala)</caption>
-      <thead><tr><th>Clase</th><th>Estado</th><th>Roster</th>{SENALES.map((s) => <th key={s}>{ETIQUETA[s]}</th>)}</tr></thead>
+      <thead><tr><th>Clase</th><th>Estado</th><th>Inscritas</th>{SENALES.map((s) => <th key={s}>{ETIQUETA[s]}</th>)}</tr></thead>
       <tbody>{clases.map((c) => <tr key={c.slot_id}>
         <td>{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}</td><td>{c.roster_total}</td>
         {SENALES.map((s) => <td key={s}>{c.cifras[s].total} <small>({c.cifras[s].en_sala})</small></td>)}
@@ -65,7 +65,7 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
 
   return <section className="panel lista-vivo" aria-label="Lista en vivo" aria-busy={fase === "cargando"}>
     <h3>Lista en vivo</h3>
-    <p className="nota">Quién entró hoy a cada clase y con qué señal. <b>De otra franja</b> = está en el roster de esta semana pero su horario es otro.
+    <p className="nota">Quién entró hoy a cada clase y con qué señal. <b>Colados (otra clase)</b> = está en la lista de esta semana pero su horario es otro.
       Identificación: primero el correo del roster; si no coincide, la cédula del registro de Zoom. Nunca se adivina por nombre.
       {datos?.alcance?.ciudad ? <> Ves solo personas de <b>{datos.alcance.ciudad}</b>.</> : null}</p>
     <div className="tiempo-filtros">
@@ -94,7 +94,7 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
         <p className="nota">{filas.length} {filas.length === 1 ? "persona" : "personas"} con estos filtros. «En sala» es aproximado: el webhook de Zoom a veces pierde entradas o salidas.</p>
         <div className="class-table-wrap" role="region" aria-label="Personas" tabIndex={0}>
           <table className="class-table visitas-tabla lista-vivo-tabla"><caption>Personas en las clases de hoy</caption>
-            <thead><tr><th>Nombre</th><th>Señal</th><th>Clase a la que entró</th><th>Su clase (roster)</th><th>Cédula</th><th>Ciudad</th><th>Correo</th>
+            <thead><tr><th>Nombre</th><th>Señal</th><th>Clase a la que entró</th><th>Su clase</th><th>Cédula</th><th>Ciudad</th><th>Correo</th>
               <th>Entró</th><th>En sala</th><th>Cómo se identificó</th></tr></thead>
             <tbody>{filas.map(({ c, p }, i) => <tr key={`${c.slot_id}|${p.cedula ?? p.correo ?? p.nombre}|${i}`} className={`fila-senal-${p.senal}`}>
               <th scope="row">{p.nombre ?? "—"}</th><td><Chip senal={p.senal} /></td><td>{c.etiqueta}</td>

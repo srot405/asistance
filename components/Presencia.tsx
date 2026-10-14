@@ -118,10 +118,10 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
     {datos && !cargando && <>
       <div className="presencia-grid" aria-label="Conteo por categoría de presencia">
         <article className="presencia-card presente">
-          <span>🟢 Presente</span><strong>{datos.conteos.presente}</strong><small>{pct(datos.conteos.presente)}</small>
+          <span>✓ 50 % o más</span><strong>{datos.conteos.presente}</strong><small>{pct(datos.conteos.presente)}</small>
         </article>
         <article className="presencia-card entro-salio">
-          <span>🟠 Parcial</span><strong>{datos.conteos.parcial}</strong>
+          <span>⏱ Menos del 50 %</span><strong>{datos.conteos.parcial}</strong>
           <small>{pct(datos.conteos.parcial)}</small>
         </article>
         <article className="presencia-card colado" data-testid="presencia-colados">
@@ -129,7 +129,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
           <small>{(datos.conteos.colado ?? 0) === 0 ? "—" : `${datos.colados_con_pct ?? 0} con % de estancia · ${datos.colados_bajo_50 ?? 0} no superan el 50 % ni con su mejor clase`}</small>
         </article>
         <article className="presencia-card nunca-entro">
-          <span>{abierta ? "🔴 Aún no ingresó" : "🔴 Nunca entró"}</span><strong>{datos.conteos.nunca_entro}</strong>
+          <span>{abierta ? "✕ Aún no ingresó" : "✕ No ingresó"}</span><strong>{datos.conteos.nunca_entro}</strong>
           <small>{pct(datos.conteos.nunca_entro)}</small>
         </article>
         <article className="presencia-card sin-dato">
@@ -140,7 +140,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       <p className="nota">{horarioDe(datos.slot_id)} · {datos.fecha} · {total} personas medibles</p>
       {datos.conteos.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
         {datos.conteos.sin_dato} {datos.conteos.sin_dato === 1 ? "persona entró" : "personas entraron"} pero su tiempo
-        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir: no se cuentan como Parcial ni como falta.
+        en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir: no cuentan como «menos del 50 %» ni como falta.
       </p>}
       {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
@@ -151,16 +151,15 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
 
-    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «Nunca entró» sale de las entradas registradas (asist_entradas, a cualquier clase de la semana) y el tiempo de «Presente / Parcial» sale
-      de la API de Zoom (pestaña Tiempo). Si una persona aparece distinta aquí y en Tiempo, es porque cada pantalla lee su fuente; no es un error de cálculo.</p>
+    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «No ingresó» sale de las entradas registradas (a cualquier clase de la semana) y el tiempo de «50 % o más / menos del 50 %» sale de la API de Zoom (pestaña Tiempo). Aquí se mira la clase elegida; en Tiempo, la mejor clase de cada persona, así que pueden diferir en pocos casos (por ejemplo, un colado): no es un error.</p>
     <details className="panel definitions"><summary>Cómo se calculan estas categorías</summary>
-      <p><b>🟢 Presente:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
-      <p><b>🟠 Parcial:</b> estuvo menos del 50&nbsp;% del tiempo de su clase.</p>
-      <p><b>🔴 Nunca entró:</b> no entró a su clase ni a ninguna otra clase de la semana (misma regla que «No ingresaron» del
+      <p><b>✓ 50 % o más:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
+      <p><b>⏱ Menos del 50 %:</b> estuvo menos de la mitad del tiempo de su clase; su % se conserva.</p>
+      <p><b>✕ No ingresó:</b> no entró a su clase ni a ninguna otra clase de la semana (misma regla que «No ingresaron» del
         calendario: estas personas son exactamente las de ese CSV para esta clase).</p>
       <p><b>↗ Entró a otra clase (colado):</b> entró a una clase que no es la suya y no a la suya. Ingresó y tiene su % de estancia (el de su
         mejor clase), que se muestra y se conserva aunque sea bajo.</p>
-      <p><b>◌ Sin dato de tiempo:</b> entró a su clase, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como Parcial.</p>
+      <p><b>◌ Sin dato de tiempo:</b> entró a su clase, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como «menos del 50 %».</p>
     </details>
   </section>;
 }

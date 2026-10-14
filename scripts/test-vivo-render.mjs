@@ -10,15 +10,15 @@ const capturas = {};
 
 // 1) Clase en curso normal
 { const t = await ver(VIVO_DEMO.en_curso); capturas.en_curso = t;
-  for (const s of ["Clase de las 18:00 · comunicaciones", "● En curso", "Del roster: 31 de 40", "ahora en sala (aprox.): 27",
-    "No sabemos quién es: 3", "Personal: 2", "Actualizado hace 12 s", "Cuenta Zoom: Comunicaciones"]) assert.ok(t.includes(s), `falta «${s}»: ${t}`);
+  for (const s of ["Clase de las 18:00 · comunicaciones", "● En curso", "En su horario: 31 de 40", "ahora en sala (aprox.): 27",
+    "Sin identificar: 3", "Personal: 2", "Actualizado hace 12 s", "Cuenta Zoom: Comunicaciones"]) assert.ok(t.includes(s), `falta «${s}»: ${t}`);
   assert.ok(!t.includes("El conteo puede estar por debajo"), "sin banda si la cobertura es buena");
   assert.ok(!t.includes("Cifra final del webhook"), "en curso no es cifra final");
   const h = await verHtml(VIVO_DEMO.en_curso);
   assert.match(h, /role="progressbar"[^>]*aria-valuenow="31"[^>]*aria-valuemax="40"|aria-valuemax="40"[^>]*aria-valuenow="31"/, "barra de progreso accesible");
-  assert.match(h, /aria-label="Del roster: 31 de 40"/);
+  assert.match(h, /aria-label="En su horario: 31 de 40"/);
   assert.match(h, /style="width:78%"/, "barra al 78 %");
-  assert.match(h, /title="Personas que entraron a Zoom[^"]*correos mal escritos: se corrigen al cerrar la clase\. Si dos personas sin correo se llaman igual, se cuentan como una[^"]*"/, "tooltip de No sabemos quién es");
+  assert.match(h, /title="Personas que entraron a Zoom[^"]*correos mal escritos: se corrigen al cerrar la clase\. Si dos personas sin correo se llaman igual, se cuentan como una[^"]*"/, "tooltip de Sin identificar");
 }
 
 // 2) Cobertura baja (Soporte)
@@ -27,7 +27,7 @@ const capturas = {};
   assert.ok(t.includes("Zoom no entregó todas las entradas de esta sala; el conteo es un mínimo."), "muestra el aviso");
   assert.ok(t.includes("⚠"), "icono, no solo color");
   assert.ok(t.includes("Cuenta Zoom: Soporte"));
-  assert.ok(t.includes("Del roster: 12 de 35"));
+  assert.ok(t.includes("En su horario: 12 de 35"));
 }
 
 // 3) Sabado: 3 clases a la vez
@@ -46,14 +46,14 @@ const capturas = {};
   assert.ok(t.includes("◷ Próxima"));
   assert.ok(t.includes("No hay clase en este momento"));
   assert.ok(t.includes("Próxima clase de hoy: Clase de las 18:00 · comunicaciones (empieza a las 18:00)"));
-  assert.ok(t.includes("Todavía no empieza. Roster de esta clase: 40 personas."));
-  assert.ok(!t.includes("Del roster:"), "proxima: sin burbujas en cero");
+  assert.ok(t.includes("Todavía no empieza. Inscritas en esta clase: 40 personas."));
+  assert.ok(!t.includes("En su horario:"), "proxima: sin burbujas en cero");
 }
 
 // 5) Terminada
 { const t = await ver(VIVO_DEMO.terminada); capturas.terminada = t;
   assert.ok(t.includes("✔ Terminada"));
-  assert.ok(t.includes("Del roster: 31 de 40"), "muestra el maximo final");
+  assert.ok(t.includes("En su horario: 31 de 40"), "muestra el maximo final");
   assert.ok(t.includes("Cifra final del webhook; el cierre oficial lo calcula el sistema."));
   assert.ok(!t.includes("ahora en sala (aprox.): 0"), "terminada no muestra 'ahora'");
   assert.ok(t.includes("No hay clase en este momento"));
@@ -70,7 +70,7 @@ const capturas = {};
 { const t = await renderizar(P, { fase: "no_disponible", datos: null, edadSeg: 0, reintentar() {} }); capturas.no_disponible = t;
   assert.ok(t.includes("En vivo no disponible"));
   assert.doesNotMatch(t, /HTTP|503|supabase|error|stack|Actualizado hace/i, "sin detalles internos");
-  assert.ok(!t.includes("Del roster"));
+  assert.ok(!t.includes("En su horario"));
 }
 
 // 8) Cargando, error y pausa con Reintentar
@@ -97,7 +97,7 @@ const capturas = {};
   assert.match(h, /aria-labelledby="vivo-t-ejemplo-0800"/);
   assert.match(h, /<span class="vivo-circulo" aria-hidden="true">/, "el circulo decorativo se oculta; el texto lleva la cifra");
   assert.match(h, /tabindex="0"[^>]*>ⓘ</, "la ayuda se alcanza con teclado");
-  for (const k of ["Del roster:", "No sabemos quién es:", "Personal:"]) assert.ok(h.includes(k), `etiqueta de texto ${k}`);
+  for (const k of ["En su horario:", "Sin identificar:", "Personal:"]) assert.ok(h.includes(k), `etiqueta de texto ${k}`);
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.vivo-b-desconocidos \{[^}]*dashed/, "borde punteado = no depende del color");
   assert.match(css, /\.vivo-b-personal \{[^}]*double/, "borde doble");
@@ -119,18 +119,19 @@ for (const [k, v] of Object.entries(capturas)) assert.doesNotMatch(v, /@|ejemplo
   assert.match(ev, /visibilityState === "visible"/);
 }
 
-// 12) (1) «De otra franja: N» solo si N>0, con icono y tooltip; nunca «X de Y» con X>Y
+// 12) (1) «Colados (otra clase): N» solo si N>0, con icono y tooltip; nunca «X de Y» con X>Y
 { const t = await ver(VIVO_DEMO.en_curso);
-  assert.ok(t.includes("De otra franja: 2"), "visible cuando hay visitantes de otra franja");
+  assert.ok(t.includes("Colados (otra clase): 2"), "visible cuando hay visitantes de otra franja");
+  assert.ok(t.includes("Ingresaron: 33 (31 en su horario + 2 colados)"), "total «Ingresaron» = en su horario + colados (misma definicion que Semana)");
   const h = await verHtml(VIVO_DEMO.en_curso);
-  assert.match(h, /class="vivo-otra"[^>]*title="Estudiantes del roster que entraron a esta sala pero pertenecen a otra clase"/);
-  assert.match(h, /<span aria-hidden="true">⇄<\/span> De otra franja:/, "icono + texto");
+  assert.match(h, /class="vivo-otra"[^>]*title="Estudiantes que entraron a esta sala pero pertenecen a otra clase \(colados\)"/);
+  assert.match(h, /<span aria-hidden="true">⇄<\/span> Colados \(otra clase\):/, "icono + texto");
   const sin = await verHtml(VIVO_DEMO.cobertura_baja);
   assert.ok(!sin.includes("vivo-otra"), "N=0: no aparece");
   assert.ok(!(await verHtml({ ...VIVO_DEMO.en_curso, clases: [(({ otra_franja_maximo, otra_franja_ahora_aprox, ...r }) => r)(VIVO_DEMO.en_curso.clases[0])] })).includes("vivo-otra"), "campo opcional ausente: no aparece (compatible con el contrato anterior)");
   const exc = { ...VIVO_DEMO.en_curso, clases: [{ ...VIVO_DEMO.en_curso.clases[0], roster_maximo: 46 }] };
   const te = await ver(exc), he = await verHtml(exc);
-  assert.ok(te.includes("Del roster: 46 (supera el roster esperado)"), te);
+  assert.ok(te.includes("En su horario: 46 (supera el roster esperado)"), te);
   assert.ok(!/46 de 40/.test(te) && !/46 de 40/.test(he), "nunca X de Y con X>Y");
   const now = Number(he.match(/aria-valuenow="(\d+)"/)[1]), max = Number(he.match(/aria-valuemax="(\d+)"/)[1]);
   assert.ok(now <= max, `aria-valuenow ${now} <= aria-valuemax ${max}`);
@@ -141,7 +142,7 @@ for (const [k, v] of Object.entries(capturas)) assert.doesNotMatch(v, /@|ejemplo
 // 13) (2) terminada sin cifra en memoria: ni burbujas ni cifra final, solo el aviso
 { const t = await ver(VIVO_DEMO.terminada_sin_cifra), h = await verHtml(VIVO_DEMO.terminada_sin_cifra);
   assert.ok(t.includes("Cifra final no disponible aquí; ver pestaña Presencia"));
-  for (const k of ["Del roster:", "No sabemos quién es:", "Personal:", "Cifra final del webhook"]) assert.ok(!t.includes(k), `sin «${k}»`);
+  for (const k of ["En su horario:", "Sin identificar:", "Personal:", "Cifra final del webhook"]) assert.ok(!t.includes(k), `sin «${k}»`);
   assert.ok(!h.includes('class="vivo-burbujas"') && !h.includes("progressbar"));
 }
 // 14) (6) pantalla «no disponible» muestra el motivo del servidor (sin detalles tecnicos)

@@ -282,7 +282,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
             {esEnCurso(diaSeleccionado) && <p className="nota" data-testid="dia-en-curso">Clase en curso o pendiente de cierre:
               el % se calcula cuando cierre (hoy solo cuentan quienes ya entraron).</p>}
             {clasesDelDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
-              <thead><tr><th>Clase</th><th>Roster</th><th>Cantidad</th><th>%</th><th title="Confianza de la captura y cuadre de la clase">Conf.</th></tr></thead>
+              <thead><tr><th>Clase</th><th>Inscritas</th><th>Cantidad</th><th>%</th><th title="Confianza de la captura y cuadre de la clase">Conf.</th></tr></thead>
               <tbody>{clasesDelDia.map((clase) => {
                 const v = vista(clase, vistaModo);
                 return <tr key={`${clase.fecha}-${clase.slot_id}`}>
@@ -306,7 +306,7 @@ export default function CalendarioSemana({ actual, modo, sinSabado = false }: {
           {esDetalle && detalle?.resumen.en_curso && <p className="nota" data-testid="semana-en-curso">Semana abierta: incluye
             una clase en curso o pendiente de cierre, así que la cifra de la semana todavía cambia.</p>}
           {esDetalle && detalle && detalle.porDia.length > 0 && <div className="calendar-clases"><table className="class-table tabla-modo">
-            <thead><tr><th>Día</th><th>Roster</th><th>Cantidad</th><th>%</th></tr></thead>
+            <thead><tr><th>Día</th><th>Inscritas</th><th>Cantidad</th><th>%</th></tr></thead>
             <tbody>{detalle.porDia.map((d) => {
               const v = vista(d, vistaModo);
               return <tr key={d.fecha}><td className="tabla-dia">{fechaCorta(d.fecha)} {d.fecha.slice(8, 10)}</td>

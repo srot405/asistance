@@ -42,9 +42,9 @@ export default function EnVivoPantalla({ fase, datos, edadSeg, fallo, aviso, rei
 
       {clases.length > 0 && <table className="sr-only">
         <caption>Clases de hoy: cifras en vivo</caption>
-        <thead><tr><th scope="col">Clase</th><th scope="col">Estado</th><th scope="col">Del roster (máximo)</th><th scope="col">Roster total</th>
-          <th scope="col">Ahora en sala (aprox.)</th><th scope="col">No sabemos quién es (máximo)</th><th scope="col">No sabemos quién es, ahora (aprox.)</th>
-          <th scope="col">Personal (máximo)</th><th scope="col">Personal, ahora (aprox.)</th><th scope="col">De otra franja (máximo)</th></tr></thead>
+        <thead><tr><th scope="col">Clase</th><th scope="col">Estado</th><th scope="col">En su horario (máximo)</th><th scope="col">Inscritas (total)</th>
+          <th scope="col">Ahora en sala (aprox.)</th><th scope="col">Sin identificar (máximo)</th><th scope="col">Sin identificar, ahora (aprox.)</th>
+          <th scope="col">Personal (máximo)</th><th scope="col">Personal, ahora (aprox.)</th><th scope="col">Colados (otra clase) (máximo)</th></tr></thead>
         <tbody>{clases.map((c) => <tr key={c.slot_id}><th scope="row">{tituloClase(c)}</th><td>{(ESTADOS[c.estado] ?? ESTADOS.sin_sala).texto}</td>
           {cifraNoDisponible(c) ? <td colSpan={8}>{AVISO_CIFRA_NO_DISPONIBLE}</td> : <>
           <td>{c.roster_maximo}</td><td>{c.roster_total}</td><td>{c.roster_ahora_aprox}</td><td>{c.desconocidos_maximo}</td>

@@ -11,7 +11,7 @@ export default function TendenciaTiempo({ resultados, modo }: { resultados: Resu
   const serie = datos && datos.disponible ? datos.semanas : null;
   return <section className="panel trend-panel tendencia-tiempo" aria-label="Tiempo en clase semana a semana">
     <div className="section-heading"><div><h2>Tiempo en clase · semana a semana</h2>
-      <p>La barra de cada semana usa su propia base. No compares semanas con cobertura distinta como si fueran iguales.</p></div></div>
+      <p>Base: las personas que ingresaron esa semana, con el % de su mejor clase. Una semana abierta o con baja cobertura no se compara con las cerradas.</p></div></div>
     {estado === "cargando" && <p className="nota" role="status">Cargando tiempo…</p>}
     {(estado === "no_disponible" || estado === "error") && <p className="historical-notice missing-notice" data-testid="tendencia-tiempo-no-disponible">{TEXTO_NO_DISPONIBLE}</p>}
     {serie && <div className="trend-list">{puntosTendenciaTiempo(resultados, serie).map((p) => {
@@ -26,7 +26,7 @@ export default function TendenciaTiempo({ resultados, modo }: { resultados: Resu
             <div className={`trend-track tiempo-track${baja ? " cob-baja" : ""}${p.provisional ? " provisional" : ""}`}>
               <i className="trend-in t-cumple" style={{ width: `${p.valor}%` }} /></div>
             <b>{porcentajeTexto(p.valor)}</b>
-            <small>{p.n_medibles} de {p.n_ingresaron} con tiempo medido ({Math.round((p.cobertura ?? 0) * 100)} %)
+            <small>{p.n_medibles} de {p.n_ingresaron} con % de estancia ({Math.round((p.cobertura ?? 0) * 100)} %)
               {baja && <span className="badge-cobertura-baja"> ⚠ cobertura baja</span>}</small></>
             : <div className="trend-no-data">{ICONOS.sin_dato_tiempo} {ETIQUETAS.sin_dato_tiempo}{p.n_ingresaron > 0 ? ` (${p.n_medibles} de ${p.n_ingresaron} con tiempo medido)` : ""}</div>}
         </div>

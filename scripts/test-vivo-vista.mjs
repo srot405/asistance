@@ -70,8 +70,8 @@ assert.deepEqual(textoRoster({ roster_maximo: 31, roster_total: 40 }), { excede:
 { const t = textoRoster({ roster_maximo: 46, roster_total: 40 });
   assert.equal(t.excede, true); assert.equal(t.texto, "46 (supera el roster esperado)"); assert.ok(t.valorBarra <= t.totalBarra); assert.ok(!/de 40/.test(t.texto)); }
 assert.equal(textoRoster({ roster_maximo: 3, roster_total: 0 }).texto, "3 (supera el roster esperado)");
-assert.match(resumenAnuncio({ ...VIVO_DEMO.en_curso, clases: [{ ...VIVO_DEMO.en_curso.clases[0], roster_maximo: 45 }] }), /del roster 45 \(supera el roster esperado\)/);
-assert.match(resumenAnuncio(VIVO_DEMO.en_curso), /de otra franja 2/, "el anuncio incluye la otra franja solo si > 0");
+assert.match(resumenAnuncio({ ...VIVO_DEMO.en_curso, clases: [{ ...VIVO_DEMO.en_curso.clases[0], roster_maximo: 45 }] }), /en su horario 45 \(supera el roster esperado\)/);
+assert.match(resumenAnuncio(VIVO_DEMO.en_curso), /colados \(otra clase\) 2/, "el anuncio incluye la otra franja solo si > 0");
 assert.doesNotMatch(resumenAnuncio(VIVO_DEMO.cobertura_baja), /otra franja/);
 // (2) cifra no disponible
 assert.equal(cifraNoDisponible(VIVO_DEMO.terminada_sin_cifra.clases[0]), true);

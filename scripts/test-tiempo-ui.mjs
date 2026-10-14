@@ -51,7 +51,7 @@ for (const comp of ["<Presencia ", "<Cobertura ", "<CalendarioSemana ", "<Tenden
 const presenciaSrc = await leer("components/Presencia.tsx");
 assert.match(presenciaSrc, /mismo criterio de la pestaña <b>Tiempo<\/b>: el 50 % del tiempo/);
 assert.doesNotMatch(presenciaSrc, /70\s*(&nbsp;)?\s*%|Entró y salió|entro_y_salio/, "Presencia sin 70 % ni vocabulario viejo");
-assert.match(presenciaSrc, /Parcial[\s\S]*Sin dato de tiempo/);
+assert.match(presenciaSrc, /Menos del 50 %[\s\S]*Sin dato de tiempo/);
 // 10) el servidor es el unico punto de acople: ningun componente importa lib/servidor ni supabase
 for (const [n, src] of Object.entries(fuentes)) assert.doesNotMatch(src, /lib\/servidor|supabase/, `${n}.tsx no toca el servidor`);
 // 11) ningun umbral absoluto en minutos en el codigo nuevo
