@@ -3,15 +3,13 @@ import type { ResumenHistorico } from "../lib/types";
 import type { CamposResumenVivo } from "../lib/servidor/leerHistorico";
 import { textoBaseSeguimiento } from "../lib/baseSeguimiento.mjs";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO } from "../lib/franjaTipo.mjs";
-import type { TiempoNoDisponible, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
+import type { ConteoOrigen, TiempoNoDisponible, TiempoSemanaResponse } from "../lib/tiempoContrato.d.mts";
 import { ICONOS, TEXTO_NO_DISPONIBLE, textoCobertura } from "../lib/tiempoVista.mjs";
 
 const SOLO = "Semana recuperada solo a nivel semanal: sin detalle por día ni por clase.";
 const porcentaje = (valor: number | null) => valor == null ? "—" : `${valor.toFixed(1)} %`;
 // Con clases sin captura, "ingresaron" solo puede subir: la cifra es un piso, no el valor real.
 const esMinimo = (fila: ResumenHistorico) => fila.nivel !== "Sin dato" && !fila.captura_completa;
-// Ingresaron (calendario) cuenta entrada a cualquier clase; la tarjeta de tiempo solo a la propia (ingresaron_propios).
-const otrosIngresos = (asistieron: number | null, propios: number) => asistieron == null ? 0 : Math.max(0, asistieron - propios);
 const MINIMO = "mínimo: hubo clases sin captura";
 
 // Fase 1.1 plan veracidad (2026-10-09): en semanas "Detalle" /api/datos recalcula la cifra en vivo (= calendario sin filtros) y
@@ -35,48 +33,55 @@ function Nivel({ nivel }: { nivel: ResumenHistorico["nivel"] }) {
   return <span className={`level-badge ${clase}`}>{nivel}</span>;
 }
 
-// Tarjeta de tiempo con tres lecturas del MISMO dato guardado (nada se recalcula aqui):
-//  - todos: por persona, con su MEJOR sesion (veredicto semanal, visitas incluidas). Misma base que «Ingresaron».
-//    Si la mejor sesion fue una visita corta, ese % bajo se conserva: ingreso, pero con poco tiempo.
-//  - propia: sesiones de su propia clase (jornada). Es la lectura de antes.
-//  - visitas: sesiones en una sala que no es la de su horario (colados/visitas), medidas en esa sala.
-type VistaTiempo = "todos" | "propia" | "visitas";
-const pctRedondo = (c: number, m: number) => m > 0 ? `${Math.round((c / m) * 100)} %` : "—";
+// Regla C (2026-10-14). Un selector de POBLACION gobierna las tres tarjetas, que cuentan personas (nadie dos veces):
+//  - todos:   los que ingresaron (a su clase o a cualquier otra). Misma base que «Ingresaron».
+//  - horario: los que entraron a SU propia clase.
+//  - colados: los que entraron SOLO a otra clase (colados/visitas). Por definicion todos ingresaron: «No ingresaron» no aplica.
+// La tarjeta de tiempo es de COBERTURA: de las personas de la poblacion, cuantas tienen un % de estancia medido (aunque sea minimo),
+// y cuantas no superan el 50 % ni con su mejor clase. El % de cada persona sale de su mejor clase (veredicto semanal guardado).
+export type Poblacion = "todos" | "horario" | "colados";
+const pctEntero = (c: number, n: number) => n > 0 ? `${Math.round((c / n) * 100)} %` : "—";
+const ETIQUETA_POBLACION: Record<Poblacion, string> = { todos: "Todos los que ingresaron", horario: "En su horario", colados: "Colados" };
+const QUIENES: Record<Poblacion, string> = { todos: "personas que ingresaron", horario: "personas que entraron a su clase", colados: "colados" };
 
-function TarjetaTiempo({ actual, tiempo, t, irATiempo, vistaInicial = "todos" }: {
+function SelectorPoblacion({ actual, valor, onCambiar }: { actual: FilaHero; valor: Poblacion; onCambiar: (p: Poblacion) => void }) {
+  const cuantos: Record<Poblacion, number | null> = { todos: actual.asistieron, horario: actual.ingresaron_horario ?? null, colados: actual.ingresaron_colados ?? null };
+  return <div className="poblacion-vistas" role="radiogroup" aria-label="Población que muestran las tarjetas" data-testid="selector-poblacion">
+    {(["todos", "horario", "colados"] as Poblacion[]).map((p) =>
+      <button key={p} type="button" role="radio" className="poblacion-vista" data-poblacion={p} aria-checked={valor === p} onClick={() => onCambiar(p)}>
+        {ETIQUETA_POBLACION[p]} · {cuantos[p] ?? "—"}</button>)}
+  </div>;
+}
+
+function TarjetaTiempo({ actual, tiempo, t, irATiempo, poblacion }: {
   actual: FilaHero; tiempo: { estado: string; datos: TiempoSemanaResponse | TiempoNoDisponible | null };
-  t: TiempoSemanaResponse | null; irATiempo?: () => void; vistaInicial?: VistaTiempo;
+  t: TiempoSemanaResponse | null; irATiempo?: () => void; poblacion: Poblacion;
 }) {
-  const sp = t?.semana_personas ?? null;
-  const [vista, setVista] = useState<VistaTiempo>(vistaInicial);
-  const hayTiempos = Boolean(t && t.hay_tiempos);
-  const activa: VistaTiempo = sp ? vista : "propia";           // sin veredicto por persona solo existe la lectura de la jornada
-  const vi = t?.visitas ?? { sesiones: 0, cumplen: 0, rojo: 0, sin_dato: 0 };
+  const origen = t?.origen_personas ?? null;
+  const fila: ConteoOrigen | null = !origen ? null : poblacion === "horario" ? origen.con_propia : poblacion === "colados" ? origen.solo_visita : origen.total;
+  const esperadas = poblacion === "horario" ? actual.ingresaron_horario : poblacion === "colados" ? actual.ingresaron_colados : actual.asistieron;
   const verPestana = irATiempo ? <button type="button" className="link-boton" onClick={irATiempo}>ver pestaña Tiempo</button> : "ver pestaña Tiempo";
   const provisional = t?.provisional ? <> · ⏳ provisional</> : null;
-  return <article className="metric-card tiempo" data-testid="tarjeta-tiempo" data-vista-tiempo={activa}>
-    <span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Tiempo en clase</span>
-    {t && hayTiempos ? <>
-      {sp && <div className="tiempo-vistas" role="radiogroup" aria-label="Qué personas cuenta el tiempo">
-        {([["todos", "Todos los que ingresaron"], ["propia", "En su jornada"], ["visitas", "Visitas / colados"]] as [VistaTiempo, string][]).map(([v, etiqueta]) =>
-          <button key={v} type="button" role="radio" className="tiempo-vista" aria-checked={activa === v} data-vista={v} onClick={() => setVista(v)}>{etiqueta}</button>)}
-      </div>}
-      {activa === "todos" && sp && <>
-        <strong>{pctRedondo(sp.cumplen, sp.medidos)}</strong>
-        <small>{sp.cumplen} de {sp.medidos} cumplen · mejor clase de cada persona, visitas incluidas · 50 % del tiempo de su clase · <b>{sp.medidos} de {sp.con_entrada} con tiempo medido</b>
-          {provisional} · una visita corta se conserva con su % bajo · {verPestana}</small></>}
-      {activa === "propia" && <>
-        <strong>{t.semana_agregada.n_medibles > 0 ? `${Math.round((t.semana_agregada.n_cumplen / t.semana_agregada.n_medibles) * 100)} %` : "—"}</strong>
-        <small>{t.semana_agregada.n_cumplen} de {t.semana_agregada.n_medibles} medidos cumplen (suma de clases) · 50 % del tiempo de su clase · <b>{textoCobertura(t.semana_agregada)}</b>
-          {otrosIngresos(actual.asistieron, t.semana_agregada.n_ingresaron) > 0 && <span data-testid="nota-ingresos-otros"> · de las {actual.asistieron} personas que ingresaron,
-            {" "}{t.semana_agregada.n_ingresaron} entraron a su propia clase y cuentan aquí; las otras {otrosIngresos(actual.asistieron, t.semana_agregada.n_ingresaron)} entraron
-            solo a otra clase (visitas, medidas aparte) o Zoom no devolvió su tiempo</span>}
-          {provisional} · el veredicto semanal usa la mejor sesión: {verPestana}</small></>}
-      {activa === "visitas" && <>
-        <strong>{pctRedondo(vi.cumplen, vi.cumplen + vi.rojo)}</strong>
-        <small>{vi.cumplen} de {vi.cumplen + vi.rojo} visitas cumplen · {vi.sesiones} entradas a una clase que no es la suya (colados), medidas en esa sala
-          {vi.sin_dato > 0 && <> · {vi.sin_dato} sin dato de tiempo</>}{provisional} · no entran en «En su jornada»</small></>}
-    </> : <><strong>—</strong><small>{tiempo.estado === "cargando" ? "Cargando tiempo…" : tiempo.estado === "vacio" ? "Aún no hay tiempos calculados para esta semana." : TEXTO_NO_DISPONIBLE}</small></>}
+  const sp = t?.semana_personas ?? null;
+  return <article className="metric-card tiempo" data-testid="tarjeta-tiempo" data-poblacion-tiempo={poblacion}>
+    <span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Tiempo en clase · % de estancia</span>
+    {t && t.hay_tiempos ? (fila ? <>
+      <strong>{pctEntero(fila.con_pct, fila.personas)}</strong>
+      <small><b>{fila.con_pct} de {fila.personas} {QUIENES[poblacion]} con % de estancia en sala</b>
+        {fila.sin_pct > 0 && <b className="tiempo-alerta" data-testid="alerta-sin-pct"> · ⚠ {fila.sin_pct} sin % de estancia (revisar)</b>}
+        {" "}· <b className="tiempo-bajo50" data-testid="bajo-50">{fila.rojo} no superan el 50 % de estancia ni con su mejor clase</b> · {fila.cumplen} sí lo superan
+        {fila.pendientes > 0 && <> · {fila.pendientes} pendientes de medir</>}
+        {esperadas != null && esperadas !== fila.personas && <span data-testid="nota-tiempo-desfase"> · el tiempo se calcula cada ~15 min: {fila.personas} de {esperadas} ya procesadas</span>}
+        {provisional} · {verPestana}</small></>
+      : poblacion === "colados"
+        ? <><strong>—</strong><small>Sin detalle por persona de los colados para esta semana (falta la vista de origen). Entradas de visita: {t.visitas.sesiones} · {t.visitas.cumplen} cumplen · {t.visitas.rojo} bajo 50 %{provisional} · {verPestana}</small></>
+        : poblacion === "horario"
+          ? <><strong>{t.semana_agregada.n_ingresaron > 0 ? pctEntero(t.semana_agregada.n_medibles, t.semana_agregada.n_ingresaron) : "—"}</strong>
+            <small><b>{textoCobertura(t.semana_agregada)}</b> · {t.semana_agregada.n_rojo} no superan el 50 % de estancia{provisional} · {verPestana}</small></>
+          : sp ? <><strong>{pctEntero(sp.medidos, sp.con_entrada)}</strong>
+            <small><b>{sp.medidos} de {sp.con_entrada} personas que ingresaron con tiempo medido</b> · {sp.rojo} no superan el 50 % de estancia ni con su mejor clase · {sp.cumplen} sí lo superan{provisional} · {verPestana}</small></>
+            : <><strong>—</strong><small>Sin veredicto por persona para esta semana{provisional} · {verPestana}</small></>)
+      : <><strong>—</strong><small>{tiempo.estado === "cargando" ? "Cargando tiempo…" : tiempo.estado === "vacio" ? "Aún no hay tiempos calculados para esta semana." : TEXTO_NO_DISPONIBLE}</small></>}
   </article>;
 }
 
@@ -84,7 +89,7 @@ function TarjetaTiempo({ actual, tiempo, t, irATiempo, vistaInicial = "todos" }:
 // nunca mezclada con otras. La comparación entre semanas vive en la pestaña
 // "Historial" -> components/TendenciaHistorica.tsx. El detalle por día pasó del
 // listado estático de antes a components/CalendarioSemana.tsx (interactivo).
-export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiempo, vistaTiempoInicial }: {
+export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiempo, poblacionInicial }: {
   actual: FilaHero;
   // TOC-91, 2026-09-29 (pedido de Samuel): esta semana el sábado no tuvo clase
   // regular (ver lib/franjaTipo.mjs::semanaSinSabado). Se calcula una sola vez en
@@ -93,9 +98,14 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
   // TOC-140: tarjeta de tiempo (opcional para no romper usos anteriores).
   tiempo?: { estado: string; datos: TiempoSemanaResponse | TiempoNoDisponible | null };
   irATiempo?: () => void;
-  vistaTiempoInicial?: VistaTiempo;          // solo para pruebas de renderizado estatico
+  poblacionInicial?: Poblacion;              // solo para pruebas de renderizado estatico
 }) {
   const t = tiempo?.datos && tiempo.datos.disponible ? tiempo.datos : null;
+  const [elegida, setElegida] = useState<Poblacion>(poblacionInicial ?? "todos");
+  // El selector solo existe con la cifra en vivo (trae horario y colados por persona); sin ella se muestra todo como siempre.
+  const hayPoblaciones = actual.nivel === "Detalle" && actual.ingresaron_horario != null && actual.ingresaron_colados != null;
+  const poblacion: Poblacion = hayPoblaciones ? elegida : "todos";
+  const horario = actual.ingresaron_horario ?? 0, colados = actual.ingresaron_colados ?? 0, total = actual.poblacion ?? 0;
   return <>
     <section className="historical-hero">
       <div><p className="eyebrow">Semana del {actual.semana} · {actual.materia}
@@ -108,16 +118,24 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
       </div>
     </section>
 
-    <section className="metric-grid" aria-label="Cifras de la semana">
-      <article className="metric-card retained"><span>Ingresaron</span>
-        <strong>{porcentaje(actual.porcentaje_retencion)}</strong>
-        <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a>
-          <OrigenCifra fila={actual} /></small>
+    {hayPoblaciones && <SelectorPoblacion actual={actual} valor={poblacion} onCambiar={setElegida} />}
+    <section className="metric-grid" aria-label="Cifras de la semana" data-poblacion={poblacion}>
+      <article className="metric-card retained"><span>Ingresaron{poblacion === "horario" ? " a su clase" : poblacion === "colados" ? " (colados)" : ""}</span>
+        {poblacion === "todos" && <><strong>{porcentaje(actual.porcentaje_retencion)}</strong>
+          <small>{actual.asistieron ?? "—"} de {actual.poblacion ?? "—"} personas medibles{esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a>
+            <OrigenCifra fila={actual} /></small></>}
+        {poblacion === "horario" && <><strong>{total > 0 ? porcentaje((horario / total) * 100) : "—"}</strong>
+          <small>{horario} de {total} personas medibles entraron a su propia clase (horario correcto){esMinimo(actual) && <> · <b>{MINIMO}</b></>} · <a href="#definiciones">¿Qué significa?</a></small></>}
+        {poblacion === "colados" && <><strong>{colados > 0 ? "100 %" : "—"}</strong>
+          <small>{colados} de {colados} colados: entraron a una clase que no es la suya y no a la suya; por definición todos ingresaron · <a href="#definiciones">¿Qué significa?</a></small></>}
       </article>
-      <article className="metric-card absent"><span>No ingresaron</span>
-        <strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small>
+      <article className="metric-card absent"><span>No ingresaron{poblacion === "horario" ? " a su clase" : poblacion === "colados" ? " (colados)" : ""}</span>
+        {poblacion === "todos" && <><strong>{porcentaje(actual.porcentaje_nunca)}</strong><small>{actual.nunca ?? "—"} personas · <a href="#definiciones">¿Qué significa?</a></small></>}
+        {poblacion === "horario" && <><strong>{total > 0 ? porcentaje(((total - horario) / total) * 100) : "—"}</strong>
+          <small>{total - horario} personas no entraron a su clase: {actual.nunca ?? "—"} no entraron a ninguna clase y {colados} entraron solo como colados · <a href="#definiciones">¿Qué significa?</a></small></>}
+        {poblacion === "colados" && <><strong>No aplica</strong><small>un colado, por definición, sí ingresó (entró a otra clase) · <a href="#definiciones">¿Qué significa?</a></small></>}
       </article>
-      {tiempo && actual.nivel === "Detalle" && <TarjetaTiempo actual={actual} tiempo={tiempo} t={t} irATiempo={irATiempo} vistaInicial={vistaTiempoInicial} />}
+      {tiempo && actual.nivel === "Detalle" && <TarjetaTiempo actual={actual} tiempo={tiempo} t={t} irATiempo={irATiempo} poblacion={poblacion} />}
     </section>
 
     {actual.nivel === "Solo semanal" && <p className="historical-notice weekly-notice">{SOLO}</p>}
@@ -138,7 +156,8 @@ export default function ResumenSemanaVisual({ actual, sinSabado, tiempo, irATiem
 
     <details className="panel definitions" id="definiciones"><summary>Cómo se calculan estas cifras</summary>
       <p><b>Ingresaron:</b> personas del roster medible con al menos una entrada identificada en la semana.</p>
-      <p><b>Tiempo en clase:</b> tres lecturas del mismo dato. «Todos los que ingresaron» toma, por persona, su mejor clase (también si fue una visita) y es la misma base que «Ingresaron»; si esa mejor clase fue corta, su % bajo se conserva. «En su jornada» cuenta solo la clase de su horario y «Visitas / colados» solo las entradas a una sala que no es la suya; por eso las tres cifras no suman entre sí.</p>
+      <p><b>Población (botones de arriba):</b> «Todos los que ingresaron» = entraron a su clase o a otra; «En su horario» = entraron a su propia clase; «Colados» = entraron solo a otra clase. Cada persona está en una sola de las dos últimas, así que suman el total. Un colado siempre ingresó, por eso «No ingresaron» no aplica para ellos.</p>
+      <p><b>Tiempo en clase · % de estancia:</b> cuenta personas, no entradas. «Con % de estancia» son las que ingresaron y tienen un % medido en alguna clase (el de su mejor clase), aunque sea mínimo; el objetivo es que sean todas. «No superan el 50 % ni con su mejor clase» son las que, aun en su mejor clase medida, no llegaron a la mitad del tiempo; su % bajo se conserva y se muestra. Si alguna persona que ingresó no tuviera ningún % medido, la tarjeta lo avisa.</p>
       <p><b>No ingresaron:</b> personas medibles sin ninguna entrada identificada; no incluye clases pendientes ni sin dato.</p>
       <p><b>Calculado en vivo:</b> en semanas con detalle, estas cifras y el cuadre se recalculan desde las tablas del panel (las mismas del calendario); el resumen del cierre del ETL se conserva solo como referencia.</p>
       <p><b>Mínimo:</b> la semana tuvo clases sin captura (sobre todo de la cuenta soporte). El % real de ingreso es igual o mayor al mostrado.</p>

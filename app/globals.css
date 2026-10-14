@@ -1214,3 +1214,12 @@ select {
   .cal-graf-seg.s-colados, .cal-graf-marca.m-colados { stroke: CanvasText; }
   .cal-graf-roster { fill: Canvas; stroke: CanvasText; }
 }
+
+.poblacion-vistas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.poblacion-vista { min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+.poblacion-vista:hover { border-color: #406c9e; }
+.poblacion-vista[aria-checked="true"] { background: #406c9e; border-color: #406c9e; color: #fff; }
+.poblacion-vista:focus-visible { outline: 3px solid #83b6dd; outline-offset: 2px; }
+.shell.dark .poblacion-vista[aria-checked="true"] { background: #2b4a6f; border-color: #83b6dd; }
+.tiempo-bajo50 { text-decoration: underline; text-decoration-color: #d1793f; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.tiempo-alerta { color: #b3261e; }

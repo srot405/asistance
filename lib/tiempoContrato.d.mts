@@ -39,6 +39,9 @@ export type ResumenPersonasTiempo = {
   umbral_pct: number; roster: number; cumplen: number; rojo: number; sin_dato: number; ausentes: number; sin_clase: number;
   pendientes: number; con_entrada: number; medidos: number; cobertura: number | null; definitivo: boolean;
 };
+// Regla C (2026-10-14, vista v_asist_tiempo_origen, migraciones 092/093): personas que INGRESARON, separadas por origen sin solaparse.
+export type ConteoOrigen = { personas: number; cumplen: number; rojo: number; sin_dato: number; pendientes: number; con_pct: number; sin_pct: number };
+export type OrigenTiempo = { con_propia: ConteoOrigen; solo_visita: ConteoOrigen; sin_sesion: ConteoOrigen; total: ConteoOrigen };
 export type ComparacionBackend = { estado: "OK" | "DISCREPA" | "SIN_COMPARAR"; detalle: string[] };
 
 export type TiempoSemanaResponse = {
@@ -46,7 +49,7 @@ export type TiempoSemanaResponse = {
   provisional: boolean; semana_cerrada_en: string | null; umbral_pct: number | null;
   semana_agregada: AgregadoTiempo; por_dia: DiaTiempo[]; por_clase: ClaseTiempo[]; histograma: HistogramaTiempo | null;
   visitas: { sesiones: number; cumplen: number; rojo: number; sin_dato: number };
-  semana_personas: ResumenPersonasTiempo | null; cuadre: { ok: boolean; errores: string[] }; cuadre_backend: ComparacionBackend;
+  semana_personas: ResumenPersonasTiempo | null; origen_personas: OrigenTiempo | null; cuadre: { ok: boolean; errores: string[] }; cuadre_backend: ComparacionBackend;
   filtro: { ciudad: string | null; franja: string | null; cuenta: string | null };
   ciudades: string[]; cuentas: string[]; franjas: FranjaTiempo[];
 };

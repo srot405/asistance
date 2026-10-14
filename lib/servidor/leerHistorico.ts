@@ -49,7 +49,7 @@ export type CamposResumenVivo = {
   cuadre_etl?: ResumenHistorico["cuadre"];
 };
 export type ResumenConVivo = ResumenHistorico & CamposResumenVivo;
-type Vivo = Pick<ResumenHistorico, "poblacion" | "asistieron" | "nunca" | "porcentaje_retencion" | "porcentaje_nunca" | "cuadre">
+type Vivo = Pick<ResumenHistorico, "poblacion" | "asistieron" | "ingresaron_horario" | "ingresaron_colados" | "nunca" | "porcentaje_retencion" | "porcentaje_nunca" | "cuadre">
   & { calculado_en: string };
 export const TTL_VIVO_ABIERTA_MS = 2 * 60_000;
 export const TTL_VIVO_CERRADA_MS = 60 * 60_000;
@@ -67,7 +67,7 @@ async function calcularVivo(semana: string): Promise<Vivo> {
     if (c === "medible") cuadre.medibles += 1; else if (c === "pendiente") cuadre.pendientes += 1;
     else if (c === "sin_dato") cuadre.sin_dato += 1; else cuadre.sin_clase += 1;
   }
-  return { poblacion: r.poblacion, asistieron: r.asistieron, nunca: r.nunca, porcentaje_retencion: r.porcentaje_retencion,
+  return { poblacion: r.poblacion, asistieron: r.asistieron, ingresaron_horario: r.horario, ingresaron_colados: r.colados, nunca: r.nunca, porcentaje_retencion: r.porcentaje_retencion,
     porcentaje_nunca: r.porcentaje_nunca, cuadre, calculado_en: new Date().toISOString() };
 }
 

@@ -132,6 +132,9 @@ export type ResumenHistorico = {
   nivel: NivelHistorico;
   poblacion: number | null;
   asistieron: number | null;
+  // Regla C (2026-10-14): de los que ingresaron, cuantos entraron a SU clase y cuantos SOLO a otra (colados). Solo en cifra en vivo.
+  ingresaron_horario?: number | null;
+  ingresaron_colados?: number | null;
   nunca: number | null;
   porcentaje_retencion: number | null;
   porcentaje_nunca: number | null;

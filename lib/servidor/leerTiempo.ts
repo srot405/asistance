@@ -1,7 +1,7 @@
 import "server-only";
 import { MODO_DEMO } from "../demo.js";
 import { TIEMPO_DEMO, TIEMPO_DEMO_SERIE } from "../tiempo-demo.mjs";
-import { armarSerieTiempo, armarTiempoSemana, normalizarResumenPersonas } from "../tiempoCalculo.mjs";
+import { armarSerieTiempo, armarTiempoSemana, normalizarOrigen, normalizarResumenPersonas } from "../tiempoCalculo.mjs";
 import type { FilaClaseBackend, FilaCsvTiempo, FilaTiempoPersona, FiltroTiempo, FranjaTiempo, ResumenPersonasTiempo,
   TiempoNoDisponible, TiempoSemanaResponse, TiempoSerieResponse } from "../tiempoContrato.d.mts";
 import { mismaCiudad } from "../rolesCalculo.mjs";
@@ -45,6 +45,7 @@ const COLUMNAS_CLASE = "sesion_id,slot_id,fecha,estado_captura,roster_n,ingresar
   "hist,cobertura,fin_clase_min,fin_confiable,clase_evaluable,motivo_no_evaluable,umbral_pct";
 // SIN nombre ni persona_id: solo lo necesario para agregar.
 const COLUMNAS_PERSONA = "sesion_id,franja_tiempo,fecha,es_visita,franja_propia,ciudad,estado_tiempo,cumple_50,motivo,pct_tiempo,segundos";
+const COLUMNAS_ORIGEN = "origen,personas,cumplen,rojo,sin_dato,pendientes,con_pct,sin_pct";
 const COLUMNAS_RESUMEN = "tiempo_umbral_pct,tiempo_roster,tiempo_cumplen,tiempo_rojo,tiempo_sin_dato,tiempo_ausentes,tiempo_sin_clase," +
   "tiempo_pendientes,tiempo_con_entrada,tiempo_medidos,tiempo_cobertura,tiempo_definitivo";
 
@@ -65,7 +66,7 @@ type FilaSemanaDb = { congelada_en: string | null; cerrada_en: string | null; es
 
 type BaseSemana = {
   clases: FilaClaseBackend[]; filasPersona: FilaPersonaDb[]; franjas: FranjaTiempo[]; fila: FilaSemanaDb | null;
-  resumen: Record<string, unknown> | null;
+  resumen: Record<string, unknown> | null; origen: Record<string, unknown>[];
 };
 
 // Cache de servidor por semana (TTL corto): guarda SOLO las filas crudas SIN nombre/persona_id/correo y no depende del
@@ -86,13 +87,18 @@ async function leerBaseSemana(semana: string, conPersonas: boolean): Promise<Bas
   const clave = `${semana}|${conPersonas ? 1 : 0}`;
   const lectura = (async (): Promise<BaseSemana> => {
     const clases = await tablaTiempo<FilaClaseBackend>("asist_tiempo_clase", COLUMNAS_CLASE, semana, ["sesion_id"]);
-    const [filasPersona, franjas, fila, resumen] = await Promise.all([
+    const [filasPersona, franjas, fila, resumen, origen] = await Promise.all([
       conPersonas && clases.length ? tablaTiempo<FilaPersonaDb>("v_asist_tiempo_persona", COLUMNAS_PERSONA, semana, ["sesion_id", "persona_id"]) : Promise.resolve([]),
       tablaTiempo<FranjaTiempo>("asist_franjas", "slot_id,fecha,cuenta_zoom,horario_texto", semana, ["slot_id"]),
       unaFila<FilaSemanaDb>("asist_semanas", "congelada_en,cerrada_en,estado,notas", semana),
       unaFila<Record<string, unknown>>("asist_semana_resumen", COLUMNAS_RESUMEN, semana),
+      // Cobertura del % de estancia por origen (<= 3 filas). Opcional: sin la vista o ante un fallo la tarjeta sigue con lo demas.
+      tablaTiempo<Record<string, unknown>>("v_asist_tiempo_origen", COLUMNAS_ORIGEN, semana, ["origen"]).catch((e) => {
+        if (!esTablaAusente(e)) console.error("v_asist_tiempo_origen no se pudo leer; la tarjeta usa el resumen semanal");
+        return [] as Record<string, unknown>[];
+      }),
     ]);
-    return { clases, filasPersona, franjas, fila, resumen };
+    return { clases, filasPersona, franjas, fila, resumen, origen };
   })();
   cacheBase.set(clave, { en: ahora, lectura });
   lectura.catch(() => { if (cacheBase.get(clave)?.lectura === lectura) cacheBase.delete(clave); });
@@ -111,12 +117,12 @@ export async function leerTiempoSemana(semana: string, filtro: FiltroTiempo = {}
   }
   try {
     const ligero = Boolean(opciones.ligero);
-    const { clases, filasPersona, franjas, fila, resumen } = await leerBaseSemana(semana, !ligero);
+    const { clases, filasPersona, franjas, fila, resumen, origen } = await leerBaseSemana(semana, !ligero);
     const resumenPersonas: ResumenPersonasTiempo | null = normalizarResumenPersonas(resumen);
     const respuesta = armarTiempoSemana({ clases, personas: filasPersona.map(aFilaPersona), franjas, filtro: ligero ? {} : filtro, info: {
       semana, roster: resumenPersonas?.roster ?? null, congelada_en: fila?.congelada_en ?? null,
       reconstruida: /reconstruid/i.test(fila?.notas ?? ""), provisional: fila?.estado !== "cerrada", cerrada_en: fila?.cerrada_en ?? null,
-      umbral_pct: resumenPersonas?.umbral_pct ?? null, resumen_personas: resumenPersonas } });
+      umbral_pct: resumenPersonas?.umbral_pct ?? null, resumen_personas: resumenPersonas, origen_personas: normalizarOrigen(origen) } });
     // Sin la vista por persona no hay con que comparar: no se afirma una discrepancia que no existe.
     return ligero ? { ...respuesta, cuadre_backend: { estado: "SIN_COMPARAR", detalle: [] } } : respuesta;
   } catch (error) {

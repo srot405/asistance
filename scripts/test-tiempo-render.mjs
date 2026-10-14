@@ -12,34 +12,65 @@ const a = t.semana_agregada;
 const actual = { semana: "2026-09-14", materia: "Todas", nivel: "Detalle", porcentaje_retencion: 80, asistieron: 1, poblacion: 1, porcentaje_nunca: 1, nunca: 1,
   captura_completa: true, cuadre: { roster: 1, medibles: 1, sin_dato: 0, pendientes: 0, sin_clase: 0 }, clases_capturadas: 1, clases_programadas: 1,
   porcentaje_cobertura: 100, aviso: "", periodo_desde: null, periodo_hasta: null, congelada_en: null, roster_reconstruido: false };
-const props = (extra = {}, datos = t) => ({ actual, nuncaPeriodo: 1, sinSabado: false, tiempo: { estado: "ok", datos }, irATiempo: () => {}, ...extra });
 const sp = t.semana_personas;
 assert.ok(sp && sp.medidos > 0, "el demo trae veredicto por persona");
-// Regla C (2026-10-14): por defecto la tarjeta cuenta a TODOS los que ingresaron, por persona y con su mejor clase
-const texto = await renderizar("components/ResumenSemanaVisual.tsx", props());
-assert.ok(texto.includes(`${sp.cumplen} de ${sp.medidos} cumplen`), texto);
-assert.ok(texto.includes(`${sp.medidos} de ${sp.con_entrada} con tiempo medido`), "misma base que Ingresaron");
-assert.ok(texto.includes("una visita corta se conserva con su % bajo"), "la visita corta no se pierde");
-assert.ok(texto.includes("Todos los que ingresaron") && texto.includes("En su jornada") && texto.includes("Visitas / colados"), "botones de vista");
-{ // accesibilidad: grupo de radios con estado y vista inicial «todos» (el render devuelve solo texto)
+import { normalizarOrigen } from "../lib/tiempoCalculo.mjs";
+// Regla C (2026-10-14): selector de poblacion (todos / en su horario / colados) que gobierna las 3 tarjetas, y la tarjeta de
+// tiempo es de COBERTURA del % de estancia por persona. Datos de la semana 2026-09-28 (reales): 525 ingresaron = 465 en su
+// horario + 60 colados; 525 de 525 con % de estancia; 113 no superan el 50 % ni con su mejor clase (99 + 14).
+const origen = normalizarOrigen([
+  { origen: "con_propia", personas: 465, cumplen: 366, rojo: 99, sin_dato: 0, pendientes: 0, con_pct: 465, sin_pct: 0 },
+  { origen: "solo_visita", personas: 60, cumplen: 46, rojo: 14, sin_dato: 0, pendientes: 0, con_pct: 60, sin_pct: 0 }]);
+assert.deepEqual([origen.total.personas, origen.total.cumplen, origen.total.rojo, origen.total.con_pct, origen.total.sin_pct], [525, 412, 113, 525, 0], "suma exacta de origenes");
+assert.equal(normalizarOrigen([]), null, "sin filas no hay origen");
+const tO = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: normalizarResumenPersonas(d.resumenFila), origen_personas: origen } });
+const real = { ...actual, asistieron: 525, poblacion: 720, nunca: 195, porcentaje_retencion: 72.9, porcentaje_nunca: 27.1, ingresaron_horario: 465, ingresaron_colados: 60 };
+const props = (extra = {}, datos = tO, act = real) => ({ actual: act, nuncaPeriodo: 1, sinSabado: false, tiempo: { estado: "ok", datos }, irATiempo: () => {}, ...extra });
+const R = (extra, datos, act) => renderizar("components/ResumenSemanaVisual.tsx", props(extra, datos, act));
+
+// 1) Todos (por defecto): Ingresaron 525 de 720, No ingresaron 195 y COBERTURA 525 de 525 con el 50 % como dato secundario
+const todos = await R();
+assert.ok(todos.includes("Todos los que ingresaron · 525") && todos.includes("En su horario · 465") && todos.includes("Colados · 60"), "selector con conteos");
+assert.ok(todos.includes("525 de 720 personas medibles") && todos.includes("195 personas"), todos);
+assert.ok(todos.includes("100 %") && todos.includes("525 de 525 personas que ingresaron con % de estancia en sala"), "cobertura 525 de 525");
+assert.ok(todos.includes("113 no superan el 50 % de estancia ni con su mejor clase") && todos.includes("412 sí lo superan"), "el 50 % queda como dato secundario");
+assert.ok(!todos.includes("⚠"), "sin alerta cuando todos tienen %");
+// 2) En su horario: 465 de 720; no ingresaron a su clase = 195 + 60; cobertura 465 de 465
+const hor = await R({ poblacionInicial: "horario" });
+assert.ok(hor.includes("465 de 720 personas medibles entraron a su propia clase") && hor.includes("255 personas no entraron a su clase: 195 no entraron a ninguna clase y 60 entraron solo como colados"), hor);
+assert.ok(hor.includes("465 de 465 personas que entraron a su clase con % de estancia en sala") && hor.includes("99 no superan el 50 %") && hor.includes("366 sí lo superan"), hor);
+// 3) Colados: 100 % (todos ingresaron), «No aplica», cobertura 60 de 60 y el 50 % recalcado
+const col = await R({ poblacionInicial: "colados" });
+assert.ok(col.includes("60 de 60 colados") && col.includes("100 %") && col.includes("por definición todos ingresaron"), col);
+assert.ok(col.includes("No aplica") && col.includes("un colado, por definición, sí ingresó"), col);
+assert.ok(col.includes("60 de 60 colados con % de estancia en sala") && col.includes("14 no superan el 50 % de estancia ni con su mejor clase") && col.includes("46 sí lo superan"), col);
+// 4) Una persona que ingreso y NO tiene %: la tarjeta avisa (nunca se esconde) y la cobertura baja
+const origenFalla = normalizarOrigen([
+  { origen: "con_propia", personas: 465, cumplen: 366, rojo: 98, sin_dato: 1, pendientes: 0, con_pct: 464, sin_pct: 1 },
+  { origen: "solo_visita", personas: 60, cumplen: 46, rojo: 14, sin_dato: 0, pendientes: 0, con_pct: 60, sin_pct: 0 }]);
+const tF = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: normalizarResumenPersonas(d.resumenFila), origen_personas: origenFalla } });
+const falla = await R({}, tF);
+assert.ok(falla.includes("524 de 525") && falla.includes("⚠ 1 sin % de estancia (revisar)"), falla);
+// 5) Tiempo aun sin recalcular (semana abierta): avisa el desfase en vez de afirmar una cobertura que no cuadra con «Ingresaron»
+const desfase = await R({}, tO, { ...real, asistieron: 531 });
+assert.ok(desfase.includes("el tiempo se calcula cada ~15 min: 525 de 531 ya procesadas"), desfase);
+// 6) Sin la cifra en vivo (ETL de respaldo) no hay selector y todo se ve como antes
+const etl = await R({}, tO, { ...actual });
+assert.ok(!etl.includes("Todos los que ingresaron ·"), "sin selector sin cifra en vivo");
+// 7) Sin la vista de origen: cae al veredicto semanal por persona y, para colados, lo dice sin inventar cifras
+const sinVista = await R({}, t);
+assert.ok(sinVista.includes(`${sp.medidos} de ${sp.con_entrada} personas que ingresaron con tiempo medido`), sinVista);
+const sinVistaCol = await R({ poblacionInicial: "colados" }, t);
+assert.ok(sinVistaCol.includes("falta la vista de origen"), sinVistaCol);
+// 8) Lectura de antes (jornada) conserva el N de M del backend cuando no hay origen
+const jornada = await R({ poblacionInicial: "horario" }, t);
+assert.ok(jornada.includes(`${a.n_medibles} de ${a.n_ingresaron} con tiempo medido`), jornada);
+{ // accesibilidad
   const { readFile } = await import("node:fs/promises");
   const fuente = await readFile(new URL("../components/ResumenSemanaVisual.tsx", import.meta.url), "utf8");
-  assert.match(fuente, /role="radiogroup"[\s\S]*role="radio"[\s\S]*aria-checked=\{activa === v\}/, "grupo de radios con aria-checked");
-  assert.match(fuente, /vistaInicial = "todos"/, "por defecto cuenta a todos los que ingresaron");
+  assert.match(fuente, /role="radiogroup"[\s\S]*role="radio"[\s\S]*aria-checked=\{valor === p\}/, "grupo de radios con aria-checked");
+  assert.match(fuente, /poblacionInicial \?\? "todos"/, "por defecto: todos los que ingresaron");
 }
-// Lectura de su jornada: la de antes (suma de clases) y remite al veredicto semanal
-const propia = await renderizar("components/ResumenSemanaVisual.tsx", props({ vistaTiempoInicial: "propia" }));
-assert.ok(propia.includes(`${a.n_cumplen} de ${a.n_medibles} medidos cumplen (suma de clases)`), propia);
-assert.ok(propia.includes("el veredicto semanal usa la mejor sesión: ver pestaña Tiempo"), "remite a la pestaña Tiempo");
-// Visitas / colados: solo entradas a una sala que no es la suya
-const vis = await renderizar("components/ResumenSemanaVisual.tsx", props({ vistaTiempoInicial: "visitas" }));
-const v = t.visitas;
-assert.ok(vis.includes(`${v.cumplen} de ${v.cumplen + v.rojo} visitas cumplen`), vis);
-assert.ok(vis.includes("no entran en «En su jornada»"));
-// Sin veredicto por persona no hay botones y se muestra solo la jornada (no se inventa una cifra)
-const sinPersonas = armarTiempoSemana({ clases: d.clases, personas: d.personas, franjas: d.franjas, info: { ...d.info, resumen_personas: null } });
-const textoSin = await renderizar("components/ResumenSemanaVisual.tsx", props({}, sinPersonas));
-assert.ok(!textoSin.includes("tiempo-vistas") && textoSin.includes(`${a.n_cumplen} de ${a.n_medibles} medidos cumplen (suma de clases)`), "fallback a la jornada sin botones");
 
 // Bajo 1: 49,6 nunca se ve "50 %"; la comparacion con el umbral sigue usando el valor exacto
 assert.equal(porcentajeUnDecimal(49.6), "49,6 %");

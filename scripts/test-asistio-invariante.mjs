@@ -46,6 +46,9 @@ function verificarInvariante(filtro) {
     assert.equal(d.asistieron + d.nunca, d.poblacion, `${quien}: asistieron + nunca = poblacion`);
     assert.equal(d.porcentaje_retencion, d.porcentaje_ambos, `${quien}: % retencion = % ambos`);
   }
+  // Regla C (2026-10-14): el selector de poblacion de las tarjetas usa horario y colados del resumen semanal; no se solapan
+  assert.equal(r.resumen.horario + r.resumen.colados, r.resumen.asistieron, "semana: horario + colados = asistieron");
+  assert.ok(Number.isInteger(r.resumen.horario) && Number.isInteger(r.resumen.colados), "el resumen trae horario y colados (los lee la cifra en vivo)");
   return r;
 }
 const r = verificarInvariante({});
