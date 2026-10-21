@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { descargarCsv } from "../lib/descargas";
 import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { urlListaVivo, useListaVivo } from "../lib/useListaVivo";
+import { TEXTO_CERRADA, visibilidadClase } from "../lib/vivoVista.mjs";
 import type { ClaseListaVivo, PersonaVivo, SenalVivo } from "../lib/vivoNominal.d.mts";
 
 // Pestana «Lista en vivo» (TOC-153): quien entro HOY a cada clase, con nombre, y con que senal. Nominal: el servidor decide
@@ -18,12 +19,16 @@ function Chip({ senal }: { senal: SenalVivo }) {
   return <span className={`chip-conf chip-senal-${senal}`}><b aria-hidden="true">{ICONO[senal]}</b>{ETIQUETA[senal]}</span>;
 }
 
-function TablaCifras({ clases }: { clases: ClaseListaVivo[] }) {
+// (TOC-153) Cerrada = ya paso su hora de fin, mismo dia Bogota; las de dias anteriores no se muestran.
+const estaCerrada = (c: ClaseListaVivo, ahora: number) => visibilidadClase(c, ahora) === "cerrada";
+const etiquetaClase = (c: ClaseListaVivo, ahora: number) => (estaCerrada(c, ahora) ? `${c.etiqueta} · ${TEXTO_CERRADA}` : c.etiqueta);
+
+function TablaCifras({ clases, ahora }: { clases: ClaseListaVivo[]; ahora: number }) {
   return <div className="class-table-wrap" role="region" aria-label="Cifras por clase" tabIndex={0}>
     <table className="class-table"><caption>Personas que entraron hoy, por clase (entre paréntesis: ahora en sala)</caption>
       <thead><tr><th>Clase</th><th>Estado</th><th>Inscritas</th>{SENALES.map((s) => <th key={s}>{ETIQUETA[s]}</th>)}</tr></thead>
-      <tbody>{clases.map((c) => <tr key={c.slot_id}>
-        <td>{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}</td><td>{c.roster_total}</td>
+      <tbody>{clases.map((c) => <tr key={c.slot_id} className={estaCerrada(c, ahora) ? "fila-cerrada" : undefined} data-visibilidad={estaCerrada(c, ahora) ? "cerrada" : "abierta"}>
+        <td>{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}{estaCerrada(c, ahora) && <> <span className="vivo-marca-cerrada">{TEXTO_CERRADA}</span></>}</td><td>{c.roster_total}</td>
         {SENALES.map((s) => <td key={s}>{c.cifras[s].total} <small>({c.cifras[s].en_sala})</small></td>)}
       </tr>)}</tbody>
     </table></div>;
@@ -46,14 +51,17 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
   const [ahora, setAhora] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setAhora(Date.now()), 1000); return () => clearInterval(id); }, []);
 
+  // El reloj de 1 s repinta la marca «Cerrada»; las filas solo se recalculan al cambiar de minuto.
+  const minuto = Math.floor(ahora / 60000);
+  const clasesVisibles = useMemo(() => (datos ? datos.clases.filter((c) => visibilidadClase(c, minuto * 60000) !== "oculta") : []), [datos, minuto]);
   const filas = useMemo(() => {
     if (!datos) return [] as { c: ClaseListaVivo; p: PersonaVivo }[];
     const t = sinAcentos(texto.trim());
-    return datos.clases.filter((c) => !clase || c.slot_id === clase)
+    return clasesVisibles.filter((c) => !clase || c.slot_id === clase)
       .flatMap((c) => c.personas.map((p) => ({ c, p })))
       .filter(({ p }) => (!senal || p.senal === senal) && (!soloSala || p.en_sala)
         && (!t || sinAcentos(`${p.nombre ?? ""} ${p.cedula ?? ""} ${p.correo ?? ""} ${p.ciudad ?? ""}`).includes(t)));
-  }, [datos, clase, senal, texto, soloSala]);
+  }, [datos, clasesVisibles, clase, senal, texto, soloSala]);
 
   async function csv() {
     setFalloCsv("");
@@ -81,11 +89,11 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
     {datos && fase === "ok" && <>
       {mensaje && <p className="historical-notice missing-notice" role="alert">{mensaje}</p>}
       {datos.aviso_general && <p className="historical-notice missing-notice" role="status">{datos.aviso_general}</p>}
-      {datos.clases.length === 0 ? <p className="historical-notice weekly-notice" role="status">No hay clases hoy en la ventana visible (desde una hora antes).</p> : <>
-        <TablaCifras clases={datos.clases} />
+      {clasesVisibles.length === 0 ? <p className="historical-notice weekly-notice" role="status">No hay clases hoy en la ventana visible (desde una hora antes).</p> : <>
+        <TablaCifras clases={clasesVisibles} ahora={ahora} />
         <div className="tiempo-filtros" role="group" aria-label="Filtros de la lista">
           <label>Clase <select className="control" value={clase} onChange={(e) => setClase(e.target.value)}>
-            <option value="">Todas</option>{datos.clases.map((c) => <option key={c.slot_id} value={c.slot_id}>{c.etiqueta}</option>)}</select></label>
+            <option value="">Todas</option>{clasesVisibles.map((c) => <option key={c.slot_id} value={c.slot_id}>{etiquetaClase(c, ahora)}</option>)}</select></label>
           <label>Señal <select className="control" value={senal} onChange={(e) => setSenal(e.target.value as "" | SenalVivo)}>
             <option value="">Todas</option>{SENALES.map((s) => <option key={s} value={s}>{ETIQUETA[s]}</option>)}</select></label>
           <label>Buscar <input className="control" type="search" value={texto} placeholder="Nombre, cédula, correo o ciudad" onChange={(e) => setTexto(e.target.value)} /></label>
@@ -96,8 +104,8 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
           <table className="class-table visitas-tabla lista-vivo-tabla"><caption>Personas en las clases de hoy</caption>
             <thead><tr><th>Nombre</th><th>Señal</th><th>Clase a la que entró</th><th>Su clase</th><th>Cédula</th><th>Ciudad</th><th>Correo</th>
               <th>Entró</th><th>En sala</th><th>Cómo se identificó</th></tr></thead>
-            <tbody>{filas.map(({ c, p }, i) => <tr key={`${c.slot_id}|${p.cedula ?? p.correo ?? p.nombre}|${i}`} className={`fila-senal-${p.senal}`}>
-              <th scope="row">{p.nombre ?? "—"}</th><td><Chip senal={p.senal} /></td><td>{c.etiqueta}</td>
+            <tbody>{filas.map(({ c, p }, i) => <tr key={`${c.slot_id}|${p.cedula ?? p.correo ?? p.nombre}|${i}`} className={`fila-senal-${p.senal}${estaCerrada(c, ahora) ? " fila-cerrada" : ""}`}>
+              <th scope="row">{p.nombre ?? "—"}</th><td><Chip senal={p.senal} /></td><td>{etiquetaClase(c, ahora)}</td>
               <td>{p.senal === "roster" ? "Esta" : p.su_clase ?? "—"}</td><td>{p.cedula ?? "—"}</td><td>{p.ciudad ?? "—"}</td><td>{p.correo ?? "—"}</td>
               <td>{hora(p.primera_entrada)}{p.entradas > 1 ? <small> ({p.entradas} entradas)</small> : null}</td>
               <td>{p.en_sala ? "Sí" : "No"}</td><td>{p.como}</td>

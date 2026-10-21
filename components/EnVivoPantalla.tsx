@@ -1,8 +1,8 @@
 import type { VivoResponse } from "../lib/vivoContrato.d.mts";
 import type { FaseVivo } from "../lib/vivoControlador.mjs";
 import {
-  AVISO_CIFRA_NO_DISPONIBLE, ESTADOS, TEXTO_NO_DISPONIBLE, TEXTO_SIN_CLASE, cifraNoDisponible, hayEnCurso, horaCorta, ordenarClases,
-  proximaClase, resumenAnuncio, textoEdad, tituloClase,
+  AVISO_CIFRA_NO_DISPONIBLE, ESTADOS, TEXTO_CERRADA, TEXTO_NO_DISPONIBLE, TEXTO_SIN_CLASE, cifraNoDisponible, hayEnCurso, horaCorta, ordenarClases,
+  ahoraServidorMs, clasesVisibles, proximaClase, resumenAnuncio, visibilidadClase, textoEdad, tituloClase,
 } from "../lib/vivoVista.mjs";
 import EnVivoTarjeta from "./EnVivoTarjeta";
 
@@ -10,7 +10,10 @@ type Props = { fase: FaseVivo; datos: VivoResponse | null; edadSeg: number; fall
 
 // Pantalla pura de "En vivo" (sin hooks): recibe el estado ya resuelto. Asi se prueba cada estado sin navegador.
 export default function EnVivoPantalla({ fase, datos, edadSeg, fallo, aviso, reintentar }: Props) {
-  const clases = datos ? ordenarClases(datos.clases) : [];
+  // (TOC-153) Hora del servidor corregida con la edad de la lectura: sin reloj propio, la pantalla sigue pura y probable.
+  const ahoraMs = datos ? ahoraServidorMs(datos, edadSeg) : null;
+  const clases = datos && ahoraMs != null ? ordenarClases(clasesVisibles(datos.clases, ahoraMs)) : [];
+  const cerrada = (c: { fin: string }) => ahoraMs != null && visibilidadClase(c, ahoraMs) === "cerrada";
   const proxima = datos ? proximaClase(datos.clases) : null;
   const sinEnCurso = datos ? !hayEnCurso(datos.clases) : false;
   return <section className="panel vivo-panel" aria-label="En vivo" aria-busy={fase === "cargando" && !datos}>
@@ -18,7 +21,7 @@ export default function EnVivoPantalla({ fase, datos, edadSeg, fallo, aviso, rei
       <p>Cuántas personas hay en cada clase ahora mismo. Solo cifras, sin nombres.</p></div></div>
 
     {/* Anuncia SOLO cuando cambia una cifra (el contador de segundos queda fuera de esta region). */}
-    <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="vivo-anuncio">{resumenAnuncio(datos)}</div>
+    <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="vivo-anuncio">{resumenAnuncio(datos && { ...datos, clases }, ahoraMs)}</div>
 
     {fase === "cargando" && !datos && <p className="nota" role="status">Cargando En vivo…</p>}
     {fase === "no_disponible" && <p className="historical-notice missing-notice" role="status" data-testid="vivo-no-disponible">{TEXTO_NO_DISPONIBLE}</p>}
@@ -38,14 +41,14 @@ export default function EnVivoPantalla({ fase, datos, edadSeg, fallo, aviso, rei
       {clases.length > 0 && sinEnCurso && <p className="vivo-vacio" data-testid="vivo-vacio">{TEXTO_SIN_CLASE}.
         {proxima ? ` Próxima clase de hoy: ${tituloClase(proxima)} (empieza a las ${horaCorta(proxima.inicio)}).` : ""}</p>}
 
-      <div className="vivo-tarjetas">{clases.map((c) => <EnVivoTarjeta key={c.slot_id} clase={c} />)}</div>
+      <div className="vivo-tarjetas">{clases.map((c) => <EnVivoTarjeta key={c.slot_id} clase={c} cerrada={cerrada(c)} />)}</div>
 
       {clases.length > 0 && <table className="sr-only">
         <caption>Clases de hoy: cifras en vivo</caption>
         <thead><tr><th scope="col">Clase</th><th scope="col">Estado</th><th scope="col">En su horario (máximo)</th><th scope="col">Inscritas (total)</th>
           <th scope="col">Ahora en sala (aprox.)</th><th scope="col">Sin identificar (máximo)</th><th scope="col">Sin identificar, ahora (aprox.)</th>
           <th scope="col">Personal (máximo)</th><th scope="col">Personal, ahora (aprox.)</th><th scope="col">Colados (otra clase) (máximo)</th></tr></thead>
-        <tbody>{clases.map((c) => <tr key={c.slot_id}><th scope="row">{tituloClase(c)}</th><td>{(ESTADOS[c.estado] ?? ESTADOS.sin_sala).texto}</td>
+        <tbody>{clases.map((c) => <tr key={c.slot_id}><th scope="row">{tituloClase(c)}</th><td>{(ESTADOS[c.estado] ?? ESTADOS.sin_sala).texto}{cerrada(c) ? ` · ${TEXTO_CERRADA}` : ""}</td>
           {cifraNoDisponible(c) ? <td colSpan={8}>{AVISO_CIFRA_NO_DISPONIBLE}</td> : <>
           <td>{c.roster_maximo}</td><td>{c.roster_total}</td><td>{c.roster_ahora_aprox}</td><td>{c.desconocidos_maximo}</td>
           <td>{c.desconocidos_ahora_aprox}</td><td>{c.personal_maximo}</td><td>{c.personal_ahora_aprox}</td><td>{c.otra_franja_maximo ?? 0}</td></>}</tr>)}</tbody>

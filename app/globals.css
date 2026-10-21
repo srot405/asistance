@@ -1019,6 +1019,13 @@ select {
 .vivo-tarjeta { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--glass-shadow); min-width: 0; display: grid; gap: 10px; align-content: start; }
 .vivo-abierta { border-color: var(--t-cumple); border-width: 2px; }
 .vivo-terminada { opacity: .96; }
+/* (TOC-153) Clase cerrada: sigue visible el resto del dia, atenuada pero legible, con marca «Cerrada» a pleno contraste. */
+.vivo-cerrada { border-style: dashed; border-width: 1px; border-color: var(--line); box-shadow: none; }
+.vivo-cerrada > :not(.vivo-cab) { opacity: .72; }
+.vivo-cerrada .vivo-cab h3 { opacity: .85; }
+.vivo-marca-cerrada { font-weight: 700; font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--brand-2); color: var(--fg); border: 1px solid var(--muted); white-space: nowrap; }
+.lista-vivo .fila-cerrada td, .lista-vivo .fila-cerrada th { opacity: .72; }
+.lista-vivo .fila-cerrada .vivo-marca-cerrada { opacity: 1; }
 .vivo-cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
 .vivo-cab h3 { margin: 0; font-size: 17px; }
 .vivo-estado { font-weight: 700; font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }

@@ -1,12 +1,12 @@
 import type { ClaseVivo } from "../lib/vivoContrato.d.mts";
 import {
   AYUDA_DESCONOCIDOS, AYUDA_OTRA_FRANJA, AYUDA_PERSONAL, ESTADOS, TEXTO_CIFRA_FINAL, TEXTO_COBERTURA_BAJA,
-  cifraNoDisponible, horaCorta, porcentajeRoster, textoRoster, tituloClase,
+  TEXTO_CERRADA, cifraNoDisponible, horaCorta, porcentajeRoster, textoRoster, tituloClase,
 } from "../lib/vivoVista.mjs";
 
 // Una tarjeta por clase (TOC-142). Solo conteos: sin nombres ni correos. El color nunca va solo: cada burbuja lleva texto
 // y un borde distinto (liso / punteado / doble). Los numeros de las burbujas son los del contrato, sin recalcular.
-export default function EnVivoTarjeta({ clase: c }: { clase: ClaseVivo }) {
+export default function EnVivoTarjeta({ clase: c, cerrada = false }: { clase: ClaseVivo; cerrada?: boolean }) {
   const est = ESTADOS[c.estado] ?? ESTADOS.sin_sala;
   const titulo = tituloClase(c);
   const idAyuda = `vivo-ayuda-${c.slot_id}`;
@@ -16,10 +16,12 @@ export default function EnVivoTarjeta({ clase: c }: { clase: ClaseVivo }) {
   const roster = textoRoster(c);
   const abierta = c.estado === "abierta";
   const pct = porcentajeRoster(c);
-  return <article className={`vivo-tarjeta vivo-${c.estado}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}>
+  return <article className={`vivo-tarjeta vivo-${c.estado}${cerrada ? " vivo-cerrada" : ""}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}
+    data-visibilidad={cerrada ? "cerrada" : "abierta"}>
     <header className="vivo-cab">
       <h3 id={`vivo-t-${c.slot_id}`}>{titulo}</h3>
       <span className={`vivo-estado vivo-estado-${c.estado}`}><span aria-hidden="true">{est.icono}</span> {est.texto}</span>
+      {cerrada && <span className="vivo-marca-cerrada" data-testid="vivo-cerrada"><span aria-hidden="true">⏹</span> {TEXTO_CERRADA}</span>}
     </header>
     <p className="vivo-meta">Cuenta Zoom: {c.cuenta_zoom} · {horaCorta(c.inicio)} a {horaCorta(c.fin)}</p>
 

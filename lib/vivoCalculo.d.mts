@@ -31,6 +31,7 @@ export function resolverFranjaSinCuenta(filas: Record<string, unknown>[], moment
 export function filasHorario(franjas: FranjaVivo[]): Record<string, unknown>[];
 export function asociarSalaAFranja(sala: { host: unknown; topic: unknown; primerMs: number }, franjas: FranjaVivo[]): string | null;
 export function ventanaClase(franja: FranjaVivo): { inicioMs: number; finMs: number; desdeMs: number; hastaMs: number };
+export function visibilidadClase(franja: FranjaVivo, ahoraMs: number): "abierta" | "cerrada" | "oculta";
 export function estadoClase(franja: FranjaVivo, ahoraMs: number, opts?: { salaActiva?: boolean; eventosEnVentana?: number }): EstadoClaseVivo | null;
 export function ventanaAbiertaAhora(franja: FranjaVivo, ahoraMs: number): boolean;
 export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null }): EventoVivo;
