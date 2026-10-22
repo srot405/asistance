@@ -1,7 +1,7 @@
 import type { ClaseVivo, EstadoClaseVivo, VivoResponse } from "./vivoContrato";
 export type { ClaseVivo, EstadoClaseVivo, VivoResponse };
 export type FranjaVivo = { slot_id: string; dia: string; fecha: string; hora_inicio: number; hora_fin: number; tipo?: string | null; cuenta_zoom: string; roster_n?: number | null };
-export type EventoVivo = { id: number; evento: "joined" | "left"; ms: number; clave: string | null; correoHash: string | null; personal: boolean };
+export type EventoVivo = { id: number; evento: "joined" | "left"; ms: number; clave: string | null; correoHash: string | null; regHash?: string | null; personal: boolean };
 export type SalaVivo = { uuid: string; host: string | null; topic: string | null; activo: boolean; eventos: EventoVivo[] };
 export type ConteosEventos = {
   roster: { maximo: number; ahora: number }; otra: { maximo: number; ahora: number }; desconocidos: { maximo: number; ahora: number }; personal: { maximo: number; ahora: number };
@@ -11,7 +11,7 @@ export type ConteosEventos = {
 type ConHas = { has(h: string): boolean; get?(h: string): { has(slot: string): boolean } | undefined };
 // Identidad por persona en hashes (misma regla que Lista en vivo: correo del roster, si no cedula del registro de Zoom).
 export type IdentidadRosterVivo = { porCorreo: Map<string, string>; porCedula: Map<string, string>; slots: Map<string, Set<string>> };
-export type IdentidadVivo = IdentidadRosterVivo & { registro: Map<string, string | null> };
+export type IdentidadVivo = IdentidadRosterVivo & { registro: Map<string, string | null>; registroId: Map<string, string | null> };
 type RosterVivo = ConHas | IdentidadVivo;
 export const COT_MS: number; export const MIN: number; export const MARGEN_VENTANA_MIN: number; export const PROXIMA_MIN: number;
 export const UMBRAL_HUERFANOS: number; export const MIN_EVENTOS_COBERTURA: number; export const DOMINIO_PERSONAL: string;
@@ -33,7 +33,8 @@ export function asociarSalaAFranja(sala: { host: unknown; topic: unknown; primer
 export function ventanaClase(franja: FranjaVivo): { inicioMs: number; finMs: number; desdeMs: number; hastaMs: number };
 export function estadoClase(franja: FranjaVivo, ahoraMs: number, opts?: { salaActiva?: boolean; eventosEnVentana?: number }): EstadoClaseVivo | null;
 export function ventanaAbiertaAhora(franja: FranjaVivo, ahoraMs: number): boolean;
-export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null }): EventoVivo;
+export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null; registrant_id?: string | null }): EventoVivo;
+export function hashRegistrante(registrantId: unknown): string | null;
 export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: RosterVivo, ahora: number | Date, slotId?: string | null): ConteosEventos;
 export function etiquetaClase(f: FranjaVivo): string;
 export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: RosterVivo;
@@ -42,5 +43,7 @@ export function cedulaSinCeros(c: unknown): string;
 export function hashCedula(c: unknown): string | null;
 export function indexarRosterVivo(filas: { persona_id?: string | number | null; correo_norm: string | null; slot_id: string | null }[]): IdentidadRosterVivo;
 export function indexarRegistroVivo(filas: { correo_norm: string | null; cedula_digitos: string | null }[]): Map<string, string | null>;
-export function conRegistro(identidad: IdentidadRosterVivo, registro: Map<string, string | null> | null | undefined): IdentidadVivo;
+export function indexarRegistroIdVivo(filas: { registrant_id: string | null; cedula_digitos: string | null }[]): Map<string, string | null>;
+export function conRegistro(identidad: IdentidadRosterVivo, registro: Map<string, string | null> | null | undefined, registroId?: Map<string, string | null> | null): IdentidadVivo;
 export function personaDeCorreo(identidad: unknown, correoHash: string | null): string | null;
+export function personaDeEvento(identidad: unknown, correoHash: string | null, regHash?: string | null): string | null;

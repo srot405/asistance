@@ -1,5 +1,5 @@
 import "server-only";
-import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, fechaCOT, indexarRegistroVivo, indexarRosterVivo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
+import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, fechaCOT, hashRegistrante, indexarRegistroIdVivo, indexarRegistroVivo, indexarRosterVivo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
 import type { EventoVivo, FranjaVivo, IdentidadRosterVivo, SalaVivo, VivoResponse } from "../vivoCalculo.d.mts";
 import { supabaseServidor } from "./supabase";
 
@@ -14,6 +14,9 @@ import { supabaseServidor } from "./supabase";
 //  - Identidad igual que "Lista en vivo" (fase 1.4): correo del roster y, si no, cedula del registro de Zoom del dia. zoom_registrantes
 //    se lee SOLO en ventana de clase (o en el ultimo refresco), solo correo_norm,cedula_digitos de fecha_sesion = hoy, con cache de
 //    TTL_REGISTRO_MS (el sync corre cada hora a las :40); si esa lectura falla se sigue con el registro anterior (o solo correo) y aviso.
+//  - TOC-153 paso 2: el registrant_id del evento (webhook, desde 2026-10-22) se cruza con zoom_registrantes.registrant_id buscando
+//    SOLO los ids vistos en los eventos del dia (nunca por fecha_sesion, que el sync reescribe). En memoria queda hash(id) ->
+//    hash(cedula); el id en claro se guarda solo mientras no se resuelve (para reintentar cuando el sync horario lo traiga).
 //  - El estado en memoria guarda hashes de correo/nombre/cedula, nunca el texto. Un fallo no se cachea (el llamador responde 503).
 const PAGINA = 1000;
 const MAX_PAGINAS = 6;           // tope de filas por lectura incremental (6.000)
@@ -23,6 +26,7 @@ const MAX_INTENTOS_META = 3;     // por sala: un intento por refresco; tras 3 se
 export const TTL_CACHE_VIVO_MS = 30_000; // egress: el cliente sondea cada 45 s (lib/vivoVista.mjs INTERVALO_MS)
 export const TTL_BASE_MS = 10 * 60_000; // franjas del dia y roster: cambian una vez por semana
 export const TTL_REGISTRO_MS = 5 * 60_000; // zoom_registrantes del dia (igual que Lista en vivo)
+const LOTE_IDS = 100;            // registrant_id por consulta .in() (URL acotada)
 
 type FilaFranja = FranjaVivo;
 type SalaEstado = { uuid: string; host: string | null; topic: string | null; activo: boolean; actualizado: number | null; eventos: Map<number, EventoVivo>;
@@ -37,6 +41,8 @@ type Vivo = { dia: string; cursor: number; salas: Map<string, SalaEstado>; carga
 let base: Base | null = null;
 let vivo: Vivo | null = null;
 let registro: Registro | null = null;
+// registrant_id: idx = hash(id) -> hash(cedula)|null; pendientes = ids en claro aun sin cedula (se reintentan al vencer el TTL).
+let registroId: { dia: string; ms: number; idx: Map<string, string | null>; pendientes: Set<string> } | null = null;
 let cache: { ms: number; data: VivoResponse } | null = null;
 let enCurso: Promise<VivoResponse> | null = null;
 let ultimaLecturaMs = 0; // hora REAL de la ultima consulta a Supabase (alimenta actualizado_en)
@@ -51,7 +57,7 @@ function conTiempoLimite<T>(p: Promise<T>, ms = LIMITE_LECTURA_MS): Promise<T> {
   return Promise.race([p, limite]).finally(() => clearTimeout(t));
 }
 
-export function vaciarCacheVivo() { base = null; vivo = null; registro = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
+export function vaciarCacheVivo() { base = null; vivo = null; registro = null; registroId = null; cache = null; enCurso = null; ultimaLecturaMs = 0; }
 export function estadoVivoParaPruebas() { return vivo ? { cursor: vivo.cursor, cerrado: vivo.cerrado, cargado: vivo.cargado } : null; }
 
 const lunesDe = (fecha: string) => {
@@ -97,11 +103,38 @@ async function cargarRegistro(dia: string): Promise<Map<string, string | null>> 
   return indexarRegistroVivo(filas);
 }
 
+// ids nuevos (en claro, de esta lectura) + pendientes vencidos -> zoom_registrantes por registrant_id. Se hashea al leer.
+async function cargarRegistroPorId(dia: string, nuevos: Set<string>, ahoraMs: number): Promise<void> {
+  if (!registroId || registroId.dia !== dia) registroId = { dia, ms: ahoraMs, idx: new Map(), pendientes: new Set() };
+  const r = registroId;
+  const vencido = ahoraMs - r.ms > TTL_REGISTRO_MS;
+  const buscar = new Set([...nuevos].filter((id) => !r.idx.has(hashRegistrante(id)!)));
+  if (vencido) { for (const id of r.pendientes) buscar.add(id); r.ms = ahoraMs; }
+  if (!buscar.size) return;
+  for (const id of buscar) r.pendientes.add(id); // si la lectura falla, se reintentan en el siguiente refresco (r.ms = 0)
+  const sb = supabaseServidor();
+  const ids = [...buscar];
+  try {
+    for (let i = 0; i < ids.length; i += LOTE_IDS) {
+      const lote = ids.slice(i, i + LOTE_IDS);
+      const filas = await leerPaginado<{ registrant_id: string | null; cedula_digitos: string | null }>(() => sb.from("zoom_registrantes")
+        .select("registrant_id,cedula_digitos").in("registrant_id", lote).order("registrant_id", { ascending: true }));
+      const idx = indexarRegistroIdVivo(filas);
+      for (const id of lote) {
+        const h = hashRegistrante(id)!;
+        const hk = idx.get(h) ?? null;
+        if (hk || !r.idx.get(h)) r.idx.set(h, hk);
+        if (hk) r.pendientes.delete(id);
+      }
+    }
+  } catch (e) { r.ms = 0; throw e; }
+}
+
 function salaVacia(uuid: string): SalaEstado {
   return { uuid, host: null, topic: null, activo: false, actualizado: null, eventos: new Map(), metaOk: false, intentosMeta: 0 };
 }
 
-async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: boolean }> {
+async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: boolean; registrantIds: Set<string> }> {
   const sb = supabaseServidor();
   if (!vivo || vivo.dia !== dia) vivo = { dia, cursor: 0, salas: new Map(), cargado: false, ultimoRefrescoMs: 0, cerrado: false };
   const inicioDia = Date.parse(`${dia}T00:00:00Z`) + COT_MS;
@@ -110,19 +143,21 @@ async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: 
     sb.from("zoom_reuniones_activas").select("uuid,host,topic,actualizado_en").eq("activo", true).order("uuid", { ascending: true }));
   // 2) eventos nuevos (solo de clases), incremental
   const desdeId = Math.max(0, vivo.cursor - SOLAPE_IDS);
-  const filas = await leerPaginado<{ id: number; evento: string; correo: string | null; nombre: string | null; hora_ms: number; uuid: string | null; curso: string | null }>(() =>
-    sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso")
+  const filas = await leerPaginado<{ id: number; evento: string; correo: string | null; nombre: string | null; hora_ms: number; uuid: string | null; curso: string | null; registrant_id: string | null }>(() =>
+    sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso,registrant_id")
       .in("evento", ["joined", "left"]).gt("id", desdeId).gte("hora_ms", inicioDia)
       .or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").order("id", { ascending: true }));
   let truncado = filas.length >= MAX_PAGINAS * PAGINA;
   let cursorNuevo = vivo.cursor; // el cursor SOLO se aplica al final, cuando la meta de las salas quedo resuelta o agotada
   const tope = (uuid: string) => vivo!.salas.has(uuid) || vivo!.salas.size < MAX_SALAS;
+  const registrantIds = new Set<string>(); // en claro solo durante este refresco
   for (const f of filas) {
     if (!f.uuid || !esClase(f.curso)) continue;
     if (!tope(f.uuid)) { truncado = true; continue; }
     let s = vivo.salas.get(f.uuid);
     if (!s) { s = salaVacia(f.uuid); s.topic = f.curso; vivo.salas.set(f.uuid, s); }
     s.eventos.set(Number(f.id), compactarEvento(f));
+    if (f.registrant_id) registrantIds.add(String(f.registrant_id).trim());
     if (Number(f.id) > cursorNuevo) cursorNuevo = Number(f.id);
   }
   // 3) metadatos (host/topic): primero de las activas
@@ -150,7 +185,7 @@ async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: 
   const pendiente = [...vivo.salas.values()].some((s) => !s.metaOk && s.intentosMeta < MAX_INTENTOS_META);
   if (!pendiente) vivo.cursor = cursorNuevo;
   vivo.cargado = true; vivo.ultimoRefrescoMs = ahoraMs;
-  return { truncado };
+  return { truncado, registrantIds };
 }
 
 function salasDeMemoria(dia: string): SalaVivo[] {
@@ -183,14 +218,17 @@ async function calcular(ahoraMs: number): Promise<VivoResponse> {
       try { registro = { dia, ms: ahoraMs, idx: await cargarRegistro(dia) }; }
       catch { avisoRegistro = "No se pudo leer el registro de Zoom: quien entró con un correo distinto al del roster puede salir como desconocido."; }
     }
-    const { truncado } = await refrescarVivo(dia, ahoraMs);
+    const { truncado, registrantIds } = await refrescarVivo(dia, ahoraMs);
+    try { await cargarRegistroPorId(dia, registrantIds, ahoraMs); }
+    catch { avisoRegistro = avisoRegistro ?? "No se pudo leer el registro de Zoom: quien entró con un correo distinto al del roster puede salir como desconocido."; }
     ultimaLecturaMs = ahoraMs;
     if (truncado) avisoGeneral = "Hay más salas o eventos de los que se leen; las cifras pueden estar incompletas.";
     if (avisoRegistro) avisoGeneral = [avisoGeneral, avisoRegistro].filter(Boolean).join(" ");
     if (vivo && !hayVentana && hoy.every((f) => ahoraMs > ventanaClase(f).hastaMs)) vivo.cerrado = true;
   }
   const memoriaDelDia = vivo?.dia === dia && vivo.cargado;
-  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: conRegistro(base.roster ?? indexarRosterVivo([]), registro?.dia === dia ? registro.idx : null),
+  return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: conRegistro(base.roster ?? indexarRosterVivo([]), registro?.dia === dia ? registro.idx : null,
+    registroId?.dia === dia ? registroId.idx : null),
     ahoraMs, actualizadoMs: ultimaLecturaMs || ahoraMs, lecturaEventos: memoriaDelDia, avisoGeneral });
 }
 
