@@ -6,6 +6,7 @@ export type SalaVivo = { uuid: string; host: string | null; topic: string | null
 export type ConteosEventos = {
   roster: { maximo: number; ahora: number }; otra: { maximo: number; ahora: number }; desconocidos: { maximo: number; ahora: number }; personal: { maximo: number; ahora: number };
   eventos: number; lefts: number; huerfanos: number; ratio_huerfanos: number; ultima_actividad_ms: number | null; cobertura_baja_eventos: boolean;
+  conciliado_zoom: boolean;
 };
 // Map hash->Set(slot_id) (roster por franja) o Set de hashes (legado: todo el roster cuenta como de esta clase).
 type ConHas = { has(h: string): boolean; get?(h: string): { has(slot: string): boolean } | undefined };
@@ -35,10 +36,14 @@ export function visibilidadClase(franja: FranjaVivo, ahoraMs: number): "abierta"
 export function estadoClase(franja: FranjaVivo, ahoraMs: number, opts?: { salaActiva?: boolean; eventosEnVentana?: number }): EstadoClaseVivo | null;
 export function ventanaAbiertaAhora(franja: FranjaVivo, ahoraMs: number): boolean;
 export function compactarEvento(fila: { id: number | string; evento: string; hora_ms: number | string; correo?: string | null; nombre?: string | null }): EventoVivo;
-export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: RosterVivo, ahora: number | Date, slotId?: string | null): ConteosEventos;
+export function clasificarEventos(eventos: EventoVivo[], rosterPorCorreo: RosterVivo, ahora: number | Date, slotId?: string | null,
+  presentesZoom?: EventoVivo[] | null): ConteosEventos;
+export function presentesDeClase<T>(salas: { uuid: string; activo: boolean }[], presentesPorSala: Map<string, T[]> | null | undefined,
+  estado: string | null): T[] | null;
 export function etiquetaClase(f: FranjaVivo): string;
 export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: RosterVivo;
-  ahoraMs: number; actualizadoMs?: number; lecturaEventos?: boolean; avisoGeneral?: string | null }): VivoResponse;
+  ahoraMs: number; actualizadoMs?: number; lecturaEventos?: boolean; avisoGeneral?: string | null;
+  presentesPorSala?: Map<string, EventoVivo[]> | null }): VivoResponse;
 export function cedulaSinCeros(c: unknown): string;
 export function hashCedula(c: unknown): string | null;
 export function indexarRosterVivo(filas: { persona_id?: string | number | null; correo_norm: string | null; slot_id: string | null }[]): IdentidadRosterVivo;

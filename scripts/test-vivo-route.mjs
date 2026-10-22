@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import * as calculo from "../lib/vivoCalculo.mjs";
+import * as zoomPresentes from "../lib/zoomPresentes.mjs";
 
 // Ruta /api/vivo + lector con Supabase simulado: auth, 503 sin detalles, egress (llamadas y filas). Sin PII.
 class NextResponse extends Response {
@@ -63,10 +64,14 @@ function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos
   return { sb, log };
 }
 
-async function cargarLector(sim) {
+// zoom: lo que devolveria lib/servidor/zoomEnVivo.ts (por defecto apagado: sin variables ZOOM_*). sim.zoomLlamadas cuenta pedidos.
+async function cargarLector(sim, zoom = { estado: "apagado", salas: null }) {
+  sim.zoomLlamadas = 0;
   return compilar("../lib/servidor/leerVivo.ts", (n) => {
     if (n === "server-only") return {};
     if (n.endsWith("/vivoCalculo.mjs")) return calculo;
+    if (n.endsWith("/zoomPresentes.mjs")) return zoomPresentes;
+    if (n.endsWith("/zoomEnVivo")) return { presentesZoom: async () => { sim.zoomLlamadas += 1; return typeof zoom === "function" ? zoom() : zoom; } };
     if (n.endsWith("/supabase")) return { supabaseServidor: () => sim.sb };
     throw new Error(`Import no previsto: ${n}`);
   });
@@ -239,6 +244,29 @@ async function cargarLector(sim) {
   assert.ok(!/secreto-interno/.test(JSON.stringify(r)));
 }
 
+// ---- TOC-153: Zoom en vivo corrige «ahora en sala» (webhook perdio una reentrada) y, si falla, se sigue con webhooks y aviso
+{
+  const evs = [fila("joined", correos[0], "08:01"), fila("left", correos[0], "08:20"), fila("joined", correos[1], "08:02")]; // la reentrada de [0] no llego
+  const enZoom = new Map([["u1", [{ correo: correos[0], nombre: null, join_ms: COT("08:25") }, { correo: correos[1], nombre: null, join_ms: COT("08:02") },
+    { correo: correos[2], nombre: null, join_ms: COT("08:30") }]]]);
+  const sim = montar({ eventos: evs });
+  const l = await cargarLector(sim, { estado: "ok", salas: enZoom });
+  const r = await l.leerVivo(COT("08:31"));
+  const c = r.clases[0];
+  assert.deepEqual([c.roster_ahora_aprox, c.roster_maximo, c.ahora_fuente], [3, 3, "zoom"], "Zoom: 3 en sala (webhooks decian 1)");
+  assert.equal(sim.zoomLlamadas, 1);
+  assert.ok(!/ejemplo|@/.test(JSON.stringify(r)), "sin PII aunque Zoom traiga correos");
+  const simF = montar({ eventos: evs });
+  const lf = await cargarLector(simF, { estado: "limite", salas: null });
+  const rf = await lf.leerVivo(COT("08:31"));
+  assert.deepEqual([rf.clases[0].roster_ahora_aprox, rf.clases[0].ahora_fuente], [1, "webhook"], "429: sigue con webhooks");
+  assert.match(rf.aviso_general, /Zoom no respondió/);
+  const simO = montar({ eventos: [fila("joined", correos[0], "07:40")] });
+  const lo = await cargarLector(simO, () => { throw new Error("no debia llamarse"); });
+  await lo.leerVivo(COT("07:15"));
+  assert.equal(simO.zoomLlamadas, 0, "fuera de ventana no se llama a Zoom");
+}
+
 // ---- ruta: 401 sin lecturas, 200 solo conteos, 503 sin detalles
 let llamadas = 0; let modo = "ok";
 const ruta = await compilar("../app/api/vivo/route.ts", (n) => {
@@ -259,4 +287,4 @@ assert.equal(mal.status, 503);
 assert.deepEqual(await mal.json(), { error: "No disponible" });
 const fuente = await readFile(new URL("../app/api/vivo/route.ts", import.meta.url), "utf8");
 assert.ok(!/searchParams/.test(fuente), "la ruta no lee parametros");
-console.log("RESUMEN: vivo_route 401=sin_lecturas 503=sin_detalles egress=sin_clase_0_lecturas_zoom,incremental,cache_TTL estado=verde");
+console.log("RESUMEN: vivo_route 401=sin_lecturas 503=sin_detalles egress=sin_clase_0_lecturas_zoom,incremental,cache_TTL zoom_en_vivo=concilia,falla_a_webhooks estado=verde");

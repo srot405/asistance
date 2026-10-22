@@ -175,7 +175,7 @@ const porSlot = (r, slot) => r.clases.find((c) => c.slot_id === slot);
   const salas = [sala("u1", "comunicaciones", "Backend: APIs y Base de Datos", [ev("joined", rosterCorreos[0], "08:01", { nombre: "Estudiante 001" })])];
   const r = arma(salas, COTISO(SAB, "08:10"));
   assert.deepEqual(Object.keys(r).sort(), ["actualizado_en", "aviso_general", "clases", "disponible", "hora_servidor", "semana"]);
-  assert.deepEqual(Object.keys(r.clases[0]).sort(), ["aviso", "cobertura_baja", "cuenta_zoom", "desconocidos_ahora_aprox", "desconocidos_maximo", "estado", "etiqueta", "eventos",
+  assert.deepEqual(Object.keys(r.clases[0]).sort(), ["ahora_fuente", "aviso", "cobertura_baja", "cuenta_zoom", "desconocidos_ahora_aprox", "desconocidos_maximo", "estado", "etiqueta", "eventos",
     "fin", "inicio", "otra_franja_ahora_aprox", "otra_franja_maximo", "personal_ahora_aprox", "personal_maximo", "roster_ahora_aprox", "roster_maximo", "roster_total", "sala_activa", "slot_id", "ultima_actividad"]);
   assert.ok(!/ejemplo.test|Estudiante 0|@|persona_id/.test(JSON.stringify(r)));
 }

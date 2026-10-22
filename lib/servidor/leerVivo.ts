@@ -2,6 +2,8 @@ import "server-only";
 import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, fechaCOT, indexarRegistroVivo, indexarRosterVivo, ventanaAbiertaAhora, ventanaClase, COT_MS } from "../vivoCalculo.mjs";
 import type { EventoVivo, FranjaVivo, IdentidadRosterVivo, SalaVivo, VivoResponse } from "../vivoCalculo.d.mts";
 import { supabaseServidor } from "./supabase";
+import { compactarPresentes } from "../zoomPresentes.mjs";
+import { presentesZoom } from "./zoomEnVivo";
 
 // TOC-142, pestana "En vivo": UNICO punto de acople con Supabase. Devuelve solo CONTEOS (ver lib/vivoCalculo.mjs).
 // Egress (Supabase ya ~2,9/5 GB):
@@ -15,6 +17,8 @@ import { supabaseServidor } from "./supabase";
 //    se lee SOLO en ventana de clase (o en el ultimo refresco), solo correo_norm,cedula_digitos de fecha_sesion = hoy, con cache de
 //    TTL_REGISTRO_MS (el sync corre cada hora a las :40); si esa lectura falla se sigue con el registro anterior (o solo correo) y aviso.
 //  - El estado en memoria guarda hashes de correo/nombre/cedula, nunca el texto. Un fallo no se cachea (el llamador responde 503).
+//  - TOC-153: con una clase en ventana se piden en paralelo los participantes EN VIVO de Zoom (lib/servidor/zoomEnVivo.ts, cache
+//    propio de 20 s); se compactan a hashes al llegar y corrigen los *_ahora_aprox. Si Zoom falla, se sigue con webhooks y aviso.
 const PAGINA = 1000;
 const MAX_PAGINAS = 6;           // tope de filas por lectura incremental (6.000)
 const MAX_SALAS = 24;            // tope de salas de clase rastreadas por dia
@@ -177,7 +181,9 @@ async function calcular(ahoraMs: number): Promise<VivoResponse> {
   const cerroVentana = vivo?.dia === dia && vivo.cargado && hoy.some((f) => ahoraMs > ventanaClase(f).hastaMs && vivo!.ultimoRefrescoMs <= ventanaClase(f).hastaMs);
   let avisoGeneral: string | null = null;
   let avisoRegistro: string | null = null;
+  let presentesPorSala: Map<string, EventoVivo[]> | null = null;
   if (hayVentana || cerroVentana) {
+    const zoomEnCurso = hayVentana ? presentesZoom(ahoraMs) : null; // nunca lanza
     if (!base.roster || ahoraMs - base.rosterMs > TTL_BASE_MS) { base.roster = await cargarRoster(lunes); base.rosterMs = ahoraMs; }
     if (!registro || registro.dia !== dia || ahoraMs - registro.ms > TTL_REGISTRO_MS) {
       try { registro = { dia, ms: ahoraMs, idx: await cargarRegistro(dia) }; }
@@ -185,13 +191,16 @@ async function calcular(ahoraMs: number): Promise<VivoResponse> {
     }
     const { truncado } = await refrescarVivo(dia, ahoraMs);
     ultimaLecturaMs = ahoraMs;
+    const zoom = zoomEnCurso ? await zoomEnCurso : null;
+    if (zoom?.salas) presentesPorSala = new Map([...zoom.salas].map(([uuid, ps]) => [uuid, compactarPresentes(ps)]));
+    const avisoZoom = zoom && (zoom.estado === "fallo" || zoom.estado === "limite") ? "Zoom no respondió: «ahora en sala» sale solo de los webhooks y puede contar de menos." : null;
     if (truncado) avisoGeneral = "Hay más salas o eventos de los que se leen; las cifras pueden estar incompletas.";
-    if (avisoRegistro) avisoGeneral = [avisoGeneral, avisoRegistro].filter(Boolean).join(" ");
+    avisoGeneral = [avisoGeneral, avisoRegistro, avisoZoom].filter(Boolean).join(" ") || null;
     if (vivo && !hayVentana && hoy.every((f) => ahoraMs > ventanaClase(f).hastaMs)) vivo.cerrado = true;
   }
   const memoriaDelDia = vivo?.dia === dia && vivo.cargado;
   return armarRespuestaVivo({ semana: lunes, franjas: hoy, salas: salasDeMemoria(dia), rosterPorCorreo: conRegistro(base.roster ?? indexarRosterVivo([]), registro?.dia === dia ? registro.idx : null),
-    ahoraMs, actualizadoMs: ultimaLecturaMs || ahoraMs, lecturaEventos: memoriaDelDia, avisoGeneral });
+    ahoraMs, actualizadoMs: ultimaLecturaMs || ahoraMs, lecturaEventos: memoriaDelDia, avisoGeneral, presentesPorSala });
 }
 
 // El llamador (ruta) ya paso exigirAcceso. Un fallo lanza (no se cachea).
