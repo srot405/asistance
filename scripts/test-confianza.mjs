@@ -41,8 +41,38 @@ assert.equal(porR.k.cuadre.estado, "cuadrada");
 const difZl = armarConfianza({ semana: "x", sesiones: [ses("z", "zoom_limit_pendiente")], cuadre: [cu("z", "con_diferencias", { n_diferencias: 1 })] });
 assert.equal(difZl.clases[0].cuadre.estado, "con_diferencias", "la alerta nunca se oculta");
 assert.equal(r.cuadre_disponible, true);
-assert.deepEqual(r.resumen, { clases: 6, capturadas: 2, cuadradas: 1, con_diferencias: 1, sin_cuadre: 2 });
-assert.equal(r.resumen.cuadradas + r.resumen.con_diferencias + r.resumen.sin_cuadre + r.clases.filter((c) => c.cuadre === null).length, r.resumen.clases, "estados de cuadre + clases sin chip = clases");
+assert.deepEqual(r.resumen, { clases: 6, capturadas: 2, cuadradas: 1, con_diferencias: 1, parciales: 0, sin_cuadre: 2 });
+assert.equal(r.resumen.cuadradas + r.resumen.con_diferencias + r.resumen.parciales + r.resumen.sin_cuadre + r.clases.filter((c) => c.cuadre === null).length, r.resumen.clases, "estados de cuadre + clases sin chip = clases");
+
+// TOC-156 D5.5: niveles de la 090. Parcial/pendiente -> «Parcial» (con motivo); interno -> «Cuadrada (interna)»; no_aplica -> sin chip.
+{
+  const s090 = [ses("p", "capturada"), ses("q", "sin_captura"), ses("i", "capturada"), ses("n", "capturada"), ses("x", "capturada"),
+    ses("pz", "zoom_limit_pendiente"), ses("id", "dudosa"), ses("c", "capturada")];
+  const r090 = armarConfianza({ semana: "2099-01-05", sesiones: s090, cuadre: [
+    cu("p", "parcial", { nivel: "parcial", motivo: "api_no_cargada", n_api: null }),
+    cu("q", "pendiente", { nivel: "parcial", motivo: "fuentes_insuficientes" }),
+    cu("i", "ok", { nivel: "interno", origen: "retroactivo" }),
+    cu("n", "ok", { nivel: "no_aplica", motivo: "sin_captura_sin_fuentes" }),
+    cu("x", "con_diferencias", { nivel: "interno", n_diferencias: 2 }),
+    cu("pz", "parcial", { nivel: "parcial", motivo: "api_no_cargada" }),
+    cu("id", "ok", { nivel: "interno" }),
+    cu("c", "ok", { nivel: "completo" }),
+  ] });
+  const p9 = Object.fromEntries(r090.clases.map((c) => [c.slot_id, c]));
+  assert.equal(p9.p.cuadre.estado, "parcial"); assert.equal(p9.p.cuadre.motivo, "api_no_cargada");
+  assert.equal(p9.q.cuadre.estado, "parcial", "pendiente se muestra como Parcial, nunca como Cuadrada");
+  assert.equal(p9.i.cuadre.estado, "cuadrada_interna");
+  assert.equal(p9.n.cuadre, null, "no_aplica: ni chip ni «Sin cuadre»");
+  assert.equal(p9.x.cuadre.estado, "con_diferencias", "las diferencias mandan sobre el nivel");
+  assert.equal(p9.pz.cuadre, null, "Parcial junto a ZL no se pinta (no se esperaba cuadre)");
+  assert.equal(p9.id.cuadre, null, "Cuadrada (interna) solo junto a una captura confiable");
+  assert.equal(p9.c.cuadre.estado, "cuadrada"); assert.equal(p9.c.cuadre.motivo, null);
+  assert.deepEqual(r090.resumen, { clases: 8, capturadas: 5, cuadradas: 2, con_diferencias: 1, parciales: 2, sin_cuadre: 0 });
+  for (const k of ["cuadrada_interna", "parcial"]) assert.ok(confianzaLib.TEXTO_CUADRE[k] && confianzaLib.AYUDA_CUADRE[k].length > 10, k);
+  assert.equal(confianzaLib.TEXTO_CUADRE.parcial, "Parcial"); assert.equal(confianzaLib.TEXTO_CUADRE.cuadrada_interna, "Cuadrada (interna)");
+  for (const m of ["api_no_cargada", "webhook_sin_eventos", "panel_vacio", "fuentes_insuficientes", "sin_captura_panel_vacio"])
+    assert.ok(confianzaLib.MOTIVO_PARCIAL[m], `motivo ${m} traducido`);
+}
 
 // varias sesiones en la misma franja: manda la peor; cualquier diferencia manda en el cuadre; n_api null si falta una fuente
 const doble = armarConfianza({ semana: "x", sesiones: [ses("a", "capturada", "2099-01-05", "s1"), ses("a", "sin_captura", "2099-01-05", "s2")],
@@ -74,7 +104,9 @@ async function cargarLector(datos, fallos = {}, modoDemo = false) {
     const q = { tabla, columnas: "", filtros: [], rangos: [] };
     consultas.push(q);
     const c = { select: (cols) => { q.columnas = cols; return c; }, eq: (col, v) => { q.filtros.push([col, v]); return c; }, order: () => c,
-      range: async (a, b) => { q.rangos.push([a, b]); if (fallos[tabla]) return { data: null, error: fallos[tabla] };
+      range: async (a, b) => { q.rangos.push([a, b]);
+        const falla = typeof fallos[tabla] === "function" ? fallos[tabla](q) : fallos[tabla];
+        if (falla) return { data: null, error: falla };
         return { data: (datos[tabla] ?? []).filter((f) => q.filtros.every(([col, v]) => f[col] === v)).slice(a, b + 1), error: null }; } };
     return c; } }) };
   const modulos = {};
@@ -119,6 +151,21 @@ const muchas = Array.from({ length: 1500 }, (_, i) => ({ semana: SEM, sesion_id:
   const { lector, consultas } = await cargarLector({}, {}, true);
   const demo = await lector.leerConfianzaSemana("2026-09-14");
   assert.ok(demo.clases.length > 0 && consultas.length === 0, "el demo no consulta Supabase");
+}
+
+// TOC-156 D5.5: pide nivel/origen/motivo y, si la 090 no esta en esa base (columna inexistente), relee como 084
+{
+  const fila = { semana: SEM, ...cu("slot-0", "parcial", { sesion_id: "s0", nivel: "parcial", motivo: "webhook_sin_eventos" }) };
+  const { lector, consultas } = await cargarLector({ asist_sesiones: muchas.slice(0, 1), asist_cuadre_clase: [fila] });
+  const r3 = await lector.leerConfianzaSemana(SEM);
+  assert.match(consultas.find((c) => c.tabla === "asist_cuadre_clase").columnas, /nivel,origen,motivo/);
+  assert.equal(r3.clases[0].cuadre.estado, "parcial"); assert.equal(r3.clases[0].cuadre.motivo, "webhook_sin_eventos");
+  const sin090 = (q) => (q.columnas.includes("nivel") ? { code: "42703", message: "column asist_cuadre_clase.nivel does not exist" } : null);
+  const { lector: viejo, consultas: c084 } = await cargarLector({ asist_sesiones: muchas.slice(0, 1), asist_cuadre_clase: [{ semana: SEM, ...cu("slot-0", "ok", { sesion_id: "s0" }) }] },
+    { asist_cuadre_clase: sin090 });
+  const r4 = await viejo.leerConfianzaSemana(SEM);
+  assert.equal(r4.cuadre_disponible, true); assert.equal(r4.clases[0].cuadre.estado, "cuadrada", "084: se lee sin nivel");
+  assert.equal(c084.filter((c) => c.tabla === "asist_cuadre_clase").length, 2, "un reintento con columnas 084");
 }
 
 // ---- 5) ruta ----

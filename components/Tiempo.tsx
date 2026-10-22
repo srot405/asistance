@@ -62,7 +62,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
       <HistogramaTiempo histograma={d.histograma} />
 
       {resumenConfianza && <p className="nota" data-testid="resumen-confianza">Confianza de la captura: {resumenConfianza.resumen.capturadas} de {resumenConfianza.resumen.clases} clases capturadas
-        {resumenConfianza.cuadre_disponible ? ` · cuadre: ${resumenConfianza.resumen.cuadradas} cuadradas, ${resumenConfianza.resumen.con_diferencias} con diferencias, ${resumenConfianza.resumen.sin_cuadre} sin cuadre.` : " · el cuadre automático aún no está disponible en esta base."}</p>}
+        {resumenConfianza.cuadre_disponible ? ` · cuadre: ${resumenConfianza.resumen.cuadradas} cuadradas, ${resumenConfianza.resumen.con_diferencias} con diferencias, ${resumenConfianza.resumen.parciales ? `${resumenConfianza.resumen.parciales} parciales, ` : ""}${resumenConfianza.resumen.sin_cuadre} sin cuadre.` : " · el cuadre automático aún no está disponible en esta base."}</p>}
       <TiempoTablaClases clases={d.por_clase} dias={d.por_dia} semana={d.semana_agregada} confianza={confianza} />
   </> : null;
 
