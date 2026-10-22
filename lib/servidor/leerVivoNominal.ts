@@ -4,12 +4,16 @@ import type { FranjaVivo } from "../vivoCalculo.d.mts";
 import { armarListaVivo } from "../vivoNominal.mjs";
 import type { EventoCrudo, FilaRegistrante, FilaRoster, ListaVivoResponse, SalaCruda } from "../vivoNominal.d.mts";
 import { supabaseServidor } from "./supabase";
+import type { PresenteZoom } from "../zoomPresentes.d.mts";
+import { presentesZoom } from "./zoomEnVivo";
 
 // TOC-153, pestana "Lista en vivo": lector NOMINAL (nombres, correos, cedulas). Solo lo llama /api/vivo-nominal despues de
 // exigirAcceso + autorizarNominal. Va aparte de leerVivo.ts a proposito: aquel guarda solo hashes y no debe ganar PII.
 // Egress: igual que En vivo, la lectura de zoom_live_log es INCREMENTAL (id > cursor) y solo con una clase en ventana; en frio
 // se lee el dia una vez (tope 6.000 filas). Cache compartido 20 s + una lectura en vuelo; si una lectura falla se sirve el dato
 // anterior (hasta 5 min) con aviso, y despues 503.
+// TOC-153: con una clase en ventana, los participantes EN VIVO de Zoom (zoomEnVivo.ts, mismo cache de 20 s que En vivo) deciden
+// en_sala; si Zoom falla o responde 429, se sigue con webhooks y aviso.
 const PAGINA = 1000;
 const MAX_PAGINAS = 6;
 const SOLAPE_IDS = 25;
@@ -117,16 +121,23 @@ async function calcular(ahoraMs: number): Promise<ListaVivoResponse> {
   const cerroVentana = dia?.dia === fecha && dia.cargado && hoy.some((f) => ahoraMs > ventanaClase(f).hastaMs && dia!.ultimoMs <= ventanaClase(f).hastaMs);
   const enFrio = !(dia?.dia === fecha && dia.cargado);
   let truncado = false;
+  let presentesPorSala: Map<string, PresenteZoom[]> | null = null;
+  let avisoZoom: string | null = null;
   if (hayVentana || cerroVentana || enFrio) {
+    const zoomEnCurso = hayVentana ? presentesZoom(ahoraMs) : null; // nunca lanza
     if (!registro || registro.dia !== fecha || ahoraMs - registro.ms > TTL_REGISTRO_MS) registro = { dia: fecha, ms: ahoraMs, filas: await cargarRegistro(fecha) };
     truncado = await refrescarEventos(fecha, ahoraMs);
+    const zoom = zoomEnCurso ? await zoomEnCurso : null;
+    presentesPorSala = zoom?.salas ?? null;
+    if (zoom && (zoom.estado === "fallo" || zoom.estado === "limite")) avisoZoom = "Zoom no respondió: «ahora en sala» sale solo de los webhooks y puede contar de menos.";
   }
   const salas: SalaCruda[] = dia && dia.dia === fecha
     ? [...dia.salas.values()].filter((s) => esClase(s.topic)).map((s) => ({ uuid: s.uuid, host: s.host, topic: s.topic, activo: s.activo, eventos: [...s.eventos.values()] }))
     : [];
   return armarListaVivo({ semana: lunes, franjasHoy: hoy, franjasSemana: base.franjas, salas, roster: base.roster, registrantes: registro?.filas ?? [],
     ahoraMs, actualizadoMs: dia?.ultimoMs || ahoraMs,
-    avisoGeneral: truncado ? "Hay más eventos de los que se leen en una consulta; la lista puede estar incompleta." : null });
+    avisoGeneral: [truncado ? "Hay más eventos de los que se leen en una consulta; la lista puede estar incompleta." : null, avisoZoom].filter(Boolean).join(" ") || null,
+    presentesPorSala });
 }
 
 // El llamador ya paso exigirAcceso + autorizarNominal. Lanza solo si falla Y no hay dato reciente para servir.
