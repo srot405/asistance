@@ -14,6 +14,13 @@ const server = spawn(
     env: {
       ...process.env,
       MODO_DEMO: "1",
+      // El demo no consulta Supabase, pero el cliente de auth del navegador (lib/auth.ts) exige una URL y lanza
+      // "supabaseUrl is required" si falta: sin .env.local (worktree o CI limpio) la página no cargaba y la espera
+      // de «Semana abierta» vencía. Valores ficticios (puerto 9, nada escucha) solo si no vienen del entorno.
+      NEXT_PUBLIC_SUPABASE_URL:
+        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:9",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY:
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "demo-anon-key",
       ...(nextCommand === "dev"
         ? { VERCEL_ENV: "development" }
         : { VERCEL_ENV: "" }),
@@ -37,6 +44,8 @@ try {
     viewport: { width: 1440, height: 1000 },
   });
   const errors = [];
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
   let datos = false;
   page.on("console", (message) => {
     if (
@@ -59,95 +68,34 @@ try {
     path: resolve(root, "capturas/resumen-claro.png"),
     fullPage: true,
   });
-  await page.getByRole("tab", { name: "Día a día" }).click();
-  await page.locator(".grid-wrap").first().waitFor({ state: "visible" });
-  const rowsMounted = await page.locator(".grid-row:not(.header)").count();
-  const gridMetrics = await page
-    .locator(".grid-wrap")
-    .first()
-    .evaluate((element) => ({
-      height: element.clientHeight,
-      scrollHeight: element.scrollHeight,
-      scrollWidth: element.scrollWidth,
-    }));
-  if (rowsMounted > 40 || gridMetrics.scrollHeight <= gridMetrics.height)
-    throw new Error(
-      `virtualización inválida: filas=${rowsMounted} scroll=${gridMetrics.scrollHeight}/${gridMetrics.height}`,
-    );
-  console.log(
-    `RESUMEN: filas_dom=${rowsMounted} grid_scroll=${gridMetrics.scrollHeight > gridMetrics.height}`,
-  );
-  await page.screenshot({
-    path: resolve(root, "capturas/dia-claro.png"),
-    fullPage: true,
-  });
-  await page
-    .locator(".grid-wrap")
-    .first()
-    .evaluate((element) => {
-      element.scrollTop = 400 * 42;
-    });
-  await page.waitForTimeout(500);
-  const scrolledText = await page.locator(".grid-wrap").first().innerText();
-  if (!scrolledText.includes("Estudiante 400"))
-    throw new Error("la fila aproximada 400 no quedó visible");
-  const dayHeader = await page.locator(".grid-wrap").first().evaluate((element) => {
-    const header = element.querySelector(".grid-row.header");
-    const wrap = element.getBoundingClientRect();
-    const style = header && getComputedStyle(header);
-    const hit = document.elementFromPoint(wrap.left + 10, wrap.top + 10);
-    return {
-      visible: Boolean(header && header.getBoundingClientRect().top <= wrap.top + 2),
-      zIndex: style?.zIndex,
-      background: style?.backgroundColor,
-      hitHeader: Boolean(hit?.closest(".grid-row.header")),
-    };
-  });
-  if (!dayHeader.visible || !dayHeader.hitHeader)
-    throw new Error(`encabezado Día a día no visible: ${JSON.stringify(dayHeader)}`);
-  await page.screenshot({ path: resolve(root, "capturas/dia-scrolleado.png") });
-  await page.getByRole("tab", { name: "Semana a semana" }).click();
-  const weeklyGrid = page.locator(".grid-wrap").first();
-  await weeklyGrid.waitFor({ state: "visible" });
-  await page.screenshot({
-    path: resolve(root, "capturas/semana-claro.png"),
-    fullPage: true,
-  });
-  await weeklyGrid.evaluate((element) => {
-    element.scrollTop = 400 * 42;
-  });
-  await page.waitForTimeout(500);
-  const weeklyScrolledText = await weeklyGrid.innerText();
-  if (!weeklyScrolledText.includes("Estudiante 400"))
-    throw new Error("la fila aproximada 400 no quedó visible en Semana a semana");
-  const weekHeader = await weeklyGrid.evaluate((element) => {
-    const header = element.querySelector(".grid-row.header");
-    const wrap = element.getBoundingClientRect();
-    const style = header && getComputedStyle(header);
-    const hit = document.elementFromPoint(wrap.left + 10, wrap.top + 10);
-    return {
-      visible: Boolean(header && header.getBoundingClientRect().top <= wrap.top + 2),
-      zIndex: style?.zIndex,
-      background: style?.backgroundColor,
-      hitHeader: Boolean(hit?.closest(".grid-row.header")),
-    };
-  });
-  if (!weekHeader.visible || !weekHeader.hitHeader)
-    throw new Error(`encabezado Semana a semana no visible: ${JSON.stringify(weekHeader)}`);
-  await page.screenshot({
-    path: resolve(root, "capturas/semana-scrolleado.png"),
-  });
-  for (const [label, file] of [["ZOOM-LIMIT (0)", "zoom-claro.png"]]) {
-    await page.getByRole("tab", { name: label }).click();
+  // Las grillas por persona («Día a día», «Semana a semana», ZOOM-LIMIT, detalle de celda) se eliminaron en
+  // bc323c7 (TOC-01, vistas por persona fuera del panel); esta prueba recorre las pestañas que existen hoy.
+  const pestanas = [
+    ["En vivo", "en-vivo-claro.png"],
+    ["Lista en vivo", "lista-vivo-claro.png"],
+    ["Presencia", "presencia-claro.png"],
+    ["Captura de clases", "captura-clases-claro.png"],
+    ["Tiempo", "tiempo-claro.png"],
+    ["Estadísticas", "estadisticas-claro.png"],
+    ["Historial", "historial-claro.png"],
+  ];
+  for (const [label, file] of pestanas) {
+    const tab = page.getByRole("tab", { name: label, exact: true });
+    await tab.click();
+    await page
+      .locator('[role="tab"][aria-selected="true"]', { hasText: label })
+      .waitFor({ state: "visible" });
+    await page.waitForLoadState("networkidle");
     await page.screenshot({
       path: resolve(root, `capturas/${file}`),
       fullPage: true,
     });
   }
-  await page.getByRole("tab", { name: "Día a día" }).click();
+  await page.getByRole("tab", { name: "Semana", exact: true }).click();
+  await page.getByText("Semana abierta").waitFor({ state: "visible" });
   await page.getByRole("button", { name: /Oscuro/ }).click();
   await page.screenshot({
-    path: resolve(root, "capturas/dia-oscuro.png"),
+    path: resolve(root, "capturas/resumen-oscuro.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -160,20 +108,13 @@ try {
       `scroll horizontal de página: ${mobileMetrics.body}/${mobileMetrics.viewport}`,
     );
   await page.screenshot({
-    path: resolve(root, "capturas/dia-mobile-390.png"),
+    path: resolve(root, "capturas/resumen-mobile-390.png"),
     fullPage: true,
   });
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.locator(".grid-wrap").first().evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  await page.locator("button.cell").first().click({ force: true });
-  await page.screenshot({
-    path: resolve(root, "capturas/detalle-abierto.png"),
-    fullPage: true,
-  });
+  if (pageErrors.length)
+    throw new Error(`errores de página: ${pageErrors.join(" | ")}`);
   console.log(
-    `RESUMEN: capturas=9 csp_errores=${errors.length} api_datos=${datos} primera_carga_ms=${loadMs} filas_dom=${rowsMounted} mobile_horizontal=${mobileMetrics.body > mobileMetrics.viewport}`,
+    `RESUMEN: capturas=${pestanas.length + 3} csp_errores=${errors.length} errores_pagina=${pageErrors.length} api_datos=${datos} primera_carga_ms=${loadMs} mobile_horizontal=${mobileMetrics.body > mobileMetrics.viewport}`,
   );
 } finally {
   await browser?.close();
