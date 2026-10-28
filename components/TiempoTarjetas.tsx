@@ -17,10 +17,10 @@ export default function TiempoTarjetas({ a, porPersona = false }: { a: AgregadoT
         : "aún no hay ingresos con tiempo medido (clases pendientes, sin clase o sin captura)."}
     </section>}
     <div className="tiempo-grid" aria-label="Cifras de tiempo en clase">
-      <article className="tiempo-card t-cumple"><span><b aria-hidden="true">{ICONOS.cumple}</b> Cumplen (50 % o más)</span>
+      <article className="tiempo-card"><span><b aria-hidden="true">{ICONOS.cumple}</b> Indicador histórico: 50 % o más</span>
         <strong>{entero(porcentajeCumple(a))}</strong>
         <small>{sinMedidos ? "sin tiempo medido" : `${a.n_cumplen} de ${a.n_medibles} medidos${baja ? " (de los medidos)" : ""}`}</small></article>
-      <article className="tiempo-card t-rojo"><span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Rojo por tiempo</span>
+      <article className="tiempo-card"><span><b aria-hidden="true">{ICONOS.rojo_tiempo}</b> Indicador histórico: menos de 50 %</span>
         <strong>{entero(porcentajeRojo(a))}</strong>
         <small>{sinMedidos ? "sin tiempo medido" : `${a.n_rojo} personas · ${porPersona ? "menos del 50 % ni con su mejor clase" : "menos del 50 % de su clase"}`}</small></article>
       <article className="tiempo-card t-sindato"><span><b aria-hidden="true">{ICONOS.sin_dato_tiempo}</b> {ETIQUETAS.sin_dato_tiempo}</span>

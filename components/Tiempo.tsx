@@ -68,7 +68,7 @@ export default function Tiempo({ actual, modo }: { actual: ResumenHistorico; mod
 
   return <section className="panel tiempo-panel" aria-label="Tiempo en clase" aria-busy={estado === "cargando"}>
     <div className="section-heading"><div><h2>Tiempo en clase</h2>
-      <p>Cuánto tiempo estuvo en sala cada persona que ingresó. Menos del {UMBRAL_PORCENTAJE_ROJO} % ni con su mejor clase = {ICONOS.rojo_tiempo} rojo. Solo agregados, sin nombres; la tabla «Entró a clase ajena» es nominal.</p></div>
+      <p>Cuánto tiempo estuvo en sala cada persona que ingresó. Semáforo: rojo &lt; 60 %, amarillo desde 60 % y menos de 80 %, verde desde 80 %. Los conteos técnicos «cumple» de esta pestaña conservan el criterio histórico del 50 %. Solo agregados, sin nombres; la tabla «Entró a clase ajena» es nominal.</p></div>
       {d?.provisional && <span className="badge-provisional" title="Las cifras pueden cambiar hasta que cierre la semana.">⏳ PROVISIONAL: semana abierta</span>}
     </div>
 

@@ -233,6 +233,8 @@ export type AusenteNominal = {
 export type EstadoPresencia = "presente" | "parcial" | "nunca_entro" | "sin_dato" | "colado";
 export type ConteosPresencia = Record<EstadoPresencia, number>;
 export type PresenciaClaseResponse = {
+  ingreso?: { si: number; no: number; sin_dato: number };
+  permanencia?: { rojo: number; amarillo: number; verde: number; sin_dato: number };
   semana: string;
   slot_id: string;
   fecha: string;
@@ -248,6 +250,8 @@ export type PresenciaClaseResponse = {
 // Fila nominal con la clasificación de presencia (PII): mismo criterio que
 // AusenteNominal, solo sale por el CSV autenticado de /api/exportar-nominal.
 export type PresenciaNominal = {
+  ingreso?: "Sí" | "No" | "Sin dato";
+  color_permanencia?: string;
   nombre: string;
   ciudad: string;
   estado: EstadoPresencia;

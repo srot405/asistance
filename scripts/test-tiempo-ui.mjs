@@ -47,11 +47,13 @@ assert.match(fuentes.TendenciaTiempo, /TEXTO_NO_DISPONIBLE/);
 const dash = await leer("components/Dashboard.tsx");
 assert.match(dash, /\["Semana", "En vivo", "Lista en vivo", "Presencia", "Captura de clases", "Tiempo", "Estadísticas", "Historial"]/);
 for (const comp of ["<Presencia ", "<Cobertura ", "<CalendarioSemana ", "<TendenciaHistorica "]) assert.ok(dash.includes(comp), `${comp} sigue`);
-// 9) TOC-146: Presencia usa el criterio unico del 50 % de Tiempo (sin 70 %, sin "Entró y salió")
+// 9) TOC-152: ingreso independiente y semáforo 60/80, sin vocabulario obsoleto.
 const presenciaSrc = await leer("components/Presencia.tsx");
-assert.match(presenciaSrc, /mismo criterio de la pestaña <b>Tiempo<\/b>: el 50 % del tiempo/);
+assert.match(presenciaSrc, /Sí con cualquier entrada identificada/);
+assert.match(presenciaSrc, /El porcentaje de permanencia se muestra por separado/);
 assert.doesNotMatch(presenciaSrc, /70\s*(&nbsp;)?\s*%|Entró y salió|entro_y_salio/, "Presencia sin 70 % ni vocabulario viejo");
-assert.match(presenciaSrc, /Menos del 50 %[\s\S]*Sin dato de tiempo/);
+assert.match(presenciaSrc, /Rojo: menos de 60 %[\s\S]*Verde: desde 80 %/);
+assert.match(presenciaSrc, /Sin dato de tiempo/);
 // 10) el servidor es el unico punto de acople: ningun componente importa lib/servidor ni supabase
 for (const [n, src] of Object.entries(fuentes)) assert.doesNotMatch(src, /lib\/servidor|supabase/, `${n}.tsx no toca el servidor`);
 // 11) ningun umbral absoluto en minutos en el codigo nuevo

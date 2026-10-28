@@ -29,8 +29,8 @@ function fila(evento, correo, hhmm, uuid = "u1") { return { id: nextId++, evento
 function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
   activas = [{ uuid: "u1", activo: true, host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
   fallaMeta = 0, registrantes = [] }) {
-  const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, zoom_live_log: eventos,
-    zoom_registrantes: registrantes };
+  const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, v_asist_zoom_live_panel: eventos,
+    v_asist_registrantes_panel: registrantes };
   const log = [];
   let metaFallos = fallaMeta;
   const sb = { from: (t) => {
@@ -48,7 +48,7 @@ function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos
           if (rows.length && c in rows[0] && c !== "id") rows = rows.filter((r) => (Array.isArray(val) ? val.includes(r[c]) : r[c] === val));
         }
         const gt = q.filtros.find((f) => f[0] === "id")?.[1];
-        if (t === "zoom_live_log" && gt != null) rows = rows.filter((r) => r.id > gt);
+        if (t === "v_asist_zoom_live_panel" && gt != null) rows = rows.filter((r) => r.id > gt);
         if (t === "asist_semanas") rows = rows;
         const out = rows.slice(a, b + 1);
         log[log.length - 1].filas = out.length;
@@ -72,20 +72,20 @@ async function cargarLector(sim) {
   });
 }
 
-// ---- egress: sin clase (domingo) = 0 lecturas de zoom_live_log
+// ---- egress: sin clase (domingo) = 0 lecturas de v_asist_zoom_live_panel
 {
   const sim = montar({ eventos: [] });
   const l = await cargarLector(sim);
   const r = await l.leerVivo(Date.parse("2026-10-04T12:00:00-05:00"));
   assert.equal(r.clases.length, 0);
-  assert.equal(sim.log.filter((x) => x.t === "zoom_live_log" || x.t === "zoom_reuniones_activas" || x.t === "asist_roster").length, 0, "sin clase: nada de zoom ni roster");
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_zoom_live_panel" || x.t === "zoom_reuniones_activas" || x.t === "asist_roster").length, 0, "sin clase: nada de zoom ni roster");
 }
-// ---- fuera de ventana el mismo dia (07:00): solo franja, 0 lecturas de zoom_live_log
+// ---- fuera de ventana el mismo dia (07:00): solo franja, 0 lecturas de v_asist_zoom_live_panel
 {
   const sim = montar({ eventos: [fila("joined", correos[0], "07:40")] });
   const l = await cargarLector(sim);
   const r = await l.leerVivo(COT("07:15"));
-  assert.equal(sim.log.filter((x) => x.t === "zoom_live_log").length, 0);
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").length, 0);
   assert.equal(r.clases[0].estado, "proxima");
 }
 // ---- clase abierta: lectura incremental + cache compartido
@@ -96,7 +96,7 @@ async function cargarLector(sim) {
   const t0 = COT("08:10");
   const a = await l.leerVivo(t0);
   assert.deepEqual([a.clases[0].estado, a.clases[0].roster_maximo, a.clases[0].desconocidos_maximo], ["abierta", 2, 1]);
-  const lecturas = () => sim.log.filter((x) => x.t === "zoom_live_log");
+  const lecturas = () => sim.log.filter((x) => x.t === "v_asist_zoom_live_panel");
   assert.equal(lecturas().length, 1); assert.equal(lecturas()[0].filas, 3, "primera lectura: 3 filas");
   const antes = sim.log.length;
   await Promise.all([l.leerVivo(t0 + 5000), l.leerVivo(t0 + 10000), l.leerVivo(t0 + 19000)]);
@@ -116,12 +116,12 @@ async function cargarLector(sim) {
 }
 // ---- fallo: no se cachea y se reintenta
 {
-  const sim = montar({ eventos: [], falla: "zoom_live_log" });
+  const sim = montar({ eventos: [], falla: "v_asist_zoom_live_panel" });
   const l = await cargarLector(sim);
   await assert.rejects(() => l.leerVivo(COT("08:10")));
-  const n = sim.log.filter((x) => x.t === "zoom_live_log").length;
+  const n = sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").length;
   await assert.rejects(() => l.leerVivo(COT("08:10") + 1000));
-  assert.ok(sim.log.filter((x) => x.t === "zoom_live_log").length > n, "el fallo no se cachea");
+  assert.ok(sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").length > n, "el fallo no se cachea");
 }
 
 // ---- (1) roster por franja a traves del lector: visitante de otra franja
@@ -151,7 +151,7 @@ async function cargarLector(sim) {
   const c = await l.leerVivo(t0 + 31_000);
   assert.ok(sim.log.length > n, "a los 31 s relee"); assert.equal(c.actualizado_en, new Date(t0 + 31_000).toISOString());
 }
-// ---- (2) instancia en frio despues de terminar: sin burbujas y sin leer zoom_live_log
+// ---- (2) instancia en frio despues de terminar: sin burbujas y sin leer v_asist_zoom_live_panel
 {
   const sim = montar({ eventos: [fila("joined", correos[0], "08:01")] });
   const l = await cargarLector(sim);
@@ -159,7 +159,7 @@ async function cargarLector(sim) {
   const c = r.clases.find((x) => x.slot_id === "backend-sábado-08-uno");
   assert.equal(c.estado, "terminada"); assert.equal(c.aviso, "Cifra final no disponible aquí; ver pestaña Presencia");
   assert.equal(c.roster_maximo, 0); assert.equal(c.sala_activa, false);
-  assert.equal(sim.log.filter((x) => x.t === "zoom_live_log").length, 0, "frio fuera de ventana: 0 lecturas de eventos");
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").length, 0, "frio fuera de ventana: 0 lecturas de eventos");
 }
 // ---- (3) ULTIMO refresco al cerrar la ventana: recoge lo llegado entre el ultimo sondeo y el cierre, una sola vez
 {
@@ -167,7 +167,7 @@ async function cargarLector(sim) {
   const evs = [fila("joined", correos[0], "08:01")];
   const sim = montar({ eventos: evs, franjas: una });
   const l = await cargarLector(sim);
-  const lecturas = () => sim.log.filter((x) => x.t === "zoom_live_log").length;
+  const lecturas = () => sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").length;
   await l.leerVivo(COT("08:10"));
   const ult = await l.leerVivo(COT("10:20")); // ultimo sondeo dentro de la ventana
   assert.equal(ult.clases[0].roster_maximo, 1);
@@ -189,7 +189,7 @@ async function cargarLector(sim) {
   const roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-dos" }));
   const sim = montar({ eventos: evs, franjas: dosFr, activas, roster, fallaMeta: 1 });
   const l = await cargarLector(sim);
-  const gts = () => sim.log.filter((x) => x.t === "zoom_live_log").map((x) => x.gt);
+  const gts = () => sim.log.filter((x) => x.t === "v_asist_zoom_live_panel").map((x) => x.gt);
   const r1 = await l.leerVivo(COT("08:10")); // la consulta de meta falla UNA vez: no tumba la respuesta
   assert.equal(r1.disponible, true); assert.match(r1.aviso_general, /sin franja/, "sin host: ambigua entre uno y dos");
   assert.equal(l.estadoVivoParaPruebas().cursor, 0, "el cursor NO avanza mientras la meta esta pendiente");
@@ -220,19 +220,19 @@ async function cargarLector(sim) {
   const l = await cargarLector(sim);
   assert.equal(l.TTL_REGISTRO_MS, 5 * 60_000);
   await l.leerVivo(COT("07:15"));
-  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 0, "fuera de ventana: no se lee el registro");
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_registrantes_panel").length, 0, "fuera de ventana: no se lee el registro");
   const c = (await l.leerVivo(COT("08:10"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
   assert.deepEqual([c.roster_maximo, c.desconocidos_maximo], [2, 1], "correo fuera del roster + cedula (con ceros en el roster) = roster");
-  const reg = sim.log.filter((x) => x.t === "zoom_registrantes");
+  const reg = sim.log.filter((x) => x.t === "v_asist_registrantes_panel");
   assert.equal(reg.length, 1); assert.equal(reg[0].cols, "correo_norm,cedula_digitos", "solo dos columnas");
   assert.match(sim.log.find((x) => x.t === "asist_roster").cols, /persona_id/);
   await l.leerVivo(COT("08:12")); await l.leerVivo(COT("08:14"));
-  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 1, "cache de 5 min");
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_registrantes_panel").length, 1, "cache de 5 min");
   await l.leerVivo(COT("08:16"));
-  assert.equal(sim.log.filter((x) => x.t === "zoom_registrantes").length, 2, "pasados 5 min se relee");
+  assert.equal(sim.log.filter((x) => x.t === "v_asist_registrantes_panel").length, 2, "pasados 5 min se relee");
 }
 { // si el registro falla, no tumba la respuesta: cuenta por correo y avisa
-  const sim = montar({ eventos: [fila("joined", correos[0], "08:01")], falla: "zoom_registrantes" });
+  const sim = montar({ eventos: [fila("joined", correos[0], "08:01")], falla: "v_asist_registrantes_panel" });
   const l = await cargarLector(sim);
   const r = await l.leerVivo(COT("08:10"));
   assert.equal(r.clases[0].roster_maximo, 1); assert.match(r.aviso_general, /registro de Zoom/);

@@ -1,4 +1,5 @@
 import type { FiltroTiempo } from "../lib/tiempoContrato.d.mts";
+import Permanencia from "./Permanencia";
 import { ICONOS, TEXTO_NO_DISPONIBLE, porcentajeUnDecimal } from "../lib/tiempoVista.mjs";
 import { useVisitasSemana } from "../lib/useTiempo";
 import { SIN_FRANJA_PROPIA, TEXTO_SUPRIMIDO, VEREDICTO_VISITA } from "../lib/visitasCalculo.mjs";
@@ -44,18 +45,18 @@ export default function TiempoVisitas({ semana, filtro, modo }: { semana: string
         ? <p className="historical-notice weekly-notice" role="status" data-testid="visitas-vacio">No hay visitas registradas
           {conFiltro ? " con estos filtros" : " en lo calculado de esta semana"}. Se detectan al cerrar cada clase.</p>
         : <>
-          <p><b>{d.resumen.total}</b> {d.resumen.total === 1 ? "visita" : "visitas"} — {ICONOS.cumple} cumplen {d.resumen.cumplen} · {ICONOS.rojo_tiempo} rojo {d.resumen.rojo}
+          <p><b>{d.resumen.total}</b> {d.resumen.total === 1 ? "visita" : "visitas"} — indicador histórico ≥ 50 %: {d.resumen.cumplen} · histórico &lt; 50 %: {d.resumen.rojo}
             {" "}· {ICONOS.sin_dato_tiempo} sin dato {d.resumen.sin_dato}{d.resumen.pendientes > 0 ? ` · pendientes ${d.resumen.pendientes}` : ""}</p>
           <Matriz m={d.matriz} />
           <p className="nota">«{TEXTO_SUPRIMIDO}» = entre 1 y 4 personas: no se publica el número para evitar identificar a alguien. «—» = nadie.</p>
           <div className="class-table-wrap" role="region" aria-label="Visitas nominales" tabIndex={0}>
             <table className="class-table tiempo-tabla visitas-tabla"><caption>Quién entró a una clase que no era la suya</caption>
-              <thead><tr><th>Visitante</th><th>Su clase</th><th>Clase visitada</th><th>Ciudad</th><th>% de tiempo</th><th>Veredicto</th></tr></thead>
+              <thead><tr><th>Visitante</th><th>Su clase</th><th>Clase visitada</th><th>Ciudad</th><th>% de tiempo</th><th>Veredicto técnico histórico (50 %)</th></tr></thead>
               <tbody>{d.visitas.map((v, i) => <tr key={`${v.visitante}|${v.franja_visitada}|${i}`}>
                 <th scope="row">{v.visitante}</th>
                 <td>{v.franja_propia === SIN_FRANJA_PROPIA ? "—" : v.horario_propia}</td>
                 <td>{v.horario_visitada}</td><td>{v.ciudad || "—"}</td>
-                <td>{v.pct_tiempo == null ? "—" : porcentajeUnDecimal(v.pct_tiempo)}</td>
+                <td><Permanencia pct={v.pct_tiempo} /></td>
                 <td><b aria-hidden="true">{ICONO_VEREDICTO[v.veredicto] ?? ""}</b> {VEREDICTO_VISITA[v.veredicto] ?? v.veredicto}</td>
               </tr>)}</tbody>
             </table></div>

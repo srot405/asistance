@@ -57,7 +57,7 @@ async function calcular(): Promise<Poblacion> {
     periodo<Fila>("asist_franjas", "semana,slot_id,horario_texto", ["semana", "slot_id"]),
     periodo<Fila>("asist_entradas", "semana,persona_id,sesion_id", ["persona_id", "sesion_id"]),
     periodo<Fila>("asist_sesiones", "semana,sesion_id,slot_id", ["sesion_id"]),
-    paginado<Fila>(() => sb.from("zoom_registrantes").select("registrant_id,correo_norm,cedula_digitos").order("registrant_id", { ascending: true })),
+    paginado<Fila>(() => sb.from("v_asist_registrantes_panel").select("registrant_id,correo_norm,cedula_digitos").order("registrant_id", { ascending: true })),
     paginado<{ persona_id: string; estado: string }>(() => sb.from("asist_celda_semana").select("persona_id,estado").eq("semana", ultima)
       .order("persona_id", { ascending: true })),
   ]);
@@ -68,7 +68,7 @@ async function calcular(): Promise<Poblacion> {
   const inicioMs = Date.parse(`${desde}T05:00:00Z`);
   for (let i = 0; i < lista.length; i += 100) {
     const lote = lista.slice(i, i + 100);
-    const { data, error: e } = await sb.from("zoom_live_log").select("correo").eq("evento", "joined").gte("hora_ms", inicioMs)
+    const { data, error: e } = await sb.from("v_asist_zoom_live_panel").select("correo").eq("evento", "joined").gte("hora_ms", inicioMs)
       .in("correo", lote).or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").limit(1000);
     if (e) throw e;
     for (const f of (data ?? []) as { correo: string }[]) { const id = buscar.get(String(f.correo).toLowerCase()); if (id) soloLog.add(id); }

@@ -10,7 +10,7 @@ const cob = (a: AgregadoTiempo) => (a.cobertura == null ? "—" : `${porcentajeU
 function Fila({ titulo, a, extra, chip, fuerte }: { titulo: string; a: AgregadoTiempo; extra?: string; chip?: ReactNode; fuerte?: boolean }) {
   const sinMedicion = a.sin_medicion;
   const etiqueta = a.sin_ingresos ? "Sin ingresos" : sinMedicion ? "Sin medición de tiempo" : a.muestra_pequena ? "muestra pequeña (n<5)" : "";
-  const aria = `${titulo}: ${a.n_cumplen} cumplen (50 % o más), ${a.n_rojo} rojo por tiempo (menos del 50 %), ${a.n_sin_dato} sin dato de tiempo, ` +
+  const aria = `${titulo}: ${a.n_cumplen} con 50 % o más, ${a.n_rojo} con menos del 50 %, ${a.n_sin_dato} sin dato de tiempo, ` +
     `${a.n_ingresaron} ingresaron, ${a.n_medibles} con tiempo medido`;
   return <tr className={fuerte ? "fila-total" : undefined} aria-label={aria}>
     <th scope="row">{titulo}{extra && <small> {extra}</small>}{chip && <div>{chip}</div>}</th>
@@ -28,7 +28,7 @@ function Tabla({ titulo, filas }: { titulo: string; filas: { clave: string; titu
   return <div className="class-table-wrap" role="region" aria-label={titulo} tabIndex={0}>
     <table className="class-table tiempo-tabla"><caption>{titulo}</caption>
       <thead><tr><th>Grupo</th><th>Roster</th><th>Ingresaron</th><th>Medidos</th>
-        <th>{ICONOS.cumple} Cumplen</th><th>{ICONOS.rojo_tiempo} Rojo</th><th>{ICONOS.sin_dato_tiempo} Sin dato</th><th>Mediana %</th><th>Cobertura</th></tr></thead>
+        <th>Histórico ≥ 50 %</th><th>Histórico &lt; 50 %</th><th>{ICONOS.sin_dato_tiempo} Sin dato</th><th>Mediana %</th><th>Cobertura</th></tr></thead>
       <tbody>{filas.map((f) => <Fila key={f.clave} titulo={f.titulo} a={f.a} extra={f.extra} chip={f.chip} fuerte={f.fuerte} />)}</tbody>
     </table></div>;
 }

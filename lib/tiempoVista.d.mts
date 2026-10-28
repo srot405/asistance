@@ -1,6 +1,7 @@
 import type { ConteosTiempo } from "./tiempoContrato.d.mts";
 
 export const UMBRAL_PORCENTAJE_ROJO: 50;
+export { colorPermanencia } from "./permanencia.mjs";
 export const COBERTURA_MINIMA_COMPARABLE: 0.7;
 export const MUESTRA_MINIMA: 5;
 export const BINS_PCT: 10;

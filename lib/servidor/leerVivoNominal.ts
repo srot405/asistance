@@ -72,7 +72,7 @@ async function cargarBase(lunes: string, ahoraMs: number): Promise<Base> {
 
 async function cargarRegistro(fecha: string): Promise<FilaRegistrante[]> {
   const sb = supabaseServidor();
-  return (await leerPaginado<FilaRegistrante>(() => sb.from("zoom_registrantes")
+  return (await leerPaginado<FilaRegistrante>(() => sb.from("v_asist_registrantes_panel")
     .select("correo_norm,cedula_digitos,nombre,apellido").eq("fecha_sesion", fecha).order("registrant_id", { ascending: true }))).filas;
 }
 
@@ -82,7 +82,7 @@ async function refrescarEventos(fecha: string, ahoraMs: number): Promise<boolean
   const inicioDia = Date.parse(`${fecha}T00:00:00Z`) + COT_MS;
   const desdeId = Math.max(0, dia.cursor - SOLAPE_IDS);
   const { filas, truncado } = await leerPaginado<{ id: number; evento: "joined" | "left"; correo: string | null; nombre: string | null; hora_ms: number; uuid: string | null; curso: string | null }>(() =>
-    sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso")
+    sb.from("v_asist_zoom_live_panel").select("id,evento,correo,nombre,hora_ms,uuid,curso")
       .in("evento", ["joined", "left"]).gt("id", desdeId).gte("hora_ms", inicioDia)
       .or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").order("id", { ascending: true }));
   let cursor = dia.cursor;

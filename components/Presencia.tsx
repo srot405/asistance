@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { ESTILO } from "./Permanencia";
+import { useEffect, useState } from "react";
 import { sesionActual } from "../lib/auth";
 import { descargarCsv } from "../lib/descargas";
 import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
@@ -14,13 +15,7 @@ async function headersAuth(modo: "demo" | "real", params: URLSearchParams): Prom
   return { Authorization: `Bearer ${sesion.access_token}` };
 }
 
-// Pestaña "Presencia" (TOC-91, pedido de Samuel 2026-09-29): asistencia de UNA
-// clase (franja). Desde TOC-146 usa el criterio ÚNICO del 50 % de Tiempo:
-// 🟢 Presente (50 % o más) · 🟠 Parcial (menos del 50 %) · 🔴 Nunca entró,
-// y ◌ Sin dato de tiempo (entró pero no se pudo medir). Solo existe para
-// semanas nivel "Detalle" (roster congelado real) — ver lib/servidor/leerPresenciaClase.ts. La lista de franjas se toma de
-// /api/detalle (misma fuente que usa CalendarioSemana), sin duplicar esa
-// consulta a mano.
+// TOC-152: ingreso por evidencia y permanencia visual independiente.
 export default function Presencia({ actual, modo }: { actual: ResumenHistorico; modo: "demo" | "real" }) {
   const esDetalle = actual.nivel === "Detalle";
   // 2026-10-14: semanas «Solo semanal» con roster reconstruido: lista de clases y estado semanal por persona (sin separar su clase / colado).
@@ -32,7 +27,7 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [falloExport, setFalloExport] = useState("");
-  const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);   // TOC-151
+  const confianza = mapaConfianza(useConfianzaSemana(actual.semana, modo, esDetalle).datos);
 
   useEffect(() => { setFranjaId(""); setDatos(null); setError(""); setFalloExport(""); }, [actual.semana]);
 
@@ -79,7 +74,6 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
     return () => { cancelado = true; };
   }, [actual.semana, esDetalle, hayPresencia, franjaId, modo]);
 
-  const horarioDe = useMemo(() => (id: string) => franjas.find((f) => f.slot_id === id)?.horario_texto ?? id, [franjas]);
 
   async function descargar() {
     if (!franjaId) return;
@@ -97,75 +91,52 @@ export default function Presencia({ actual, modo }: { actual: ResumenHistorico; 
     </p>
   </section>;
 
-  const total = datos ? datos.conteos.presente + datos.conteos.parcial + datos.conteos.nunca_entro + datos.conteos.sin_dato + (datos.conteos.colado ?? 0) : 0;
-  const abierta = !actual.cerrada_en;
-  const reconstruida = Boolean(datos?.reconstruida);   // la lista de la clase es la asignacion actual; estado semanal por persona        // semana en curso: «Nunca entró» aun puede cambiar (entran a otra clase despues)
-  const pct = (n: number) => (total ? `${((n * 100) / total).toFixed(1)} %` : "—");
-
-  return <section className="panel presencia-panel" aria-label="Presencia por clase">
-    <div className="section-heading">
-      <div><h2>Presencia por clase</h2>
-        <p>{datos?.reconstruida ? <>Las personas de la lista de una clase y su estado de la semana, con el mismo criterio de la pestaña <b>Tiempo</b>: el 50 % del tiempo de su mejor clase.</> : <>Quién estuvo en una clase, con el mismo criterio de la pestaña <b>Tiempo</b>: el 50 % del tiempo de su clase.</>}</p></div>
-    </div>
-
-    <label className="presencia-selector">Clase <select className="control" value={franjaId}
-      onChange={(e) => setFranjaId(e.target.value)}>
+  return <section className="panel presencia-panel" aria-label="Ingreso y permanencia">
+    <h2>Ingreso y permanencia</h2>
+    <p>Entró a la clase: Sí con cualquier entrada identificada, aunque dure medio segundo.
+      El porcentaje de permanencia se muestra por separado.</p>
+    <label className="presencia-selector">Clase <select className="control" value={franjaId} onChange={(e) => setFranjaId(e.target.value)}>
       {franjas.map((f) => <option key={f.slot_id} value={f.slot_id}>{f.horario_texto}</option>)}
     </select></label>
     {franjaId && <p className="presencia-confianza"><ChipConfianza c={confianza.get(franjaId)} /></p>}
-
     {error && <p className="historical-notice missing-notice" role="alert">{error}</p>}
-    {cargando && <p className="nota">Cargando…</p>}
+    {cargando && <p className="nota" role="status">Cargando…</p>}
     {!error && !cargando && franjas.length === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-clases">
       Esta semana todavía no tiene clases en el roster congelado, así que no hay una clase que elegir.</p>}
-
     {datos && !cargando && <>
-      {reconstruida && <p className="historical-notice weekly-notice" role="note" data-testid="presencia-reconstruida">
-        <b>Semana reconstruida.</b> La lista de esta clase es la asignación actual de cada persona, no la de entonces; por eso aquí no se separa «su clase» y «colados».
-        Cada persona se muestra con su estado de la semana (su mejor clase). No aparecen en ninguna lista las personas sin clase asignada ni las de clases sin captura de Zoom (que en la pestaña Semana cuentan como presuntos).</p>}
-      <div className="presencia-grid" aria-label="Conteo por categoría de presencia">
-        <article className="presencia-card presente">
-          <span>✓ 50 % o más</span><strong>{datos.conteos.presente}</strong><small>{pct(datos.conteos.presente)}</small>
-        </article>
-        <article className="presencia-card entro-salio">
-          <span>⏱ Menos del 50 %</span><strong>{datos.conteos.parcial}</strong>
-          <small>{pct(datos.conteos.parcial)}</small>
-        </article>
-        {!reconstruida && <article className="presencia-card colado" data-testid="presencia-colados">
-          <span>↗ Entró a otra clase (colado)</span><strong>{datos.conteos.colado ?? 0}</strong>
-          <small>{(datos.conteos.colado ?? 0) === 0 ? "—" : `${datos.colados_con_pct ?? 0} con % de estancia · ${datos.colados_bajo_50 ?? 0} no superan el 50 % ni con su mejor clase`}</small>
-        </article>}
-        <article className="presencia-card nunca-entro">
-          <span>{abierta ? "✕ Aún no ingresó" : "✕ No ingresó"}</span><strong>{datos.conteos.nunca_entro}</strong>
-          <small>{pct(datos.conteos.nunca_entro)}</small>
-        </article>
-        <article className="presencia-card sin-dato">
-          <span>◌ Sin dato de tiempo</span><strong>{datos.conteos.sin_dato}</strong>
-          <small>{pct(datos.conteos.sin_dato)}</small>
-        </article>
-      </div>
-      <p className="nota">{horarioDe(datos.slot_id)} · {datos.fecha} · {total} personas medibles</p>
-      {datos.conteos.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
-        {datos.conteos.sin_dato} {datos.conteos.sin_dato === 1 ? "persona entró" : "personas entraron"} pero su tiempo
-        {reconstruida ? "no está medido o no se pudo medir" : "en esta clase no está medido todavía (el tiempo se calcula al cerrar la clase) o no se pudo medir"}: no cuentan como «menos del 50 %» ni como falta.
-      </p>}
-      {total === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
+      {datos.reconstruida && <p className="historical-notice weekly-notice" role="note" data-testid="presencia-reconstruida">
+        <b>Semana reconstruida.</b> La lista de esta clase es la asignación actual de cada persona, no la de entonces;
+        el ingreso corresponde a la semana y la permanencia a su mejor clase. No se separa «su clase» y «colados».
+        No aparecen las personas sin clase asignada ni las de clases sin captura de Zoom.</p>}
+      {datos.ingreso && datos.permanencia ? <>
+        <div className="presencia-grid" aria-label="Entró a clase">
+          <article className="presencia-card"><span>Sí</span><strong>{datos.ingreso.si}</strong></article>
+          <article className="presencia-card"><span>No</span><strong>{datos.ingreso.no}</strong></article>
+          <article className="presencia-card"><span>Sin dato de ingreso</span><strong>{datos.ingreso.sin_dato}</strong></article>
+        </div>
+        <h3>Permanencia de quienes entraron</h3>
+        <div className="presencia-grid">
+          {(["rojo", "amarillo", "verde", "sin_dato"] as const).map((c) => <article key={c} className="presencia-card" style={ESTILO[c]}>
+            <span>{c === "sin_dato" ? "Sin dato de tiempo" : c}</span><strong>{datos.permanencia![c]}</strong>
+          </article>)}
+        </div>
+        <p>{datos.medible} personas en el roster. La falta de tiempo no cambia un Sí.</p>
+      </> : <p role="status">Esta respuesta aún no incluye ingreso independiente y semáforo 60/80.</p>}
+      {datos.permanencia && datos.permanencia.sin_dato > 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-dato">
+        {datos.permanencia.sin_dato} personas entraron pero su tiempo aún no está medido o no se pudo medir.
+        No cuentan como falta ni reciben color de permanencia.</p>}
+      {datos.medible === 0 && <p className="historical-notice weekly-notice" data-testid="presencia-sin-medibles">
         Esta clase no tiene personas medibles: aún no ocurre, no tiene captura o su roster está vacío.</p>}
-      {puedeNominal && reconstruida ? null : puedeNominal ? <button className="control" onClick={descargar}>
-        Descargar CSV: presencia de esta clase{modo === "demo" && " (práctica)"}
-      </button>
-        : rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
+      {puedeNominal && !datos.reconstruida && <button className="control" onClick={descargar}>Descargar CSV: ingreso y permanencia{modo === "demo" && " (práctica)"}</button>}
+      {!puedeNominal && rol.nominal !== "cargando" && <p className="nota" data-testid="sin-nominal">{textoSinNominal(rol)}</p>}
       {falloExport && <p className="status" role="alert">{falloExport}</p>}
     </>}
-
-    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: «No ingresó» sale de las entradas registradas (a cualquier clase de la semana) y el tiempo de «50 % o más / menos del 50 %» sale de la API de Zoom (pestaña Tiempo). Aquí se mira la clase elegida; en Tiempo, la mejor clase de cada persona, así que pueden diferir en pocos casos (por ejemplo, un colado): no es un error.</p>
-    <details className="panel definitions"><summary>Cómo se calculan estas categorías</summary>
-      <p><b>✓ 50 % o más:</b> estuvo al menos el 50&nbsp;% del tiempo de su clase (exactamente 50&nbsp;% cumple).</p>
-      <p><b>⏱ Menos del 50 %:</b> estuvo menos de la mitad del tiempo de su clase; su % se conserva.</p>
-      <p><b>✕ No ingresó:</b> no entró a ninguna clase de la semana (misma regla que «No ingresaron» del calendario).</p>
-      <p><b>↗ Entró a otra clase (colado):</b> entró a una clase que no es la suya y no a la suya. Ingresó y tiene su % de estancia (el de su
-        mejor clase), que se muestra y se conserva aunque sea bajo.</p>
-      <p><b>◌ Sin dato de tiempo:</b> entró, pero su tiempo no se pudo medir o aún no se calcula. Nunca cuenta como «menos del 50 %».</p>
-    </details>
+    <p>Rojo: menos de 60 % · Amarillo: desde 60 % y menos de 80 % · Verde: desde 80 %.
+      Sin dato: no se pudo medir. Los colores no toman ninguna acción sobre estudiantes.</p>
+    <p>En semanas con detalle, el Sí/No se refiere a la clase elegida; entrar solo a otra clase
+      conserva el ingreso semanal en Calendario, pero no marca Sí en esta clase.</p>
+    <p className="nota" data-testid="presencia-fuentes">Dos fuentes: el ingreso sale de las entradas registradas
+      y la permanencia de la API de Zoom. En esta vista se mira la clase elegida; en Tiempo, la mejor clase de cada persona,
+      así que pueden diferir (por ejemplo, un colado).</p>
   </section>;
 }

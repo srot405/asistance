@@ -92,7 +92,7 @@ async function cargarRoster(lunes: string): Promise<Roster> {
 
 async function cargarRegistro(dia: string): Promise<Map<string, string | null>> {
   const sb = supabaseServidor();
-  const filas = await leerPaginado<{ correo_norm: string | null; cedula_digitos: string | null }>(() => sb.from("zoom_registrantes")
+  const filas = await leerPaginado<{ correo_norm: string | null; cedula_digitos: string | null }>(() => sb.from("v_asist_registrantes_panel")
     .select("correo_norm,cedula_digitos").eq("fecha_sesion", dia).order("registrant_id", { ascending: true }));
   return indexarRegistroVivo(filas);
 }
@@ -111,7 +111,7 @@ async function refrescarVivo(dia: string, ahoraMs: number): Promise<{ truncado: 
   // 2) eventos nuevos (solo de clases), incremental
   const desdeId = Math.max(0, vivo.cursor - SOLAPE_IDS);
   const filas = await leerPaginado<{ id: number; evento: string; correo: string | null; nombre: string | null; hora_ms: number; uuid: string | null; curso: string | null }>(() =>
-    sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso")
+    sb.from("v_asist_zoom_live_panel").select("id,evento,correo,nombre,hora_ms,uuid,curso")
       .in("evento", ["joined", "left"]).gt("id", desdeId).gte("hora_ms", inicioDia)
       .or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").order("id", { ascending: true }));
   let truncado = filas.length >= MAX_PAGINAS * PAGINA;

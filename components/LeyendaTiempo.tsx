@@ -9,7 +9,10 @@ const CLASE: Record<(typeof ITEMS)[number], string> = {
 
 export default function LeyendaTiempo() {
   return <div className="leyenda-tiempo" aria-label="Leyenda de categorías de tiempo">
-    <ul>{ITEMS.map((k) => <li key={k}>
+    <p><b>Permanencia:</b> rojo &lt; 60 % · amarillo ≥ 60 % y &lt; 80 % · verde ≥ 80 % · sin dato si no se pudo medir.
+      Entró a clase: Sí con cualquier entrada, independientemente del porcentaje.</p>
+    <p>Indicadores técnicos históricos del tiempo (regla 50 %, independientes del semáforo):</p>
+    <ul>{ITEMS.filter((k) => k !== "cumple" && k !== "rojo_tiempo").map((k) => <li key={k}>
       <i className={`t-muestra ${CLASE[k]}`} aria-hidden="true" />
       <b aria-hidden="true">{ICONOS[k]}</b> {ETIQUETAS[k]}
     </li>)}</ul>

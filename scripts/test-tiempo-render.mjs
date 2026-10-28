@@ -105,7 +105,10 @@ const clase = { ...agr, slot_id: "s", fecha: "2026-09-14", horario_texto: "Lunes
 const tabla = await renderizar("components/TiempoTablaClases.tsx", { clases: [clase], dias: [], semana: agr });
 assert.match(tabla, /49,6 %/);
 assert.match(tabla, /4 \(40,0 %\)/);
-assert.doesNotMatch(tabla, /\b50 %/, "la mediana 49,6 no se ve como 50 %");
+const tablaHtml = await renderizar("components/TiempoTablaClases.tsx", { clases: [clase], dias: [], semana: agr }, { html: true });
+assert.match(tablaHtml, /<td>49,6 %<\/td>/, "mediana truncada en la celda");
+assert.doesNotMatch(tablaHtml, /<td>50(?:,0)? %<\/td>/, "la mediana 49,6 no se ve como 50 %");
+assert.match(tabla, /Histórico/, "el 50 % de la cabecera es un indicador técnico histórico");
 
 // Bajo 3: nombre null no rompe el orden ni el CSV (antes: TypeError -> 503)
 const { construirCsvTiempo } = await import("../lib/exportarNominal.mjs");

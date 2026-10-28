@@ -8,6 +8,7 @@ import vm from "node:vm";
 import ts from "typescript";
 
 import * as detalleCalculo from "../lib/detalleCalculo.mjs";
+import * as permanencia from "../lib/permanencia.mjs";
 import * as presenciaTiempo from "../lib/presenciaTiempo.mjs";
 
 const source = await readFile(new URL("../lib/servidor/leerPresenciaClase.ts", import.meta.url), "utf8");
@@ -25,7 +26,7 @@ const ROSTER = [
   { persona_id: "1000000004", nombre: "Cuatro", ciudad: "Cali", slot_id: "s1", correo_norm: "cuatro@ejemplo.test" },
   { persona_id: "1000000005", nombre: "Cinco", ciudad: "Cali", slot_id: "s1", correo_norm: "cinco@ejemplo.test" },
 ];
-const SESIONES = [{ sesion_id: "sess1", slot_id: "s1", fecha: "2026-09-15", entradas_totales: 4 }];
+const SESIONES = [{ sesion_id: "sess1", slot_id: "s1", fecha: "2026-09-15", entradas_totales: 4, estado_captura: "capturada" }];
 const ENTRADAS = ["1000000001", "1000000002", "1000000004", "1000000005"].map((persona_id) => ({ persona_id, sesion_id: "sess1" }));
 const CELDAS = [
   { persona_id: "1000000001", estado: "SI" }, { persona_id: "1000000002", estado: "SI" },
@@ -45,6 +46,7 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   const consultas = [];
   const require = (name) => {
     if (name === "server-only") return {};
+    if (name.endsWith("/permanencia.mjs")) return permanencia;
     if (name.endsWith("/detalleCalculo.mjs")) return detalleCalculo;
     if (name.endsWith("/presenciaTiempo.mjs")) return presenciaTiempo;
     if (name.endsWith("/leerTiempo")) return { leerTiempoPersonasClase: async (semana, slot) => { consultas.push([semana, slot]); return tiempo; },
@@ -67,6 +69,8 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   assert.deepEqual({ ...r.conteos }, { presente: 1, parcial: 1, nunca_entro: 1, sin_dato: 2, colado: 0 },
     "Uno=presente (50 % cumple), Dos=parcial (<50 %), Tres=nunca, Cuatro y Cinco=sin dato");
   assert.equal(r.medible, 5);
+  assert.deepEqual({ ...r.ingreso }, { si: 4, no: 1, sin_dato: 0 }, "TOC-152: entrar basta, incluso sin tiempo");
+  assert.deepEqual({ ...r.permanencia }, { rojo: 2, amarillo: 0, verde: 0, sin_dato: 2 }, "50 % técnico no implica verde visual");
   assert.equal(r.conteos.presente + r.conteos.parcial + r.conteos.nunca_entro + r.conteos.sin_dato + r.conteos.colado, r.medible, "las categorias cuadran con los medibles");
   assert.equal(r.fecha, "2026-09-15");
   assert.equal(r.horario_texto, "Martes 18:00");
@@ -77,6 +81,9 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   const por = (n) => nominal.find((f) => f.nombre === n);
   assert.equal(nominal.length, 5);
   assert.equal(por("Uno").estado, "presente"); assert.equal(por("Uno").cumple_50, true); assert.equal(por("Uno").minutos, 60);
+  assert.equal(por("Uno").ingreso, "Sí"); assert.equal(por("Uno").color_permanencia, "rojo");
+  assert.equal(por("Tres").ingreso, "No"); assert.equal(por("Cuatro").ingreso, "Sí");
+  assert.equal(por("Cuatro").color_permanencia, "sin_dato");
   assert.equal(por("Dos").estado, "parcial"); assert.equal(por("Dos").cumple_50, false);
   assert.equal(por("Tres").estado, "nunca_entro"); assert.equal(por("Tres").minutos, null, "sin minutos inventados");
   assert.equal(por("Cuatro").estado, "sin_dato"); assert.equal(por("Cuatro").pct_tiempo, null);
@@ -110,6 +117,8 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   const nominal = await listarPresenciaNominal("2026-09-14", "s1");
   const por = (n) => nominal.find((f) => f.nombre === n);
   assert.equal(por("Siete").estado, "colado"); assert.equal(por("Siete").pct_tiempo, 12.5); assert.equal(por("Siete").minutos, 15);
+  assert.equal(por("Siete").ingreso, "No", "entrar a otra clase no marca Sí en esta clase");
+  assert.equal(por("Siete").color_permanencia, "sin_dato");
   assert.equal(por("Siete").estado_tiempo, "rojo_tiempo");
   assert.equal(por("Ocho").estado, "colado"); assert.equal(por("Ocho").pct_tiempo, null, "sin % real no se inventa");
 }
@@ -135,6 +144,8 @@ function ejecutar(tiempo, baseX = base, semanal = new Map()) {
   const nominal = await listarPresenciaNominal("2026-08-17", "s1");
   const por = (n) => nominal.find((f) => f.nombre === n);
   assert.equal(por("Siete").estado, "presente"); assert.equal(por("Siete").pct_tiempo, 55, "el % es el de su mejor clase");
+  assert.equal(por("Siete").ingreso, "Sí", "en reconstruida el ingreso es semanal");
+  assert.equal(por("Siete").color_permanencia, "rojo");
   assert.equal(por("Tres").estado, "nunca_entro", "no ingresar es semanal y si vale");
   // una semana NORMAL (09-14) conserva su lectura por clase
   const normal = await ejecutar(TIEMPO, base2, semanal).leerPresenciaClase("2026-09-14", "s1");

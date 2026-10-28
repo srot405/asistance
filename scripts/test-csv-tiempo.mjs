@@ -47,13 +47,13 @@ assert.ok(lineas.slice(1, -1).every((l) => l.split(",").length >= 12), "12 colum
 const nombres = lineas.slice(1, -1).map((l) => l.split(",")[0]);
 assert.deepEqual(nombres.filter((n) => n.startsWith("\"Estudiante")), [...nombres.filter((n) => n.startsWith("\"Estudiante"))].sort((a, b) => a.localeCompare(b, "es")));
 
-// ---- CSV de presencia: 3 columnas al final ----
-const pres = construirCsvPresencia([{ nombre: "Estudiante 001", ciudad: "X", estado: "presente", minutos: 90, pct_tiempo: 75, estado_tiempo: "cumple", cumple_50: true },
-  { nombre: "Estudiante 002", ciudad: "X", estado: "sin_dato", minutos: null }]);
+// ---- TOC-152: CSV de presencia con ingreso y color independientes del estado técnico ----
+const pres = construirCsvPresencia([{ nombre: "Estudiante 001", ciudad: "X", estado: "presente", ingreso: "Sí", color_permanencia: "amarillo", minutos: 90, pct_tiempo: 75, estado_tiempo: "cumple", cumple_50: true },
+  { nombre: "Estudiante 002", ciudad: "X", estado: "sin_dato", ingreso: "Sí", color_permanencia: "sin_dato", minutos: null }]);
 const lp = pres.contenido.slice(1).split("\r\n");
-assert.equal(lp[0], '"nombre","ciudad","estado","minutos","pct_tiempo","estado_tiempo","cumple_50"');
-assert.equal(lp[1], '"Estudiante 001","X","presente","90","75","cumple","SI"');
-assert.equal(lp[2], '"Estudiante 002","X","sin_dato","","","no_calculado",""');
+assert.equal(lp[0], '"nombre","ciudad","ingreso","color_permanencia","estado_tecnico_50","minutos","pct_tiempo","estado_tiempo","cumple_50"');
+assert.equal(lp[1], '"Estudiante 001","X","Sí","amarillo","presente","90","75","cumple","SI"');
+assert.equal(lp[2], '"Estudiante 002","X","Sí","sin_dato","sin_dato","","","no_calculado",""');
 
 // ---- Reporte: columnas nuevas al final y RESUMEN con "N de M con tiempo medido" ----
 const franjas = [{ slot_id: "backend-a", fecha: "2099-01-05", cuenta_zoom: "x" }];
