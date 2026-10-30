@@ -51,7 +51,7 @@ assert.deepEqual(r2.clases[0].cifras.no_identificado, { total: 2, en_sala: 1 });
 
 // permiso: monitor de Cali solo ve personas de roster/otra_franja de Cali; las cifras no se recortan
 const cali = recortarPorPermiso(d, { ciudad: "Cali" }, mismaCiudad);
-for (const c of cali.clases) for (const p of c.personas) { assert.ok(["roster", "otra_franja"].includes(p.senal)); assert.ok(mismaCiudad(p.ciudad, "Cali")); }
+for (const c of cali.clases) for (const p of c.personas) { assert.ok(["roster", "otra_franja", "ausente"].includes(p.senal)); assert.ok(mismaCiudad(p.ciudad, "Cali")); }
 assert.deepEqual(cali.clases[0].cifras, d.clases[0].cifras);
 assert.equal(recortarPorPermiso(d, { ciudad: null }, mismaCiudad), d);
 
@@ -70,4 +70,44 @@ for (const n of ["Yaira Botero", "Ana Potter", "Luis Otterbein", "Abbot Ruiz"]) 
 const csv = filasCsv(d);
 assert.equal(csv[0][1], "senal");
 assert.equal(csv.length, 1 + d.clases.reduce((n, c) => n + c.personas.length, 0));
+
+// ausentes (amarillo): del roster de la franja que nunca entraron; filas al final, fuera de cifras
+{
+  const aus = (c) => c.personas.filter((p) => p.senal === "ausente");
+  assert.deepEqual(aus(c08).map((p) => p.nombre), ["Persona Demo 07", "Persona Demo 08"], "la 7 entro a otra clase: en la suya es ausente");
+  assert.deepEqual(aus(c10).map((p) => p.nombre), ["Persona Demo 14", "Persona Demo 15", "Persona Demo 16"]);
+  assert.equal(c08.ausentes, 2); assert.equal(c10.ausentes, 3);
+  for (const p of [...aus(c08), ...aus(c10)]) assert.deepEqual([p.entradas, p.en_sala, p.primera_entrada, p.ultima_salida, p.su_clase], [0, false, null, null, null]);
+  assert.ok(!("ausente" in c08.cifras), "cifras solo de asistencia");
+  const suma = (c) => Object.values(c.cifras).reduce((n, x) => n + x.total, 0);
+  assert.equal(suma(c08) + c08.ausentes, c08.personas.length, "cifras + ausentes = filas");
+  assert.equal(c10.personas.at(-1).senal, "ausente", "ausentes al final");
+  assert.ok(cali.clases.some((c) => c.personas.some((p) => p.senal === "ausente")), "el monitor ve los ausentes de su ciudad");
+  // clase que aun no empieza: sin ausentes; en curso sin nadie: todo el roster ausente; roster que entro no es ausente
+  const fr2 = [{ slot_id: "s8", dia: "sábado", fecha: SAB, hora_inicio: 8, hora_fin: 10, tipo: "Basico", cuenta_zoom: "comunicaciones", roster_n: 2 }];
+  const ros = [1, 2].map((i) => ({ persona_id: String(2000000000 + i), correo_norm: `r${i}@ejemplo.test`, nombre: `Ausente Demo ${i}`, ciudad: "Cali", slot_id: "s8" }));
+  const sala = (eventos, activo = true) => [{ uuid: "u", host: "comunicaciones", topic: "Backend", activo, eventos }];
+  const proxima = armarListaVivo({ semana: "2026-10-05", franjasHoy: fr2, salas: [], roster: ros, registrantes: [], ahoraMs: COT("07:50") }).clases[0];
+  assert.deepEqual([proxima.estado, proxima.ausentes, proxima.personas.length], ["proxima", 0, 0]);
+  const vacia = armarListaVivo({ semana: "2026-10-05", franjasHoy: fr2, salas: sala([]), roster: ros, registrantes: [], ahoraMs: COT("08:30") }).clases[0];
+  assert.deepEqual([vacia.estado, vacia.ausentes, vacia.cifras.roster.total], ["abierta", 2, 0]);
+  const una = armarListaVivo({ semana: "2026-10-05", franjasHoy: fr2, salas: sala([{ id: 1, evento: "joined", ms: COT("08:05"), correo: "r1@ejemplo.test", nombre: "R1" }]),
+    roster: ros, registrantes: [], ahoraMs: COT("08:30") }).clases[0];
+  assert.deepEqual(una.personas.map((p) => [p.nombre, p.senal]), [["Ausente Demo 1", "roster"], ["Ausente Demo 2", "ausente"]]);
+  assert.deepEqual([una.cifras.roster, una.ausentes], [{ total: 1, en_sala: 1 }, 1]);
+  // CSV: los ausentes salen con su etiqueta y sin entradas
+  const fila = filasCsv({ clases: [una] }).find((f) => f[1] === "No ha entrado");
+  assert.deepEqual([fila[2], fila[9], fila[10]], ["Ausente Demo 2", 0, "NO"]);
+}
+
+// en sala vs salio: ultima_salida y en_sala distinguen a quien sigue de quien ya se fue (y a quien volvio)
+{
+  const p2 = por(c08, "Persona Demo 02");
+  assert.deepEqual([p2.en_sala, p2.ultima_salida], [false, new Date(COT("09:50")).toISOString()], "salio 09:50");
+  assert.deepEqual([por(c08, "Persona Demo 03").en_sala, por(c08, "Persona Demo 03").ultima_salida], [true, null], "sigue en sala, sin salida");
+  const idx = indexarRoster([{ persona_id: "3000000001", correo_norm: "v@ejemplo.test", nombre: "Vuelve Demo", ciudad: "Cali", slot_id: "s8" }]);
+  const e = (id, evento, hhmm) => ({ id, evento, ms: COT(hhmm), correo: "v@ejemplo.test", nombre: "V" });
+  const [v] = personasDeClase([e(1, "joined", "08:01"), e(2, "left", "08:20"), e(3, "joined", "08:25")], "s8", idx, new Map(), (s) => s, COT("08:30"));
+  assert.deepEqual([v.en_sala, v.entradas, v.ultima_salida], [true, 2, new Date(COT("08:20")).toISOString()], "salio y volvio: en sala");
+}
 console.log("test-vivo-nominal: OK");

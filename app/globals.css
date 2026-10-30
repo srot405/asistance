@@ -1089,18 +1089,29 @@ select {
   .est-barras li { grid-template-columns: 1fr 70px; }
   .est-barras .est-barra-pista { grid-column: 1 / -1; grid-row: 2; }
 }
-/* Lista en vivo (TOC-153): senal de cada persona. Icono + texto, nunca solo color. */
+/* Lista en vivo (TOC-153): senal de cada persona. Icono + texto, nunca solo color.
+   Verde = de esta clase, amarillo = no ha entrado, naranja = no identificado, morado = colados, azul = personal. */
 .chip-senal-roster { background: #e4f6e9; color: #145f31; }
-.chip-senal-otra_franja { background: #ffe3c7; color: #7a3d00; }
-.chip-senal-no_identificado { background: #fbe6e6; color: #8c2222; border-style: dashed; border-color: currentColor; }
-.chip-senal-personal { background: #eceaf1; color: #4d4a58; }
+.chip-senal-ausente { background: #fff0b3; color: #5a4300; border-style: dotted; border-color: currentColor; }
+.chip-senal-no_identificado { background: #ffe3c7; color: #7a3d00; border-style: dashed; border-color: currentColor; }
+.chip-senal-otra_franja { background: #ece6fa; color: #4b2f8c; }
+.chip-senal-personal { background: #e1ecfb; color: #1d4a85; }
 .shell.dark .chip-senal-roster { background: #17402a; color: #9fe0b4; }
-.shell.dark .chip-senal-otra_franja { background: #4d2e10; color: #ffcf9e; }
-.shell.dark .chip-senal-no_identificado { background: #4a1f1f; color: #f2b4b4; }
-.shell.dark .chip-senal-personal { background: #34313f; color: #cbc8d6; }
+.shell.dark .chip-senal-ausente { background: #4c3d14; color: #fff0b3; }
+.shell.dark .chip-senal-no_identificado { background: #4d2e10; color: #ffcf9e; }
+.shell.dark .chip-senal-otra_franja { background: #2f2650; color: #cdbdf5; }
+.shell.dark .chip-senal-personal { background: #1b2f4d; color: #b5d0f5; }
 .lista-vivo .check { display: flex; align-items: center; gap: 6px; align-self: end; }
 .lista-vivo-tabla td small { opacity: .75; }
-.lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--orange); }
+.lista-vivo-tabla tr.fila-senal-otra_franja th { box-shadow: inset 3px 0 0 var(--presencial); }
+.lista-vivo-tabla tr.fila-senal-no_identificado th { box-shadow: inset 3px 0 0 var(--orange); }
+.lista-vivo-tabla tr.fila-senal-ausente th { box-shadow: inset 3px 0 0 var(--yellow); }
+.lista-vivo-tabla .vivo-estado { white-space: nowrap; }
+.lista-vivo-tabla .vivo-estado b { font-weight: 700; margin-right: 3px; }
+.lista-vivo-tabla .vivo-estado-en-sala { color: #145f31; font-weight: 600; }
+.lista-vivo-tabla .vivo-estado-salio { color: #8c2222; }
+.shell.dark .lista-vivo-tabla .vivo-estado-en-sala { color: #9fe0b4; }
+.shell.dark .lista-vivo-tabla .vivo-estado-salio { color: #f2b4b4; }
 /* Calendario: filtros horario correcto / colados (TOC-91, Samuel 2026-10-09).
    Manual de identidad ROFE 2025 (JC es programa de ROFE): tipografia principal Gilroy Light, respaldo Century Gothic
    (Trebuchet MS si tampoco esta instalada; la CSP no permite fuentes externas). Pesos livianos; numeros en 600, nunca 800.

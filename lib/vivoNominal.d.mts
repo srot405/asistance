@@ -1,13 +1,17 @@
 import type { EstadoClaseVivo, FranjaVivo } from "./vivoCalculo.d.mts";
 import type { PresenteZoom } from "./zoomPresentes.d.mts";
-export type SenalVivo = "roster" | "otra_franja" | "no_identificado" | "personal";
+export type SenalAsistencia = "roster" | "otra_franja" | "no_identificado" | "personal";
+// "ausente" (TOC-153): del roster de esta franja y nunca entro; fila sin entradas, fuera de cifras.
+export type SenalVivo = SenalAsistencia | "ausente";
 export type PersonaVivo = {
   senal: SenalVivo; como: string; nombre: string | null; cedula: string | null; ciudad: string | null; correo: string | null;
   su_clase: string | null; primera_entrada: string | null; ultima_salida: string | null; entradas: number; en_sala: boolean;
 };
 export type ClaseListaVivo = {
   slot_id: string; etiqueta: string; cuenta_zoom: string; estado: EstadoClaseVivo; inicio: string; fin: string; roster_total: number;
-  cifras: Record<SenalVivo, { total: number; en_sala: number }>; personas: PersonaVivo[];
+  cifras: Record<SenalAsistencia, { total: number; en_sala: number }>; personas: PersonaVivo[];
+  // TOC-153: del roster de esta franja que nunca entraron (filas senal "ausente"; no suman en cifras). 0 si la clase no ha empezado.
+  ausentes: number;
   // TOC-153: de donde sale en_sala: "zoom" (participantes en vivo) o "webhook" (saldo de eventos). Opcional.
   ahora_fuente?: "zoom" | "webhook";
 };
@@ -18,7 +22,8 @@ export type EventoCrudo = { id: number; evento: "joined" | "left"; ms: number; c
 export type SalaCruda = { uuid: string; host: string | null; topic: string | null; activo: boolean; eventos: EventoCrudo[] };
 export type FilaRoster = { persona_id: string; correo_norm: string | null; nombre: string | null; ciudad: string | null; slot_id: string | null };
 export type FilaRegistrante = { correo_norm: string | null; cedula_digitos: string | null; nombre: string | null; apellido: string | null };
-export const SENALES: SenalVivo[];
+export const SENALES: SenalAsistencia[];
+export const SENAL_AUSENTE: "ausente";
 export const COMO: Record<string, string>;
 export const ETIQUETA_SENAL: Record<SenalVivo, string>;
 export function cedulaSinCeros(c: unknown): string;
