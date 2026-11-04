@@ -2,7 +2,7 @@
 // "Lista en vivo" (armarListaVivo de vivoNominal). Imprime SOLO conteos por clase (sin correos, nombres ni cedulas).
 // Uso: node --env-file=.env.local scripts/replay-vivo-paridad-nominal.mjs 2026-10-08 [10]   (hora de inicio opcional)
 import { createClient } from "@supabase/supabase-js";
-import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, indexarRegistroVivo, indexarRosterVivo, ventanaClase, COT_MS } from "../lib/vivoCalculo.mjs";
+import { armarRespuestaVivo, compactarEvento, conRegistro, esClase, indexarRegistroIdVivo, indexarRegistroVivo, indexarRosterVivo, ventanaClase, COT_MS } from "../lib/vivoCalculo.mjs";
 import { armarListaVivo } from "../lib/vivoNominal.mjs";
 
 const [, , fecha = "2026-10-08", horaArg] = process.argv;
@@ -20,8 +20,13 @@ const franjasSemana = await todo(() => sb.from("asist_franjas").select("slot_id,
 const roster = await todo(() => sb.from("asist_roster").select("persona_id,correo_norm,nombre,ciudad,slot_id").eq("semana", lunes).order("persona_id").order("slot_id"));
 const registrantes = await todo(() => sb.from("zoom_registrantes").select("correo_norm,cedula_digitos,nombre,apellido").eq("fecha_sesion", fecha).order("registrant_id"));
 const inicioDia = Date.parse(`${fecha}T00:00:00Z`) + COT_MS;
-const eventos = await todo(() => sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso").in("evento", ["joined", "left"])
+const eventos = await todo(() => sb.from("zoom_live_log").select("id,evento,correo,nombre,hora_ms,uuid,curso,registrant_id").in("evento", ["joined", "left"])
   .gte("hora_ms", inicioDia).lt("hora_ms", inicioDia + 86400000).or("curso.ilike.BACKEND*,curso.ilike.DESARROLLO*WEB*").order("id"));
+// TOC-153 paso 2: registro por registrant_id de los eventos del dia (sin fecha_sesion)
+const rids = [...new Set(eventos.map((e) => e.registrant_id).filter(Boolean))];
+const registrantesPorId = [];
+for (let i = 0; i < rids.length; i += 100) registrantesPorId.push(...await todo(() => sb.from("zoom_registrantes")
+  .select("registrant_id,correo_norm,cedula_digitos,nombre,apellido").in("registrant_id", rids.slice(i, i + 100)).order("registrant_id")));
 const uuids = [...new Set(eventos.filter((e) => e.uuid && esClase(e.curso)).map((e) => e.uuid))];
 const meta = new Map((uuids.length ? await todo(() => sb.from("zoom_reuniones_activas").select("uuid,host,topic").in("uuid", uuids).order("uuid")) : []).map((m) => [m.uuid, m]));
 
@@ -31,7 +36,7 @@ const porUuid = new Map();
 for (const e of eventos) { if (!e.uuid || !esClase(e.curso)) continue; if (!porUuid.has(e.uuid)) porUuid.set(e.uuid, []); porUuid.get(e.uuid).push(e); }
 const salaBase = (uuid) => ({ uuid, host: meta.get(uuid)?.host ?? null, topic: meta.get(uuid)?.topic ?? porUuid.get(uuid)[0].curso, activo: false });
 
-const ident = conRegistro(indexarRosterVivo(roster), indexarRegistroVivo(registrantes));
+const ident = conRegistro(indexarRosterVivo(roster), indexarRegistroVivo(registrantes), indexarRegistroIdVivo(registrantesPorId));
 const filas = [];
 for (const f of hoy) {
   const ahora = ventanaClase(f).hastaMs + 60_000;
@@ -39,8 +44,8 @@ for (const f of hoy) {
     salas: [...porUuid].map(([u, evs]) => ({ ...salaBase(u), eventos: evs.map(compactarEvento) })) }).clases.find((c) => c.slot_id === f.slot_id);
   const soloCorreo = armarRespuestaVivo({ semana: lunes, franjas: hoy, rosterPorCorreo: conRegistro(indexarRosterVivo(roster), null), ahoraMs: ahora,
     salas: [...porUuid].map(([u, evs]) => ({ ...salaBase(u), eventos: evs.map(compactarEvento) })) }).clases.find((c) => c.slot_id === f.slot_id);
-  const lista = armarListaVivo({ semana: lunes, franjasHoy: hoy, franjasSemana, roster, registrantes, ahoraMs: ahora,
-    salas: [...porUuid].map(([u, evs]) => ({ ...salaBase(u), eventos: evs.map((e) => ({ id: Number(e.id), evento: e.evento, ms: Number(e.hora_ms), correo: e.correo, nombre: e.nombre })) })) })
+  const lista = armarListaVivo({ semana: lunes, franjasHoy: hoy, franjasSemana, roster, registrantes, registrantesPorId, ahoraMs: ahora,
+    salas: [...porUuid].map(([u, evs]) => ({ ...salaBase(u), eventos: evs.map((e) => ({ id: Number(e.id), evento: e.evento, ms: Number(e.hora_ms), correo: e.correo, nombre: e.nombre, registrant_id: e.registrant_id })) })) })
     .clases.find((c) => c.slot_id === f.slot_id);
   const L = lista?.cifras;
   filas.push({ clase: f.slot_id, "vivo roster": vivo?.roster_maximo, "lista roster": L?.roster.total, "vivo otra": vivo?.otra_franja_maximo, "lista otra": L?.otra_franja.total,

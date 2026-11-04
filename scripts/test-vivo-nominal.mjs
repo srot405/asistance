@@ -12,7 +12,9 @@ const por = (c, nombre) => c.personas.find((p) => p.nombre === nombre || p.corre
 
 // 08:00 — roster por correo, por cedula del registro, otra franja, sin correo, personal
 assert.equal(c08.estado, "terminada");
-assert.deepEqual(c08.cifras.roster, { total: 6, en_sala: 1 }, "5 por correo + 1 por cedula (la 3 no tiene salida registrada)");
+assert.deepEqual(c08.cifras.roster, { total: 7, en_sala: 2 }, "5 por correo + 1 por cedula + 1 por registrant_id (la 3 y la 8 no tienen salida registrada)");
+assert.equal(por(c08, "Persona Demo 08").como, "registro de Zoom (ID)");
+assert.equal(por(c08, "Persona Demo 08").correo, "celular8@ejemplo.test");
 assert.equal(por(c08, "Persona Demo 03").como, "cédula del registro de Zoom");
 assert.equal(por(c08, "Persona Demo 03").correo, "otrocorreo3@ejemplo.test");
 const p17 = por(c08, "Persona Demo 17");
@@ -67,6 +69,48 @@ for (const n of ["Yaira Botero", "Ana Potter", "Luis Otterbein", "Abbot Ruiz"]) 
   assert.equal(ps.length, 2, "2 personas de personal con el mismo correo y distinto nombre");
   assert.ok(ps.every((p) => p.senal === "personal" && p.en_sala));
 }
+{ // TOC-153 paso 2: registrant_id del webhook -> registro de Zoom -> cedula -> roster
+  const rost = [{ persona_id: "1000001", correo_norm: "uno@ejemplo.test", nombre: "Uno Demo", ciudad: "Cali", slot_id: "s8" },
+    { persona_id: "0912345678", correo_norm: "ecu@ejemplo.test", nombre: "Ecuatoriana Demo", ciudad: "Quito", slot_id: "s8" }];
+  const porId = [
+    { registrant_id: "RID-1", correo_norm: "registro1@ejemplo.test", cedula_digitos: "1000001", nombre: "Uno", apellido: "Registro" },
+    { registrant_id: "RID-ECU", correo_norm: "x@ejemplo.test", cedula_digitos: "912345678", nombre: "Ecu", apellido: "Registro" },
+    { registrant_id: "RID-SIN", correo_norm: "sin@ejemplo.test", cedula_digitos: null, nombre: "Sin", apellido: "Cedula" },
+    { registrant_id: "RID-FUERA", correo_norm: "fuera@ejemplo.test", cedula_digitos: "5550001", nombre: "Fuera", apellido: "Roster" },
+  ];
+  const evs = [
+    { id: 1, evento: "joined", ms: COT("08:01"), correo: "distinto@ejemplo.test", nombre: "Alias", registrant_id: "RID-1" },   // correo distinto
+    { id: 2, evento: "joined", ms: COT("08:02"), correo: "otro.ecu@ejemplo.test", nombre: "E", registrant_id: "RID-ECU" },     // cedula con ceros
+    { id: 3, evento: "joined", ms: COT("08:03"), correo: "sin.cedula@ejemplo.test", nombre: "S", registrant_id: "RID-SIN" },   // registro sin cedula
+    { id: 4, evento: "joined", ms: COT("08:04"), correo: "fuera.x@ejemplo.test", nombre: "F", registrant_id: "RID-FUERA" },    // cedula fuera del roster
+    { id: 5, evento: "left", ms: COT("08:20"), correo: "distinto@ejemplo.test", nombre: "Alias", registrant_id: null },       // 'salio' sin id
+  ];
+  const lista = (registrantesPorId) => armarListaVivo({ semana: "2026-10-05", franjasHoy: fr, salas: [{ uuid: "u", host: "comunicaciones", topic: "Backend",
+    activo: true, eventos: evs }], roster: rost, registrantes: [], registrantesPorId, ahoraMs: COT("08:30") }).clases[0];
+  const c = lista(porId);
+  const de = (correo) => c.personas.find((p) => p.correo === correo);
+  assert.equal(de("distinto@ejemplo.test").senal, "roster"); assert.equal(de("distinto@ejemplo.test").nombre, "Uno Demo");
+  assert.equal(de("distinto@ejemplo.test").como, "registro de Zoom (ID)"); assert.equal(de("distinto@ejemplo.test").cedula, "1000001");
+  assert.equal(de("distinto@ejemplo.test").en_sala, false, "el 'salio' sin registrant_id descuenta a la misma persona");
+  assert.equal(de("otro.ecu@ejemplo.test").senal, "roster", "cedula del registro sin ceros = persona_id con ceros");
+  assert.equal(de("sin.cedula@ejemplo.test").senal, "no_identificado"); assert.equal(de("sin.cedula@ejemplo.test").cedula, null);
+  assert.equal(de("fuera.x@ejemplo.test").senal, "no_identificado"); assert.equal(de("fuera.x@ejemplo.test").cedula, "5550001", "cedula del registro por ID");
+  assert.equal(de("fuera.x@ejemplo.test").como, "registro de Zoom (cédula fuera del roster)");
+  assert.equal(c.personas.length, 4); assert.deepEqual(c.cifras.roster, { total: 2, en_sala: 1 });
+  // registrant_id null / sin registros por ID: comportamiento anterior intacto
+  const sinId = lista([]);
+  assert.equal(sinId.cifras.roster.total, 0); assert.equal(sinId.personas.find((p) => p.correo === "distinto@ejemplo.test").como, "correo sin registro ni roster");
+  // el correo del roster sigue mandando sobre el registrant_id
+  const r3 = armarListaVivo({ semana: "2026-10-05", franjasHoy: fr, salas: [{ uuid: "u", host: "comunicaciones", topic: "Backend", activo: true,
+    eventos: [{ id: 1, evento: "joined", ms: COT("08:01"), correo: "uno@ejemplo.test", nombre: "U", registrant_id: "RID-ECU" }] }], roster: rost, registrantes: [],
+    registrantesPorId: porId, ahoraMs: COT("08:30") });
+  assert.equal(r3.clases[0].personas[0].nombre, "Uno Demo"); assert.equal(r3.clases[0].personas[0].como, "correo del roster");
+  // sin correo pero con registrant_id que resuelve: identificada (nunca por nombre)
+  const r4 = armarListaVivo({ semana: "2026-10-05", franjasHoy: fr, salas: [{ uuid: "u", host: "comunicaciones", topic: "Backend", activo: true,
+    eventos: [{ id: 1, evento: "joined", ms: COT("08:01"), correo: null, nombre: "iPhone", registrant_id: "RID-1" }] }], roster: rost, registrantes: [],
+    registrantesPorId: porId, ahoraMs: COT("08:30") });
+  assert.equal(r4.clases[0].personas[0].senal, "roster"); assert.equal(r4.clases[0].personas[0].como, "registro de Zoom (ID)");
+}
 const csv = filasCsv(d);
 assert.equal(csv[0][1], "senal");
 assert.equal(csv.length, 1 + d.clases.reduce((n, c) => n + c.personas.length, 0));
@@ -74,9 +118,9 @@ assert.equal(csv.length, 1 + d.clases.reduce((n, c) => n + c.personas.length, 0)
 // ausentes (amarillo): del roster de la franja que nunca entraron; filas al final, fuera de cifras
 {
   const aus = (c) => c.personas.filter((p) => p.senal === "ausente");
-  assert.deepEqual(aus(c08).map((p) => p.nombre), ["Persona Demo 07", "Persona Demo 08"], "la 7 entro a otra clase: en la suya es ausente");
+  assert.deepEqual(aus(c08).map((p) => p.nombre), ["Persona Demo 07"], "la 7 entro a otra clase: en la suya es ausente (la 8 entro por registrant_id: no es ausente)");
   assert.deepEqual(aus(c10).map((p) => p.nombre), ["Persona Demo 14", "Persona Demo 15", "Persona Demo 16"]);
-  assert.equal(c08.ausentes, 2); assert.equal(c10.ausentes, 3);
+  assert.equal(c08.ausentes, 1); assert.equal(c10.ausentes, 3);
   for (const p of [...aus(c08), ...aus(c10)]) assert.deepEqual([p.entradas, p.en_sala, p.primera_entrada, p.ultima_salida, p.su_clase], [0, false, null, null, null]);
   assert.ok(!("ausente" in c08.cifras), "cifras solo de asistencia");
   const suma = (c) => Object.values(c.cifras).reduce((n, x) => n + x.total, 0);

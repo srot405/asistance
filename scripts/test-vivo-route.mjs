@@ -25,13 +25,13 @@ const franjas = [
 ];
 const correos = Array.from({ length: 10 }, (_, i) => `estudiante${i + 1}@ejemplo.test`);
 let nextId = 100;
-function fila(evento, correo, hhmm, uuid = "u1") { return { id: nextId++, evento, correo, nombre: null, hora_ms: COT(hhmm), uuid, curso: "Backend: APIs y Base de Datos" }; }
+function fila(evento, correo, hhmm, uuid = "u1", registrant_id = null) { return { id: nextId++, evento, correo, nombre: null, hora_ms: COT(hhmm), uuid, curso: "Backend: APIs y Base de Datos", registrant_id }; }
 
 function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
   activas = [{ uuid: "u1", activo: true, host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
   fallaMeta = 0, registrantes = [] }) {
   const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, v_asist_zoom_live_panel: eventos,
-    v_asist_registrantes_panel: registrantes };
+    v_asist_registrantes_panel: registrantes, zoom_registrantes: registrantes };
   const log = [];
   let metaFallos = fallaMeta;
   const sb = { from: (t) => {
@@ -265,6 +265,27 @@ async function cargarLector(sim, zoom = { estado: "apagado", salas: null }) {
   const lo = await cargarLector(simO, () => { throw new Error("no debia llamarse"); });
   await lo.leerVivo(COT("07:15"));
   assert.equal(simO.zoomLlamadas, 0, "fuera de ventana no se llama a Zoom");
+}
+
+// ---- (10) TOC-153 paso 2: registrant_id -> zoom_registrantes por id (sin fecha_sesion), solo ids del dia, 2 columnas, reintento de pendientes
+{
+  const roster = correos.slice(0, 4).map((c, i) => ({ persona_id: `00${3000 + i}`, correo_norm: c, slot_id: "backend-sábado-08-uno" }));
+  // fecha_sesion de OTRO dia (el sync la reescribe): igual debe cruzar por registrant_id
+  const registrantes = [{ registrant_id: "RID-A", correo_norm: "reg.a@ejemplo.test", cedula_digitos: "3001", fecha_sesion: "2026-09-26" },
+    { registrant_id: "RID-NO-VISTO", correo_norm: "nv@ejemplo.test", cedula_digitos: "3002", fecha_sesion: SAB }];
+  const evs = [fila("joined", "alias.a@ejemplo.test", "08:01", "u1", "RID-A"), fila("joined", "tarde@ejemplo.test", "08:02", "u1", "RID-TARDE")];
+  const sim = montar({ eventos: evs, roster, registrantes });
+  const l = await cargarLector(sim);
+  const c = (await l.leerVivo(COT("08:10"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c.roster_maximo, c.desconocidos_maximo], [1, 1], "RID-A -> cedula 3001 -> roster (persona_id 003001); RID-TARDE aun sin registro");
+  const porId = sim.log.filter((x) => x.t === "zoom_registrantes" && x.cols === "registrant_id,cedula_digitos");
+  assert.equal(porId.length, 1, "una consulta por id"); assert.equal(porId[0].filas, 1, "solo los ids vistos en los eventos (no RID-NO-VISTO)");
+  await l.leerVivo(COT("08:12")); // nada nuevo: no se vuelve a buscar
+  assert.equal(sim.log.filter((x) => x.cols === "registrant_id,cedula_digitos").length, 1);
+  // el sync horario trae RID-TARDE: se reintenta al vencer el TTL y pasa a roster
+  registrantes.push({ registrant_id: "RID-TARDE", correo_norm: "t@ejemplo.test", cedula_digitos: "3003", fecha_sesion: SAB });
+  const c2 = (await l.leerVivo(COT("08:16"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c2.roster_maximo, c2.desconocidos_maximo], [2, 0]);
 }
 
 // ---- ruta: 401 sin lecturas, 200 solo conteos, 503 sin detalles

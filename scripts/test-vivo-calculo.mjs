@@ -32,7 +32,7 @@ const rosterCorreos = Array.from({ length: 60 }, (_, i) => `estudiante${String(i
 const roster = new Set(rosterCorreos.map(v.hashCorreo));
 let nid = 1;
 const ev = (evento, correo, hhmm, extra = {}) => v.compactarEvento({ id: nid++, evento, correo, nombre: extra.nombre ?? null,
-  hora_ms: COTISO(extra.fecha ?? SAB, hhmm, extra.ss ?? "00") });
+  hora_ms: COTISO(extra.fecha ?? SAB, hhmm, extra.ss ?? "00"), registrant_id: extra.rid ?? null });
 const cl = (eventos, ahora = COTISO(SAB, "09:00")) => v.clasificarEventos(eventos, roster, ahora);
 
 // ---------- clasificarEventos
@@ -287,6 +287,41 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   const c = porSlot(v.armarRespuestaVivo({ semana: "2026-09-28", franjas, salas, rosterPorCorreo: ident, ahoraMs: COTISO(SAB, "08:10") }), slot);
   assert.deepEqual([c.roster_maximo, c.otra_franja_maximo, c.desconocidos_maximo], [3, 1, 2]);
 }
+// ---------- (10) TOC-153 paso 2: registrant_id del webhook -> registro de Zoom -> cedula -> roster (antes que el cruce por correo)
+{ const filasRoster = [
+    { persona_id: "1000001", correo_norm: "estudiante001@ejemplo.test", slot_id: "backend-sábado-08-uno" },
+    { persona_id: "0001000002", correo_norm: "estudiante002@ejemplo.test", slot_id: "backend-sábado-08-uno" },
+  ];
+  const regId = v.indexarRegistroIdVivo([
+    { registrant_id: "RID-1", cedula_digitos: "1000001" },     // entra con un correo que no es del roster ni del registro por correo
+    { registrant_id: "RID-2", cedula_digitos: "1000002" },     // roster con ceros adelante, registro sin ellos
+    { registrant_id: "RID-SIN", cedula_digitos: null },        // registro sin cedula
+  ]);
+  const ident = v.conRegistro(v.indexarRosterVivo(filasRoster), new Map(), regId);
+  const slot = "backend-sábado-08-uno";
+  const e = [ev("joined", "otro.correo@ejemplo.test", "08:01", { rid: "RID-1" }), ev("joined", "zz@ejemplo.test", "08:02", { rid: "RID-2" }),
+    ev("joined", "sincedula@ejemplo.test", "08:03", { rid: "RID-SIN" }), ev("joined", "norid@ejemplo.test", "08:04")];
+  const r = v.clasificarEventos(e, ident, COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([r.roster.maximo, r.desconocidos.maximo], [2, 2], "RID-1 y RID-2 (cedula con ceros) = roster; sin cedula y sin rid = desconocidos");
+  // registrant_id null: comportamiento anterior intacto (mismo resultado que sin indice por id)
+  const e0 = [ev("joined", "otro.correo@ejemplo.test", "08:01"), ev("joined", "estudiante001@ejemplo.test", "08:02")];
+  assert.deepEqual(v.clasificarEventos(e0, ident, COTISO(SAB, "09:00"), slot), v.clasificarEventos(e0, v.conRegistro(v.indexarRosterVivo(filasRoster), null), COTISO(SAB, "09:00"), slot));
+  // el 'salio' sin registrant_id (mismo correo) descuenta a la persona resuelta por el 'entro' con registrant_id
+  const sal = v.clasificarEventos([ev("joined", "otro.correo@ejemplo.test", "08:01", { rid: "RID-1" }), ev("left", "otro.correo@ejemplo.test", "08:20")],
+    ident, COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([sal.roster.maximo, sal.roster.ahora, sal.desconocidos.maximo, sal.huerfanos], [1, 0, 0, 0]);
+  // misma persona por correo del roster y por registrant_id = UNA persona
+  const una = v.clasificarEventos([ev("joined", "estudiante001@ejemplo.test", "08:01"), ev("joined", "otro.correo@ejemplo.test", "08:05", { rid: "RID-1" })],
+    ident, COTISO(SAB, "09:00"), slot);
+  assert.equal(una.roster.maximo, 1);
+  // sin correo pero con registrant_id: la persona es su registro (no anonima)
+  const sc = v.clasificarEventos([ev("joined", null, "08:01", { rid: "RID-1", nombre: "iPhone" }), ev("left", null, "08:10", { rid: "RID-1", nombre: "iPhone" })],
+    ident, COTISO(SAB, "09:00"), slot);
+  assert.deepEqual([sc.roster.maximo, sc.roster.ahora, sc.huerfanos], [1, 0, 0]);
+  // privacidad: ni el id ni la cedula en claro
+  assert.ok(!/RID|1000001/.test(JSON.stringify([...regId, ...e.map((x) => [x.clave, x.regHash])])), "registrant_id y cedula solo como hash");
+  assert.equal(v.hashRegistrante(""), null); assert.equal(v.hashRegistrante(" RID-1 "), v.hashRegistrante("RID-1"));
+}
 // ---------- personal con correo institucional COMPARTIDO (host y monitores entran con jovenescreativos@ y distinto nombre visible)
 {
   const e2 = (id, evento, nombre, correo, hhmm) => v.compactarEvento({ id, evento, nombre, correo, hora_ms: COTISO(SAB, hhmm) });
@@ -308,4 +343,4 @@ poner(rosterCorreos[9], "backend-sábado-08-uno", "backend-sábado-10");        
   assert.deepEqual([dup.personal.maximo, dup.personal.ahora], [1, 1]);
   assert.ok(!/jovenescreativos|tocaunavida/.test(JSON.stringify(evs.map((x) => x.clave))), "la clave sigue siendo hash");
 }
-console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes identidad_cedula=ok estado=verde`);
+console.log(`RESUMEN: vivo_calculo paridad_python=${par.casos.length}_casos(${coincidencias}_resueltos) es_clase=${Object.keys(par.es_clase).length} escenarios=verdes identidad_cedula=ok identidad_registrant_id=ok estado=verde`);
