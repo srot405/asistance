@@ -14,7 +14,7 @@ export default function EnVivoTarjeta({ clase: c, cerrada = false }: { clase: Cl
   const empezo = (c.estado === "abierta" || c.estado === "terminada") && !sinCifra;
   const otra = c.otra_franja_maximo ?? 0;
   const roster = textoRoster(c);
-  const abierta = c.estado === "abierta";
+  const abierta = c.estado === "abierta" && !cerrada; // D6: clase cerrada = sin «ahora en sala»
   const pct = porcentajeRoster(c);
   return <article className={`vivo-tarjeta vivo-${c.estado}${cerrada ? " vivo-cerrada" : ""}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}
     data-visibilidad={cerrada ? "cerrada" : "abierta"}>

@@ -16,6 +16,10 @@ export function edadSegundos(d: VivoResponse, leidoEnMs: number, ahoraMs: number
 export function textoEdad(seg: number): string;
 export function resumenAnuncio(d: VivoResponse | null, ahoraMs?: number | null): string;
 export const TEXTO_CERRADA: string;
+export const GRUPOS_LISTA: Record<GrupoLista, string>;
+export type GrupoLista = "no_entro" | "en_sala" | "salio";
+export function grupoPersona(p: { entradas: number; en_sala: boolean }, cerrada?: boolean): GrupoLista;
+export function conteoGrupos(filas: { p: { entradas: number; en_sala: boolean }; cerrada: boolean }[]): Record<GrupoLista, number>;
 export type VisibilidadClase = "abierta" | "cerrada" | "oculta";
 export function diaBogota(ms: number): string;
 export function visibilidadPorFin(finMs: number, ahoraMs: number): VisibilidadClase;

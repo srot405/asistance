@@ -10,6 +10,8 @@ export type ClaseVivo = {
   desconocidos_maximo: number; desconocidos_ahora_aprox: number;
   personal_maximo: number; personal_ahora_aprox: number;
   ultima_actividad: string | null; eventos: number; cobertura_baja: boolean; aviso: string | null;
+  // TOC-153: de donde salen los *_ahora_aprox: "zoom" (participantes en vivo) o "webhook" (saldo de eventos). Opcional.
+  ahora_fuente?: "zoom" | "webhook";
 };
 export type VivoResponse = {
   // actualizado_en = momento REAL de la ultima lectura a Supabase; hora_servidor = momento de esta respuesta.

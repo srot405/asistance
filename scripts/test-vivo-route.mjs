@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import * as calculo from "../lib/vivoCalculo.mjs";
+import * as zoomPresentes from "../lib/zoomPresentes.mjs";
 
 // Ruta /api/vivo + lector con Supabase simulado: auth, 503 sin detalles, egress (llamadas y filas). Sin PII.
 class NextResponse extends Response {
@@ -24,13 +25,13 @@ const franjas = [
 ];
 const correos = Array.from({ length: 10 }, (_, i) => `estudiante${i + 1}@ejemplo.test`);
 let nextId = 100;
-function fila(evento, correo, hhmm, uuid = "u1") { return { id: nextId++, evento, correo, nombre: null, hora_ms: COT(hhmm), uuid, curso: "Backend: APIs y Base de Datos" }; }
+function fila(evento, correo, hhmm, uuid = "u1", registrant_id = null) { return { id: nextId++, evento, correo, nombre: null, hora_ms: COT(hhmm), uuid, curso: "Backend: APIs y Base de Datos", registrant_id }; }
 
 function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos.map((c) => ({ correo_norm: c, slot_id: "backend-sábado-08-uno" })),
   activas = [{ uuid: "u1", activo: true, host: "comunicaciones", topic: "Backend: APIs y Base de Datos", actualizado_en: new Date(COT("08:00")).toISOString() }],
   fallaMeta = 0, registrantes = [] }) {
   const tablas = { asist_semanas: [{ semana: "2026-09-28" }], asist_franjas: fr, asist_roster: roster, zoom_reuniones_activas: activas, v_asist_zoom_live_panel: eventos,
-    v_asist_registrantes_panel: registrantes };
+    v_asist_registrantes_panel: registrantes, zoom_registrantes: registrantes };
   const log = [];
   let metaFallos = fallaMeta;
   const sb = { from: (t) => {
@@ -63,10 +64,14 @@ function montar({ eventos, falla = null, franjas: fr = franjas, roster = correos
   return { sb, log };
 }
 
-async function cargarLector(sim) {
+// zoom: lo que devolveria lib/servidor/zoomEnVivo.ts (por defecto apagado: sin variables ZOOM_*). sim.zoomLlamadas cuenta pedidos.
+async function cargarLector(sim, zoom = { estado: "apagado", salas: null }) {
+  sim.zoomLlamadas = 0;
   return compilar("../lib/servidor/leerVivo.ts", (n) => {
     if (n === "server-only") return {};
     if (n.endsWith("/vivoCalculo.mjs")) return calculo;
+    if (n.endsWith("/zoomPresentes.mjs")) return zoomPresentes;
+    if (n.endsWith("/zoomEnVivo")) return { presentesZoom: async () => { sim.zoomLlamadas += 1; return typeof zoom === "function" ? zoom() : zoom; } };
     if (n.endsWith("/supabase")) return { supabaseServidor: () => sim.sb };
     throw new Error(`Import no previsto: ${n}`);
   });
@@ -239,6 +244,50 @@ async function cargarLector(sim) {
   assert.ok(!/secreto-interno/.test(JSON.stringify(r)));
 }
 
+// ---- TOC-153: Zoom en vivo corrige «ahora en sala» (webhook perdio una reentrada) y, si falla, se sigue con webhooks y aviso
+{
+  const evs = [fila("joined", correos[0], "08:01"), fila("left", correos[0], "08:20"), fila("joined", correos[1], "08:02")]; // la reentrada de [0] no llego
+  const enZoom = new Map([["u1", [{ correo: correos[0], nombre: null, join_ms: COT("08:25") }, { correo: correos[1], nombre: null, join_ms: COT("08:02") },
+    { correo: correos[2], nombre: null, join_ms: COT("08:30") }]]]);
+  const sim = montar({ eventos: evs });
+  const l = await cargarLector(sim, { estado: "ok", salas: enZoom });
+  const r = await l.leerVivo(COT("08:31"));
+  const c = r.clases[0];
+  assert.deepEqual([c.roster_ahora_aprox, c.roster_maximo, c.ahora_fuente], [3, 3, "zoom"], "Zoom: 3 en sala (webhooks decian 1)");
+  assert.equal(sim.zoomLlamadas, 1);
+  assert.ok(!/ejemplo|@/.test(JSON.stringify(r)), "sin PII aunque Zoom traiga correos");
+  const simF = montar({ eventos: evs });
+  const lf = await cargarLector(simF, { estado: "limite", salas: null });
+  const rf = await lf.leerVivo(COT("08:31"));
+  assert.deepEqual([rf.clases[0].roster_ahora_aprox, rf.clases[0].ahora_fuente], [1, "webhook"], "429: sigue con webhooks");
+  assert.match(rf.aviso_general, /Zoom no respondió/);
+  const simO = montar({ eventos: [fila("joined", correos[0], "07:40")] });
+  const lo = await cargarLector(simO, () => { throw new Error("no debia llamarse"); });
+  await lo.leerVivo(COT("07:15"));
+  assert.equal(simO.zoomLlamadas, 0, "fuera de ventana no se llama a Zoom");
+}
+
+// ---- (10) TOC-153 paso 2: registrant_id -> zoom_registrantes por id (sin fecha_sesion), solo ids del dia, 2 columnas, reintento de pendientes
+{
+  const roster = correos.slice(0, 4).map((c, i) => ({ persona_id: `00${3000 + i}`, correo_norm: c, slot_id: "backend-sábado-08-uno" }));
+  // fecha_sesion de OTRO dia (el sync la reescribe): igual debe cruzar por registrant_id
+  const registrantes = [{ registrant_id: "RID-A", correo_norm: "reg.a@ejemplo.test", cedula_digitos: "3001", fecha_sesion: "2026-09-26" },
+    { registrant_id: "RID-NO-VISTO", correo_norm: "nv@ejemplo.test", cedula_digitos: "3002", fecha_sesion: SAB }];
+  const evs = [fila("joined", "alias.a@ejemplo.test", "08:01", "u1", "RID-A"), fila("joined", "tarde@ejemplo.test", "08:02", "u1", "RID-TARDE")];
+  const sim = montar({ eventos: evs, roster, registrantes });
+  const l = await cargarLector(sim);
+  const c = (await l.leerVivo(COT("08:10"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c.roster_maximo, c.desconocidos_maximo], [1, 1], "RID-A -> cedula 3001 -> roster (persona_id 003001); RID-TARDE aun sin registro");
+  const porId = sim.log.filter((x) => x.t === "zoom_registrantes" && x.cols === "registrant_id,cedula_digitos");
+  assert.equal(porId.length, 1, "una consulta por id"); assert.equal(porId[0].filas, 1, "solo los ids vistos en los eventos (no RID-NO-VISTO)");
+  await l.leerVivo(COT("08:12")); // nada nuevo: no se vuelve a buscar
+  assert.equal(sim.log.filter((x) => x.cols === "registrant_id,cedula_digitos").length, 1);
+  // el sync horario trae RID-TARDE: se reintenta al vencer el TTL y pasa a roster
+  registrantes.push({ registrant_id: "RID-TARDE", correo_norm: "t@ejemplo.test", cedula_digitos: "3003", fecha_sesion: SAB });
+  const c2 = (await l.leerVivo(COT("08:16"))).clases.find((x) => x.slot_id === "backend-sábado-08-uno");
+  assert.deepEqual([c2.roster_maximo, c2.desconocidos_maximo], [2, 0]);
+}
+
 // ---- ruta: 401 sin lecturas, 200 solo conteos, 503 sin detalles
 let llamadas = 0; let modo = "ok";
 const ruta = await compilar("../app/api/vivo/route.ts", (n) => {
@@ -259,4 +308,4 @@ assert.equal(mal.status, 503);
 assert.deepEqual(await mal.json(), { error: "No disponible" });
 const fuente = await readFile(new URL("../app/api/vivo/route.ts", import.meta.url), "utf8");
 assert.ok(!/searchParams/.test(fuente), "la ruta no lee parametros");
-console.log("RESUMEN: vivo_route 401=sin_lecturas 503=sin_detalles egress=sin_clase_0_lecturas_zoom,incremental,cache_TTL estado=verde");
+console.log("RESUMEN: vivo_route 401=sin_lecturas 503=sin_detalles egress=sin_clase_0_lecturas_zoom,incremental,cache_TTL zoom_en_vivo=concilia,falla_a_webhooks estado=verde");

@@ -61,6 +61,14 @@ const finMs = Date.parse(c0.fin);
   assert.match(h, /data-testid="vivo-cerrada"[^>]*>.*Cerrada/, "marca visible");
   assert.ok((await texto(dc)).includes("Cerrada"));
   assert.match(resumenAnuncio(dc, finMs + 60000), /\(Cerrada\)/, "lector de pantalla tambien la anuncia");
+  // D6 (TOC-153): cerrada = sin «ahora en sala» (tarjeta, tabla accesible y anuncio), aunque la sala siga abierta; antes del fin si se muestra
+  assert.equal(c0.estado, "abierta", "el demo es una clase con sala abierta");
+  const tc = await texto(dc), ta = await texto(d);
+  assert.ok(!tc.includes("ahora en sala (aprox.)"), "cerrada: la tarjeta no dice «ahora en sala»");
+  assert.ok(ta.includes("ahora en sala (aprox.)"), "antes del fin sigue mostrandose");
+  assert.ok(tc.includes("máximo que llegó a estar en la sala"), "cerrada: queda el maximo");
+  assert.doesNotMatch(resumenAnuncio(dc, finMs + 60000), /en sala \d/, "el anuncio tampoco");
+  assert.match(resumenAnuncio(d, finMs - 60000), /en sala \d/, "abierta: el anuncio si");
   // edadSeg avanza el reloj: mismo dato, 2 minutos despues de la lectura
   assert.ok((await html(d, 120)).includes("vivo-cerrada"), "la edad de la lectura cuenta para cerrar");
   // al dia siguiente (Bogota) desaparece
