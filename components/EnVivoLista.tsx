@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { descargarCsv } from "../lib/descargas";
 import { textoSinNominal, usePuedeNominal } from "../lib/rolUi";
 import { urlListaVivo, useListaVivo } from "../lib/useListaVivo";
-import { TEXTO_CERRADA, visibilidadClase } from "../lib/vivoVista.mjs";
+import { GRUPOS_LISTA, TEXTO_CERRADA, conteoGrupos, grupoPersona, visibilidadClase } from "../lib/vivoVista.mjs";
+import type { GrupoLista } from "../lib/vivoVista.d.mts";
 import type { ClaseListaVivo, PersonaVivo, SenalAsistencia, SenalVivo } from "../lib/vivoNominal.d.mts";
 
 // Pestana «Lista en vivo» (TOC-153): quien entro HOY a cada clase, con nombre, y con que senal. Nominal: el servidor decide
@@ -17,9 +18,11 @@ const ICONO: Record<SenalVivo, string> = { roster: "✓", otra_franja: "↔", no
 const ESTADO: Record<string, string> = { abierta: "En curso", proxima: "Próxima", terminada: "Terminada", sin_sala: "Sin sala" };
 const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" }) : "—");
 // Estado de la persona en la sala: nunca entro / sigue en sala / salio (hora de su ultima salida, si se registro).
-function EstadoSala({ p }: { p: PersonaVivo }) {
+// D6: en una clase cerrada no hay «ahora en sala»: quien entro figura como salio (con la hora si se registro).
+function EstadoSala({ p, cerrada }: { p: PersonaVivo; cerrada: boolean }) {
   if (p.entradas === 0) return <span className="vivo-estado vivo-estado-ausente">—</span>;
-  if (p.en_sala) return <span className="vivo-estado vivo-estado-en-sala"><b aria-hidden="true">●</b> En sala</span>;
+  if (cerrada && p.en_sala && !p.ultima_salida) return <span className="vivo-estado vivo-estado-salio"><b aria-hidden="true">↩</b> Entró; la clase ya cerró</span>;
+  if (p.en_sala && !cerrada) return <span className="vivo-estado vivo-estado-en-sala"><b aria-hidden="true">●</b> En sala</span>;
   return <span className="vivo-estado vivo-estado-salio"><b aria-hidden="true">↩</b> {p.ultima_salida ? `Salió ${hora(p.ultima_salida)}` : "Salió (sin hora)"}</span>;
 }
 const sinAcentos = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -34,11 +37,11 @@ const etiquetaClase = (c: ClaseListaVivo, ahora: number) => (estaCerrada(c, ahor
 
 function TablaCifras({ clases, ahora }: { clases: ClaseListaVivo[]; ahora: number }) {
   return <div className="class-table-wrap" role="region" aria-label="Cifras por clase" tabIndex={0}>
-    <table className="class-table"><caption>Personas que entraron hoy, por clase (entre paréntesis: ahora en sala). «No ha entrado» va aparte: no es asistencia.</caption>
+    <table className="class-table"><caption>Personas que entraron hoy, por clase (entre paréntesis: ahora en sala, solo mientras la clase no está cerrada). «No ha entrado» va aparte: no es asistencia.</caption>
       <thead><tr><th>Clase</th><th>Estado</th><th>Inscritas</th>{SENALES.map((s) => <th key={s}>{ETIQUETA[s]}</th>)}<th>{ETIQUETA.ausente}</th></tr></thead>
       <tbody>{clases.map((c) => <tr key={c.slot_id} className={estaCerrada(c, ahora) ? "fila-cerrada" : undefined} data-visibilidad={estaCerrada(c, ahora) ? "cerrada" : "abierta"}>
         <td>{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}{estaCerrada(c, ahora) && <> <span className="vivo-marca-cerrada">{TEXTO_CERRADA}</span></>}</td><td>{c.roster_total}</td>
-        {SENALES.map((s) => <td key={s}>{c.cifras[s].total} <small>({c.cifras[s].en_sala})</small></td>)}
+        {SENALES.map((s) => <td key={s}>{c.cifras[s].total}{!estaCerrada(c, ahora) && <> <small>({c.cifras[s].en_sala})</small></>}</td>)}
         <td>{c.estado === "abierta" || c.estado === "terminada" ? c.ausentes ?? 0 : "—"}</td>
       </tr>)}</tbody>
     </table></div>;
@@ -56,7 +59,7 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
   const [clase, setClase] = useState("");
   const [senal, setSenal] = useState<"" | SenalVivo>("");
   const [texto, setTexto] = useState("");
-  const [soloSala, setSoloSala] = useState(false);
+  const [grupo, setGrupo] = useState<"" | GrupoLista>("");
   const [falloCsv, setFalloCsv] = useState("");
   const [ahora, setAhora] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setAhora(Date.now()), 1000); return () => clearInterval(id); }, []);
@@ -64,14 +67,16 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
   // El reloj de 1 s repinta la marca «Cerrada»; las filas solo se recalculan al cambiar de minuto.
   const minuto = Math.floor(ahora / 60000);
   const clasesVisibles = useMemo(() => (datos ? datos.clases.filter((c) => visibilidadClase(c, minuto * 60000) !== "oculta") : []), [datos, minuto]);
-  const filas = useMemo(() => {
-    if (!datos) return [] as { c: ClaseListaVivo; p: PersonaVivo }[];
+  const { filas, grupos } = useMemo(() => {
+    if (!datos) return { filas: [] as { c: ClaseListaVivo; p: PersonaVivo }[], grupos: { no_entro: 0, en_sala: 0, salio: 0 } };
     const t = sinAcentos(texto.trim());
-    return clasesVisibles.filter((c) => !clase || c.slot_id === clase)
-      .flatMap((c) => c.personas.map((p) => ({ c, p })))
-      .filter(({ p }) => (!senal || p.senal === senal) && (!soloSala || p.en_sala)
+    const cerrada = (c: ClaseListaVivo) => visibilidadClase(c, minuto * 60000) === "cerrada";
+    const base = clasesVisibles.filter((c) => !clase || c.slot_id === clase)
+      .flatMap((c) => c.personas.map((p) => ({ c, p, cerrada: cerrada(c) })))
+      .filter(({ p }) => (!senal || p.senal === senal)
         && (!t || sinAcentos(`${p.nombre ?? ""} ${p.cedula ?? ""} ${p.correo ?? ""} ${p.ciudad ?? ""}`).includes(t)));
-  }, [datos, clasesVisibles, clase, senal, texto, soloSala]);
+    return { grupos: conteoGrupos(base), filas: base.filter(({ p, cerrada: x }) => !grupo || grupoPersona(p, x) === grupo).map(({ c, p }) => ({ c, p })) };
+  }, [datos, clasesVisibles, clase, senal, texto, grupo, minuto]);
 
   async function csv() {
     setFalloCsv("");
@@ -108,9 +113,11 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
           <label>Señal <select className="control" value={senal} onChange={(e) => setSenal(e.target.value as "" | SenalVivo)}>
             <option value="">Todas</option>{SENALES_FILTRO.map((s) => <option key={s} value={s}>{ETIQUETA[s]}</option>)}</select></label>
           <label>Buscar <input className="control" type="search" value={texto} placeholder="Nombre, cédula, correo o ciudad" onChange={(e) => setTexto(e.target.value)} /></label>
-          <label className="check"><input type="checkbox" checked={soloSala} onChange={(e) => setSoloSala(e.target.checked)} /> Solo ahora en sala</label>
+          <label>Estado <select className="control" value={grupo} onChange={(e) => setGrupo(e.target.value as "" | GrupoLista)}>
+            <option value="">Todos</option>{(Object.keys(GRUPOS_LISTA) as GrupoLista[]).map((g) => <option key={g} value={g}>{GRUPOS_LISTA[g]} ({grupos[g]})</option>)}</select></label>
         </div>
-        <p className="nota">{filas.length} {filas.length === 1 ? "persona" : "personas"} con estos filtros. «En sala» es aproximado: el webhook de Zoom a veces pierde entradas o salidas.</p>
+        <p className="nota">{filas.length} {filas.length === 1 ? "persona" : "personas"} con estos filtros: <b>{grupos.no_entro}</b> {GRUPOS_LISTA.no_entro.toLowerCase()}, <b>{grupos.en_sala}</b> {GRUPOS_LISTA.en_sala.toLowerCase()}, <b>{grupos.salio}</b> {GRUPOS_LISTA.salio.toLowerCase()}.
+          «Presentes ahora» solo cuenta mientras la clase no está cerrada y es aproximado: el webhook de Zoom a veces pierde entradas o salidas.</p>
         <div className="class-table-wrap" role="region" aria-label="Personas" tabIndex={0}>
           <table className="class-table visitas-tabla lista-vivo-tabla"><caption>Personas en las clases de hoy</caption>
             <thead><tr><th>Nombre</th><th>Señal</th><th>Clase</th><th>Su clase</th><th>Cédula</th><th>Ciudad</th><th>Correo</th>
@@ -119,7 +126,7 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
               <th scope="row">{p.nombre ?? "—"}</th><td><Chip senal={p.senal} /></td><td>{etiquetaClase(c, ahora)}</td>
               <td>{p.senal === "roster" || p.senal === "ausente" ? "Esta" : p.su_clase ?? "—"}</td><td>{p.cedula ?? "—"}</td><td>{p.ciudad ?? "—"}</td><td>{p.correo ?? "—"}</td>
               <td>{hora(p.primera_entrada)}{p.entradas > 1 ? <small> ({p.entradas} entradas)</small> : null}</td>
-              <td><EstadoSala p={p} /></td><td>{p.como}</td>
+              <td><EstadoSala p={p} cerrada={estaCerrada(c, ahora)} /></td><td>{p.como}</td>
             </tr>)}</tbody>
           </table></div>
       </>}

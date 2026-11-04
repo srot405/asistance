@@ -50,8 +50,8 @@ export default function EnVivoPantalla({ fase, datos, edadSeg, fallo, aviso, rei
           <th scope="col">Personal (máximo)</th><th scope="col">Personal, ahora (aprox.)</th><th scope="col">Colados (otra clase) (máximo)</th></tr></thead>
         <tbody>{clases.map((c) => <tr key={c.slot_id}><th scope="row">{tituloClase(c)}</th><td>{(ESTADOS[c.estado] ?? ESTADOS.sin_sala).texto}{cerrada(c) ? ` · ${TEXTO_CERRADA}` : ""}</td>
           {cifraNoDisponible(c) ? <td colSpan={8}>{AVISO_CIFRA_NO_DISPONIBLE}</td> : <>
-          <td>{c.roster_maximo}</td><td>{c.roster_total}</td><td>{c.roster_ahora_aprox}</td><td>{c.desconocidos_maximo}</td>
-          <td>{c.desconocidos_ahora_aprox}</td><td>{c.personal_maximo}</td><td>{c.personal_ahora_aprox}</td><td>{c.otra_franja_maximo ?? 0}</td></>}</tr>)}</tbody>
+          <td>{c.roster_maximo}</td><td>{c.roster_total}</td><td>{cerrada(c) ? "—" : c.roster_ahora_aprox}</td><td>{c.desconocidos_maximo}</td>
+          <td>{cerrada(c) ? "—" : c.desconocidos_ahora_aprox}</td><td>{c.personal_maximo}</td><td>{cerrada(c) ? "—" : c.personal_ahora_aprox}</td><td>{c.otra_franja_maximo ?? 0}</td></>}</tr>)}</tbody>
       </table>}
     </>}
   </section>;

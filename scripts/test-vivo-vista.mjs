@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { VIVO_DEMO, VIVO_DEMO_503 } from "../lib/vivo-demo.mjs";
 import { ordenarClases, porcentajeRoster, horaCorta, tituloClase, edadSegundos, textoEdad, resumenAnuncio, esperaTrasError,
-  proximaClase, hayEnCurso, esVivoValido, MAX_ERRORES, INTERVALO_MS, textoRoster, cifraNoDisponible, AVISO_CIFRA_NO_DISPONIBLE, AYUDA_DESCONOCIDOS } from "../lib/vivoVista.mjs";
+  proximaClase, hayEnCurso, grupoPersona, conteoGrupos, GRUPOS_LISTA, esVivoValido, MAX_ERRORES, INTERVALO_MS, textoRoster, cifraNoDisponible, AVISO_CIFRA_NO_DISPONIBLE, AYUDA_DESCONOCIDOS } from "../lib/vivoVista.mjs";
 
 // Los datos de ejemplo respetan EXACTAMENTE el contrato de /api/vivo (mismas claves, mismos tipos).
 const CLAVES_RESP = ["actualizado_en", "aviso_general", "clases", "disponible", "hora_servidor", "semana"];
@@ -84,4 +84,10 @@ assert.match(resumenAnuncio(VIVO_DEMO.terminada_sin_cifra), /Cifra final no disp
   assert.equal(edadSegundos(c, 100_000, 107_000), 47, "mas 7 s en el cliente"); }
 // (7) la ayuda de desconocidos avisa del limite de nombres iguales
 assert.match(AYUDA_DESCONOCIDOS, /mismo nombre|se llaman igual/); assert.match(AYUDA_DESCONOCIDOS, /se cuentan como una/);
+// (TOC-91) tres grupos de la Lista en vivo; D6: en clase cerrada nadie esta «ahora en sala»
+{ const nunca = { entradas: 0, en_sala: false }, dentro = { entradas: 1, en_sala: true }, salio = { entradas: 2, en_sala: false };
+  assert.deepEqual([grupoPersona(nunca), grupoPersona(dentro), grupoPersona(salio)], ["no_entro", "en_sala", "salio"]);
+  assert.deepEqual([grupoPersona(nunca, true), grupoPersona(dentro, true), grupoPersona(salio, true)], ["no_entro", "salio", "salio"], "cerrada: quien entro ya salio");
+  assert.deepEqual(conteoGrupos([{ p: nunca, cerrada: false }, { p: dentro, cerrada: false }, { p: dentro, cerrada: true }, { p: salio, cerrada: false }]), { no_entro: 1, en_sala: 1, salio: 2 });
+  assert.deepEqual(Object.keys(GRUPOS_LISTA), ["no_entro", "en_sala", "salio"]); }
 console.log("RESUMEN: vivo_vista=ok fixtures_contrato=ok sin_pii=ok estado=verde");
