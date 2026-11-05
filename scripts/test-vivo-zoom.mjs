@@ -45,6 +45,19 @@ const part = (email, user_name, status = "in_meeting", hhmm = "08:05") => ({ ema
   assert.ok(!p.some((x) => x.correo === correo(2) || x.correo === correo(3)));
 }
 
+// ---------- 1b) regresion 2026-11-05: Zoom type=live devuelve sesiones ya terminadas con status "in_meeting" y leave_time.
+{
+  const cerrada = (email, user_name, desde, hasta) => ({ ...part(email, user_name, "in_meeting", desde), leave_time: ISO(hasta) });
+  const p = presentesDeParticipantes([
+    cerrada(correo(1), "E1", "08:01", "08:20"), part(correo(1), "E1", "in_meeting", "08:25"), // salio y volvio: presente
+    cerrada(correo(2), "E2", "08:02", "08:40"),                                              // salio y no volvio: ausente
+    cerrada(correo(3), "E3", "08:03", "08:10"), cerrada(correo(3), "E3", "08:12", "08:30"),   // dos sesiones cerradas: ausente
+    { ...cerrada(correo(4), "E4", "08:00", "08:04"), status: "in_waiting_room" },             // sala de espera cerrada: ausente
+  ]);
+  assert.deepEqual(p.map((x) => x.correo), [correo(1)], "solo cuenta quien tiene una fila abierta");
+  assert.equal(p[0].join_ms, COT("08:25"), "la entrada es la de la sesion abierta");
+}
+
 // ---------- 2) conteos (En vivo, solo hashes)
 const identidad = conRegistro(indexarRosterVivo(roster), indexarRegistroVivo(registrantes));
 {
