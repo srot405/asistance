@@ -1262,3 +1262,27 @@ select {
 .presencia-card.colado { border-left: 4px solid #d1793f; }
 
 .vivo-ingresaron { margin: 8px 0 0; font-size: 15px; }
+
+/* ===== TOC-208 fase 2: JC-ON en la pestana «Semana». Mismo diseno que JC (hero, tarjetas, calendario); acento verde JC-ON en el
+   borde y en la opcion del selector. Codigos: mismos colores de la grilla .cell.V/A/N/R?/P (no se tocan); R definitivo = rojo pleno.
+   Nunca solo color: cada chip lleva el codigo en texto. ===== */
+.jcon-semana { border-left: 6px solid var(--v-jcon); padding-left: 12px; display: grid; gap: 16px; }
+.jcon-semana .eyebrow .vivo-programa { margin-right: 6px; }
+.historical-toolbar select.select-jcon { border-left: 6px solid var(--v-jcon); }
+.historical-toolbar option.option-jcon { color: var(--v-jcon-fg); background: var(--v-jcon-bg); font-weight: 600; }
+.tabla-codigos-jcon caption { text-align: left; font-weight: 600; padding: 6px 0; }
+.pestana-no-jcon { border-left: 6px solid var(--v-jcon); }
+.cod-jcon { display: inline-block; min-width: 2.4em; text-align: center; font-weight: 700; padding: 1px 6px; border-radius: 6px; border: 1px solid transparent; }
+.cod-jcon[data-codigo="V"], .cod-jcon[data-codigo="SI"] { background: #d9f2e1; color: #176333; }
+.cod-jcon[data-codigo="A"] { background: #fff2bd; color: #755d00; }
+.cod-jcon[data-codigo="N"] { background: #ffe0be; color: #864500; }
+.cod-jcon[data-codigo="R?"], .cod-jcon[data-codigo="NO?"] { background: #ffe0e0; color: #a02727; border-style: dashed; border-color: currentColor; }
+.cod-jcon[data-codigo="R"], .cod-jcon[data-codigo="NO"] { background: #a02727; color: #fff; }
+.cod-jcon[data-codigo="P"] { background: #e8edf2; color: #425466; }
+.cod-jcon[data-codigo="-"] { background: transparent; color: var(--muted); border-color: var(--line); }
+.dark .cod-jcon[data-codigo="V"], .dark .cod-jcon[data-codigo="SI"] { background: #194c2d; color: #b4f1c8; }
+.dark .cod-jcon[data-codigo="A"] { background: #5e4d09; color: #fff0a7; }
+.dark .cod-jcon[data-codigo="N"] { background: #5b3212; color: #ffd5ad; }
+.dark .cod-jcon[data-codigo="R?"], .dark .cod-jcon[data-codigo="NO?"] { background: #5b2020; color: #ffd0d0; }
+.dark .cod-jcon[data-codigo="R"], .dark .cod-jcon[data-codigo="NO"] { background: #e06c6c; color: #1a0606; }
+.dark .cod-jcon[data-codigo="P"] { background: #2f3d49; color: #d8e2ee; }

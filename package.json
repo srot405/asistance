@@ -11,6 +11,7 @@
     "test:vivo-calculo": "node scripts/test-vivo-calculo.mjs",
     "test:vivo-route": "node scripts/test-vivo-route.mjs",
     "test:vivo-jcon": "node scripts/test-vivo-jcon.mjs",
+    "test:semana-jcon": "node scripts/test-semana-jcon.mjs",
     "test:franja-tipo": "node scripts/test-franja-tipo.mjs",
     "test:demo": "node scripts/test-demo.mjs",
     "test:bloqueo": "node scripts/test-bloqueo-demo.mjs",

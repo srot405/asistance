@@ -9,6 +9,7 @@ import EnVivo from "./EnVivo";
 import EnVivoLista from "./EnVivoLista";
 import Presencia from "./Presencia";
 import ResumenSemanaVisual from "./ResumenSemanaVisual";
+import SemanaJcon from "./SemanaJcon";
 import Tiempo from "./Tiempo";
 import TendenciaTiempo from "./TendenciaTiempo";
 import TendenciaHistorica from "./TendenciaHistorica";
@@ -20,10 +21,14 @@ import { alCambiarSesionVivo } from "../lib/useVivo";
 import { FILTROS_VACIOS } from "../lib/estadisticasCalculo.mjs";
 import type { FiltrosEstadisticas } from "../lib/estadisticasCalculo.d.mts";
 import { ETIQUETA_SIN_SABADO, ICONO_SIN_SABADO, semanaSinSabado } from "../lib/franjaTipo.mjs";
+import { semanaDeClave } from "../lib/semanaJcon.mjs";
+import type { OpcionSemanaJcon } from "../lib/semanaJcon.d.mts";
 
 const clave = (semana: string, materia: string) => `${semana}|${materia}`;
 const PESTANAS = ["Semana", "En vivo", "Lista en vivo", "Presencia", "Captura de clases", "Tiempo", "Estadísticas", "Historial"] as const;
 type Pestana = (typeof PESTANAS)[number];
+// JC-ON fase 2: con una semana JC-ON elegida solo «Semana» (vista propia) y En vivo / Lista en vivo (ya combinan JC y JC-ON) tienen datos.
+const PESTANAS_CON_JCON: ReadonlySet<Pestana> = new Set<Pestana>(["Semana", "En vivo", "Lista en vivo"]);
 
 export default function Dashboard() {
   const [dark, setDark] = useState(false);
@@ -35,6 +40,9 @@ export default function Dashboard() {
   const [pestana, setPestana] = useState<Pestana>("Semana");
   const [rolDemo, setRolDemo] = useState("");
   const [filtrosEst, setFiltrosEst] = useState<FiltrosEstadisticas>({ ...FILTROS_VACIOS });   // TOC-150: persisten al cambiar de pestaña
+  // JC-ON fase 2: semanas de JC-ON como opciones APARTE del selector (clave `jcon|<lunes>`, nunca coincide con `<semana>|<materia>`).
+  // Se leen de /api/semana-jcon, separado de /api/datos: si falla, no hay opciones JC-ON y JC queda exactamente igual.
+  const [semanasJcon, setSemanasJcon] = useState<OpcionSemanaJcon[]>([]);
   fijarRolDemo(rolDemo);   // antes de los hijos: sus claves de cache y peticiones leen el rol de practica
 
   useEffect(() => {
@@ -78,6 +86,30 @@ export default function Dashboard() {
     return () => { cancelado = true; auth.subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => {
+    if (modo !== "demo" && modo !== "real") return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const headers: Record<string, string> = {};
+        let url = "/api/semana-jcon";
+        if (modo === "demo") url += "?demo=1";
+        else {
+          const sesion = await sesionActual();
+          if (!sesion?.access_token) return;
+          headers.Authorization = `Bearer ${sesion.access_token}`;
+        }
+        const r = await fetch(url, { headers, cache: "no-store" });
+        if (!r.ok) return;
+        const cuerpo = await r.json() as { semanas?: OpcionSemanaJcon[] };
+        if (!cancelado && Array.isArray(cuerpo.semanas)) setSemanasJcon(cuerpo.semanas);
+      } catch { /* sin opciones JC-ON: JC sigue igual */ }
+    })();
+    return () => { cancelado = true; };
+  }, [modo]);
+  const semanaJcon = semanaDeClave(seleccion);
+  const opcionJcon = semanaJcon ? semanasJcon.find((o) => o.semana === semanaJcon) ?? null : null;
+
   const actual = useMemo(() => data?.resultados.find((fila) =>
     clave(fila.semana, fila.materia) === seleccion) ?? null, [data, seleccion]);
   // Marca de semana "sin sábado" (TOC-91, 2026-09-29): se calcula una sola vez aquí a
@@ -114,24 +146,30 @@ export default function Dashboard() {
     <h2>No se pudieron cargar los datos</h2><p>{fallo}</p>
     <button className="tab" onClick={() => window.location.reload()}>Reintentar</button>
   </div></main>;
-  if (!data || !actual) return <main className="main"><div className="empty">Cargando panel…</div></main>;
+  if (!data || (!actual && !opcionJcon)) return <main className="main"><div className="empty">Cargando panel…</div></main>;
+
+  // Opciones de JC: mismas de siempre (mismo texto, mismo orden). Solo se envuelven en un grupo si hay opciones JC-ON.
+  const opcionesJc = () => [...data.resultados].reverse().map((fila) => {
+    const sinSabado = semanaSinSabado(fila, data.resultados);
+    return <option key={clave(fila.semana, fila.materia)} value={clave(fila.semana, fila.materia)}
+      className={sinSabado ? "option-sin-sabado" : undefined}>
+      {fila.semana} · {fila.materia} · {fila.nivel}
+      {sinSabado ? ` · ${ICONO_SIN_SABADO} ${ETIQUETA_SIN_SABADO}` : ""}
+    </option>;
+  });
 
   return <RolContext.Provider value={rolUi}><div className={dark ? "shell dark" : "shell"}>
     <Encabezado dark={dark} setDark={setDark} demo={modo === "demo"} />
     <main className="main historical-main">
       <section className="historical-toolbar" aria-label="Controles del histórico">
-        <label>Semana y materia <select className="control" value={seleccion}
+        <label>Semana y materia <select className={opcionJcon ? "control select-jcon" : "control"} value={seleccion}
           onChange={(event) => setSeleccion(event.target.value)}>
-          {[...data.resultados].reverse().map((fila) => {
-            const sinSabado = semanaSinSabado(fila, data.resultados);
-            return <option key={clave(fila.semana, fila.materia)} value={clave(fila.semana, fila.materia)}
-              className={sinSabado ? "option-sin-sabado" : undefined}>
-              {fila.semana} · {fila.materia} · {fila.nivel}
-              {sinSabado ? ` · ${ICONO_SIN_SABADO} ${ETIQUETA_SIN_SABADO}` : ""}
-            </option>;
-          })}
+          {semanasJcon.length > 0 && <optgroup label="JC-ON (programa aparte de JC)">
+            {semanasJcon.map((o) => <option key={o.clave} value={o.clave} className="option-jcon">{o.etiqueta}</option>)}
+          </optgroup>}
+          {semanasJcon.length > 0 ? <optgroup label="Jóvenes creaTIvos">{opcionesJc()}</optgroup> : opcionesJc()}
         </select></label>
-        <button className="control" onClick={exportar}>Exportar resumen CSV</button>
+        {!opcionJcon && <button className="control" onClick={exportar}>Exportar resumen CSV</button>}
         {modo === "demo" && <label>Rol de práctica <select className="control" value={rolDemo} onChange={(e) => setRolDemo(e.target.value)}>
           <option value="">Compatibilidad (todos ven todo)</option><option value="admin">Admin</option>
           <option value="monitor">Monitor (solo Cali)</option><option value="sin_rol">Sin rol (solo agregados)</option></select></label>}
@@ -144,18 +182,22 @@ export default function Dashboard() {
           onClick={() => setPestana(nombre)}>{nombre}</button>)}
       </div>
 
-      {pestana === "Semana" && <>
+      {opcionJcon && pestana === "Semana" && <SemanaJcon semana={opcionJcon.semana} etiqueta={opcionJcon.etiqueta} modo={modo === "demo" ? "demo" : "real"} />}
+      {opcionJcon && !PESTANAS_CON_JCON.has(pestana) && <p className="historical-notice weekly-notice pestana-no-jcon" data-testid="no-disponible-jcon">
+        <span className="vivo-programa">JC-ON</span> No disponible para JC-ON. Esta pestaña es solo de Jóvenes creaTIvos; elige una semana de JC
+        en «Semana y materia» o usa las pestañas Semana, En vivo o Lista en vivo.</p>}
+      {actual && !opcionJcon && pestana === "Semana" && <>
         <ResumenSemanaVisual actual={actual} sinSabado={actualSinSabado}
           tiempo={{ estado: tiempoSemana.estado, datos: tiempoSemana.datos }} irATiempo={() => setPestana("Tiempo")} />
         <CalendarioSemana actual={actual} modo={modo === "demo" ? "demo" : "real"} sinSabado={actualSinSabado} />
       </>}
       {pestana === "En vivo" && <EnVivo modo={modo === "demo" ? "demo" : "real"} />}
       {pestana === "Lista en vivo" && <EnVivoLista modo={modo === "demo" ? "demo" : "real"} />}
-      {pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
-      {pestana === "Captura de clases" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
-      {pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
-      {pestana === "Estadísticas" && <Estadisticas actual={actual} modo={modo === "demo" ? "demo" : "real"} filtros={filtrosEst} setFiltros={setFiltrosEst} />}
-      {pestana === "Historial" && <>
+      {actual && !opcionJcon && pestana === "Presencia" && <Presencia actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {actual && !opcionJcon && pestana === "Captura de clases" && <Cobertura actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {actual && !opcionJcon && pestana === "Tiempo" && <Tiempo actual={actual} modo={modo === "demo" ? "demo" : "real"} />}
+      {actual && !opcionJcon && pestana === "Estadísticas" && <Estadisticas actual={actual} modo={modo === "demo" ? "demo" : "real"} filtros={filtrosEst} setFiltros={setFiltrosEst} />}
+      {!opcionJcon && pestana === "Historial" && <>
         <TendenciaHistorica resultados={data.resultados} />
         <TendenciaTiempo resultados={data.resultados} modo={modo === "demo" ? "demo" : "real"} />
       </>}
