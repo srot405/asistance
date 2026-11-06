@@ -6,6 +6,8 @@ import type { Acceso } from "../../../lib/rolesCalculo.d.mts";
 import { exigirAcceso } from "../../../lib/servidor/acceso";
 import { registrarDescarga } from "../../../lib/servidor/auditoria";
 import { leerListaVivo } from "../../../lib/servidor/leerVivoNominal";
+import { leerListaVivoJcon } from "../../../lib/servidor/leerVivoNominalJcon";
+import { combinarRespuestas } from "../../../lib/vivoJcon.mjs";
 import { filasCsv, recortarPorPermiso } from "../../../lib/vivoNominal.mjs";
 import type { ListaVivoResponse } from "../../../lib/vivoNominal.d.mts";
 
@@ -34,12 +36,17 @@ export async function GET(request: Request) {
   const permiso = autorizarNominal(acceso, q.get("ciudad"));
   if (!permiso.ok) return NextResponse.json({ error: permiso.mensaje }, { status: permiso.status, headers: headersJson });
 
-  let datos: ListaVivoResponse;
-  try {
-    datos = demo ? (await import("../../../lib/vivoNominal-demo.mjs")).LISTA_VIVO_DEMO as ListaVivoResponse : await leerListaVivo();
-  } catch {
-    return NextResponse.json({ error: "No disponible" }, { status: 503, headers: headersJson });
+  // JC y JC-ON se leen por separado (estado propio cada uno) y se juntan; si uno falla, el otro sale con aviso.
+  let datos: ListaVivoResponse | null;
+  if (demo) {
+    const d = await import("../../../lib/vivoNominal-demo.mjs");
+    datos = combinarRespuestas(d.LISTA_VIVO_DEMO as ListaVivoResponse, d.LISTA_VIVO_DEMO_JCON as ListaVivoResponse);
+  } else {
+    const [jc, jcon] = await Promise.allSettled([leerListaVivo(), leerListaVivoJcon()]);
+    datos = combinarRespuestas(jc.status === "fulfilled" ? jc.value : null, jcon.status === "fulfilled" ? jcon.value : null,
+      { falloJc: jc.status === "rejected", falloJcon: jcon.status === "rejected" });
   }
+  if (!datos) return NextResponse.json({ error: "No disponible" }, { status: 503, headers: headersJson });
   const visible = recortarPorPermiso(datos, permiso, mismaCiudad);
   const filas = visible.clases.reduce((n, c) => n + c.personas.length, 0);
 

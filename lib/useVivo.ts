@@ -21,8 +21,9 @@ export function alCambiarSesionVivo(evento: string, userId: string | null | unde
 
 async function pedirVivo(modo: Modo, signal: AbortSignal): Promise<RespuestaVivo> {
   if (modo === "demo") { // el demo no consulta ninguna API: usa los datos de ejemplo
-    const { VIVO_DEMO } = await import("./vivo-demo.mjs");
-    return { status: 200, body: VIVO_DEMO.sabado };
+    const { VIVO_DEMO, VIVO_DEMO_JCON } = await import("./vivo-demo.mjs");
+    const { combinarRespuestas } = await import("./vivoJcon.mjs"); // TOC-208: JC + JC-ON, igual que la ruta
+    return { status: 200, body: combinarRespuestas(VIVO_DEMO.sabado, VIVO_DEMO_JCON) };
   }
   const sesion = await sesionActual();
   if (!sesion?.access_token) return { status: 401, body: null };

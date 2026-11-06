@@ -4,6 +4,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as calculo from "../lib/vivoCalculo.mjs";
 import * as zoomPresentes from "../lib/zoomPresentes.mjs";
+import * as vivoJcon from "../lib/vivoJcon.mjs";
 
 // Ruta /api/vivo + lector con Supabase simulado: auth, 503 sin detalles, egress (llamadas y filas). Sin PII.
 class NextResponse extends Response {
@@ -294,6 +295,9 @@ const ruta = await compilar("../app/api/vivo/route.ts", (n) => {
   if (n === "next/server") return { NextResponse };
   if (n.endsWith("/acceso")) return { exigirAcceso: async (req) => req.headers.get("authorization") === "Bearer fixture-token" ? { email: "test-only" } : NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   if (n.endsWith("/leerVivo")) return { leerVivo: async () => { llamadas += 1; if (modo === "falla") throw new Error("postgres: relacion secreta xyz"); return { disponible: true, clases: [], aviso_general: null }; } };
+  // JC-ON (lector aparte): dia sin clase JC-ON -> no cambia nada de JC (ver scripts/test-vivo-jcon.mjs para los casos con JC-ON)
+  if (n.endsWith("/leerVivoJcon")) return { leerVivoJcon: async () => { llamadas += 1; return { disponible: true, clases: [], aviso_general: null }; } };
+  if (n.endsWith("/vivoJcon.mjs")) return vivoJcon;
   throw new Error(`Import no previsto: ${n}`);
 });
 const sin = await ruta.GET(new Request("http://local/api/vivo"));
@@ -301,7 +305,7 @@ assert.equal(sin.status, 401); assert.equal(llamadas, 0, "401 antes de toda lect
 const conParam = await ruta.GET(new Request("http://local/api/vivo?nombres=1&demo=1"));
 assert.equal(conParam.status, 401, "ni demo ni parametros saltan el login");
 const ok = await ruta.GET(new Request("http://local/api/vivo?nombres=1", { headers: { authorization: "Bearer fixture-token" } }));
-assert.equal(ok.status, 200); assert.equal(ok.headers.get("cache-control"), "private, no-store"); assert.equal(llamadas, 1);
+assert.equal(ok.status, 200); assert.equal(ok.headers.get("cache-control"), "private, no-store"); assert.equal(llamadas, 2, "JC + JC-ON");
 modo = "falla";
 const mal = await ruta.GET(new Request("http://local/api/vivo", { headers: { authorization: "Bearer fixture-token" } }));
 assert.equal(mal.status, 503);

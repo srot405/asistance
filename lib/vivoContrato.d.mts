@@ -1,5 +1,7 @@
 // Contrato de GET /api/vivo (lo produce el agente A). Solo conteos: nunca nombres ni correos.
 export type EstadoClaseVivo = "abierta" | "proxima" | "terminada" | "sin_sala";
+// TOC-208: programa de la clase. Ausente = JC (asi salen todas las clases de JC); "jcon" = JC-ON, que se calcula aparte y nunca suma a JC.
+export type ProgramaVivo = "jc" | "jcon";
 export type ClaseVivo = {
   slot_id: string; etiqueta: string; cuenta_zoom: string; inicio: string; fin: string;
   estado: EstadoClaseVivo; sala_activa: boolean;
@@ -12,6 +14,7 @@ export type ClaseVivo = {
   ultima_actividad: string | null; eventos: number; cobertura_baja: boolean; aviso: string | null;
   // TOC-153: de donde salen los *_ahora_aprox: "zoom" (participantes en vivo) o "webhook" (saldo de eventos). Opcional.
   ahora_fuente?: "zoom" | "webhook";
+  programa?: ProgramaVivo;
 };
 export type VivoResponse = {
   // actualizado_en = momento REAL de la ultima lectura a Supabase; hora_servidor = momento de esta respuesta.

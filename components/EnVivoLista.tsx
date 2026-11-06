@@ -39,8 +39,8 @@ function TablaCifras({ clases, ahora }: { clases: ClaseListaVivo[]; ahora: numbe
   return <div className="class-table-wrap" role="region" aria-label="Cifras por clase" tabIndex={0}>
     <table className="class-table"><caption>Personas que entraron hoy, por clase (entre paréntesis: ahora en sala, solo mientras la clase no está cerrada). «No ha entrado» va aparte: no es asistencia.</caption>
       <thead><tr><th>Clase</th><th>Estado</th><th>Inscritas</th>{SENALES.map((s) => <th key={s}>{ETIQUETA[s]}</th>)}<th>{ETIQUETA.ausente}</th></tr></thead>
-      <tbody>{clases.map((c) => <tr key={c.slot_id} className={estaCerrada(c, ahora) ? "fila-cerrada" : undefined} data-visibilidad={estaCerrada(c, ahora) ? "cerrada" : "abierta"}>
-        <td>{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}{estaCerrada(c, ahora) && <> <span className="vivo-marca-cerrada">{TEXTO_CERRADA}</span></>}</td><td>{c.roster_total}</td>
+      <tbody>{clases.map((c) => <tr key={c.slot_id} className={[estaCerrada(c, ahora) ? "fila-cerrada" : "", c.programa === "jcon" ? "fila-jcon" : ""].filter(Boolean).join(" ") || undefined} data-visibilidad={estaCerrada(c, ahora) ? "cerrada" : "abierta"}>
+        <td>{c.programa === "jcon" && <><span className="vivo-programa">JC-ON</span> </>}{c.etiqueta}</td><td>{ESTADO[c.estado] ?? c.estado}{estaCerrada(c, ahora) && <> <span className="vivo-marca-cerrada">{TEXTO_CERRADA}</span></>}</td><td>{c.roster_total}</td>
         {SENALES.map((s) => <td key={s}>{c.cifras[s].total}{!estaCerrada(c, ahora) && <> <small>({c.cifras[s].en_sala})</small></>}</td>)}
         <td>{c.estado === "abierta" || c.estado === "terminada" ? c.ausentes ?? 0 : "—"}</td>
       </tr>)}</tbody>
@@ -91,6 +91,7 @@ function ListaConPermiso({ modo }: { modo: "demo" | "real" }) {
     <p className="nota">Quién entró hoy a cada clase y con qué señal. <b>Colados (otra clase)</b> = está en la lista de esta semana pero su horario es otro.
       <b>No ha entrado</b> = inscrita en esta clase y no ha entrado hoy (solo clases en curso o terminadas; no suma en las cifras).
       Identificación: primero el correo del roster; si no coincide, la cédula del registro de Zoom. Nunca se adivina por nombre.
+      Las clases <b>JC-ON</b> (en verde) son un programa aparte: su roster son las personas activas de JC-ON y nunca se suman a JC.
       {datos?.alcance?.ciudad ? <> Ves solo personas de <b>{datos.alcance.ciudad}</b>.</> : null}</p>
     <div className="tiempo-filtros">
       <button type="button" className="control" onClick={actualizar} disabled={!puedeActualizar}>Actualizar</button>

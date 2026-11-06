@@ -16,9 +16,11 @@ export default function EnVivoTarjeta({ clase: c, cerrada = false }: { clase: Cl
   const roster = textoRoster(c);
   const abierta = c.estado === "abierta" && !cerrada; // D6: clase cerrada = sin «ahora en sala»
   const pct = porcentajeRoster(c);
-  return <article className={`vivo-tarjeta vivo-${c.estado}${cerrada ? " vivo-cerrada" : ""}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}
-    data-visibilidad={cerrada ? "cerrada" : "abierta"}>
+  const jcon = c.programa === "jcon"; // JC-ON lleva acento verde propio; los colores de estado y burbujas son los de JC
+  return <article className={`vivo-tarjeta vivo-${c.estado}${cerrada ? " vivo-cerrada" : ""}${jcon ? " vivo-jcon" : ""}`} aria-labelledby={`vivo-t-${c.slot_id}`} data-estado={c.estado}
+    data-visibilidad={cerrada ? "cerrada" : "abierta"} data-programa={jcon ? "jcon" : "jc"}>
     <header className="vivo-cab">
+      {jcon && <span className="vivo-programa" data-testid="vivo-programa-jcon">JC-ON · programa aparte de JC</span>}
       <h3 id={`vivo-t-${c.slot_id}`}>{titulo}</h3>
       <span className={`vivo-estado vivo-estado-${c.estado}`}><span aria-hidden="true">{est.icono}</span> {est.texto}</span>
       {cerrada && <span className="vivo-marca-cerrada" data-testid="vivo-cerrada"><span aria-hidden="true">⏹</span> {TEXTO_CERRADA}</span>}

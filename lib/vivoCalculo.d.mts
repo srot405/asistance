@@ -1,5 +1,5 @@
-import type { ClaseVivo, EstadoClaseVivo, VivoResponse } from "./vivoContrato";
-export type { ClaseVivo, EstadoClaseVivo, VivoResponse };
+import type { ClaseVivo, EstadoClaseVivo, ProgramaVivo, VivoResponse } from "./vivoContrato";
+export type { ClaseVivo, EstadoClaseVivo, ProgramaVivo, VivoResponse };
 export type FranjaVivo = { slot_id: string; dia: string; fecha: string; hora_inicio: number; hora_fin: number; tipo?: string | null; cuenta_zoom: string; roster_n?: number | null };
 export type EventoVivo = { id: number; evento: "joined" | "left"; ms: number; clave: string | null; correoHash: string | null; regHash?: string | null; personal: boolean };
 export type SalaVivo = { uuid: string; host: string | null; topic: string | null; activo: boolean; eventos: EventoVivo[] };
@@ -44,7 +44,9 @@ export function presentesDeClase<T>(salas: { uuid: string; activo: boolean }[], 
 export function etiquetaClase(f: FranjaVivo): string;
 export function armarRespuestaVivo(a: { semana: string; franjas: FranjaVivo[]; salas: SalaVivo[]; rosterPorCorreo: RosterVivo;
   ahoraMs: number; actualizadoMs?: number; lecturaEventos?: boolean; avisoGeneral?: string | null;
-  presentesPorSala?: Map<string, EventoVivo[]> | null }): VivoResponse;
+  presentesPorSala?: Map<string, EventoVivo[]> | null;
+  asociar?: (sala: { host: unknown; topic: unknown; primerMs: number }, franjas: FranjaVivo[]) => string | null;
+  etiquetar?: (f: FranjaVivo) => string; programa?: ProgramaVivo | null }): VivoResponse;
 export function cedulaSinCeros(c: unknown): string;
 export function hashCedula(c: unknown): string | null;
 export function indexarRosterVivo(filas: { persona_id?: string | number | null; correo_norm: string | null; slot_id: string | null }[]): IdentidadRosterVivo;

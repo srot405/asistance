@@ -1,4 +1,4 @@
-import type { EstadoClaseVivo, FranjaVivo } from "./vivoCalculo.d.mts";
+import type { EstadoClaseVivo, FranjaVivo, ProgramaVivo } from "./vivoCalculo.d.mts";
 import type { PresenteZoom } from "./zoomPresentes.d.mts";
 export type SenalAsistencia = "roster" | "otra_franja" | "no_identificado" | "personal";
 // "ausente" (TOC-153): del roster de esta franja y nunca entro; fila sin entradas, fuera de cifras.
@@ -14,6 +14,8 @@ export type ClaseListaVivo = {
   ausentes: number;
   // TOC-153: de donde sale en_sala: "zoom" (participantes en vivo) o "webhook" (saldo de eventos). Opcional.
   ahora_fuente?: "zoom" | "webhook";
+  // TOC-208: ausente = JC; "jcon" = JC-ON (calculado aparte, nunca suma a JC).
+  programa?: ProgramaVivo;
 };
 export type ListaVivoResponse = {
   disponible: boolean; semana: string; hora_servidor: string; actualizado_en: string; clases: ClaseListaVivo[]; aviso_general: string | null;
@@ -31,6 +33,8 @@ export function cedulaSinCeros(c: unknown): string;
 export function esPersonal(correo: unknown, nombre: unknown): boolean;
 export function armarListaVivo(a: { semana: string; franjasHoy: FranjaVivo[]; franjasSemana?: FranjaVivo[]; salas: SalaCruda[]; roster: FilaRoster[];
   registrantes: FilaRegistrante[]; registrantesPorId?: FilaRegistranteId[]; ahoraMs: number; actualizadoMs?: number; avisoGeneral?: string | null;
-  presentesPorSala?: Map<string, PresenteZoom[]> | null }): ListaVivoResponse;
+  presentesPorSala?: Map<string, PresenteZoom[]> | null;
+  asociar?: (sala: { host: unknown; topic: unknown; primerMs: number }, franjas: FranjaVivo[]) => string | null;
+  etiquetar?: (f: FranjaVivo) => string; programa?: ProgramaVivo | null }): ListaVivoResponse;
 export function recortarPorPermiso(r: ListaVivoResponse, permiso: { ciudad: string | null }, mismaCiudad: (a: unknown, b: unknown) => boolean): ListaVivoResponse;
 export function filasCsv(r: ListaVivoResponse): (string | number)[][];

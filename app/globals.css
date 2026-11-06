@@ -1060,6 +1060,15 @@ select {
 .vivo-barra > span { display: block; height: 100%; background: var(--t-cumple); }
 .vivo-ayuda { margin-left: 6px; cursor: help; font-size: 14px; border-radius: 4px; }
 .vivo-ayuda:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+/* JC-ON (programa aparte de JC). Acento verde propio en el borde izquierdo y la etiqueta «JC-ON»; los colores de estado y de
+   las burbujas son los mismos de JC. Nunca solo color: la etiqueta dice «JC-ON» en texto. */
+:root { --v-jcon: #0b7a4b; --v-jcon-bg: #dff3e8; --v-jcon-fg: #0a4d31; }
+.dark { --v-jcon: #4fd197; --v-jcon-bg: #12382a; --v-jcon-fg: #b9f0d5; }
+.vivo-tarjeta.vivo-jcon { border-left: 6px solid var(--v-jcon); }
+.vivo-programa { display: inline-block; font-weight: 800; font-size: 12px; letter-spacing: .02em; padding: 2px 10px; border-radius: 999px;
+  background: var(--v-jcon-bg); color: var(--v-jcon-fg); border: 2px solid var(--v-jcon); white-space: nowrap; }
+.vivo-cab .vivo-programa { flex-basis: 100%; width: fit-content; }
+.lista-vivo .fila-jcon td:first-child { box-shadow: inset 4px 0 0 var(--v-jcon); }
 @media (max-width: 600px) { .vivo-tarjeta { padding: 14px; } .vivo-circulo { width: 52px; height: 52px; font-size: 22px; } .vivo-burbuja { gap: 10px; padding: 10px; } }
 
 /* ===== TOC-150: pestana Estadisticas. Nunca solo color: cada nivel = color + icono (✓ ▲ ✕ ◌) + texto; «<5» = suprimido. ===== */
